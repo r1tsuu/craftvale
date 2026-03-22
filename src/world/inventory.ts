@@ -3,9 +3,13 @@ import { Blocks } from "./blocks.ts";
 
 export const HOTBAR_BLOCK_IDS = [1, 2, 3, 4, 5] as const satisfies readonly BlockId[];
 export const DEFAULT_INVENTORY_STACK_SIZE = 64;
+const HOTBAR_BLOCK_ID_SET = new Set<BlockId>(HOTBAR_BLOCK_IDS);
 
 const clampSlotIndex = (slot: number): number =>
   Math.max(0, Math.min(HOTBAR_BLOCK_IDS.length - 1, Math.trunc(slot)));
+
+const isHotbarBlockId = (blockId: BlockId): blockId is (typeof HOTBAR_BLOCK_IDS)[number] =>
+  HOTBAR_BLOCK_ID_SET.has(blockId);
 
 export const createDefaultInventory = (): InventorySnapshot => ({
   slots: HOTBAR_BLOCK_IDS.map((blockId): InventorySlot => ({
@@ -25,7 +29,7 @@ export const normalizeInventorySnapshot = (
 
   const countsByBlock = new Map<BlockId, number>();
   for (const slot of snapshot.slots) {
-    if (!HOTBAR_BLOCK_IDS.includes(slot.blockId)) {
+    if (!isHotbarBlockId(slot.blockId)) {
       continue;
     }
 

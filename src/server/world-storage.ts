@@ -1,6 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ChunkCoord, InventorySnapshot } from "../types.ts";
+import type { BlockId, ChunkCoord, InventorySnapshot } from "../types.ts";
 import type { WorldSummary } from "../shared/messages.ts";
 import { normalizeInventorySnapshot } from "../world/inventory.ts";
 
@@ -218,7 +218,7 @@ const decodeInventory = (bytes: Uint8Array): StoredInventoryRecord => {
   let offset = 16;
   for (let index = 0; index < slotCount; index += 1) {
     slots.push({
-      blockId: view.getUint32(offset, true),
+      blockId: view.getUint32(offset, true) as BlockId,
       count: view.getUint32(offset + 4, true),
     });
     offset += 8;
