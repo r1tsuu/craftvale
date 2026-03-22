@@ -17,6 +17,8 @@ export interface BlockDefinition {
   collidable: boolean;
   occlusion: BlockOcclusionMode;
   renderPass: BlockRenderPass | null;
+  collectible: boolean;
+  placeable: boolean;
   color: [number, number, number];
   tiles?: BlockTiles;
 }
@@ -28,6 +30,8 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: false,
     occlusion: "none",
     renderPass: null,
+    collectible: false,
+    placeable: false,
     color: [0, 0, 0],
   },
   1: {
@@ -36,6 +40,8 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
+    collectible: true,
+    placeable: true,
     color: [0.42, 0.71, 0.31],
     tiles: {
       top: "grass-top",
@@ -49,6 +55,8 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
+    collectible: true,
+    placeable: true,
     color: [0.48, 0.34, 0.2],
     tiles: {
       top: "dirt",
@@ -62,6 +70,8 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
+    collectible: true,
+    placeable: true,
     color: [0.5, 0.5, 0.56],
     tiles: {
       top: "stone",
@@ -75,6 +85,8 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
+    collectible: true,
+    placeable: true,
     color: [0.48, 0.37, 0.24],
     tiles: {
       top: "log-top",
@@ -88,6 +100,8 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "self",
     renderPass: "cutout",
+    collectible: true,
+    placeable: true,
     color: [0.32, 0.58, 0.22],
     tiles: {
       top: "leaves",
@@ -98,6 +112,10 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
 };
 
 export const isSolidBlock = (blockId: BlockId): boolean => Blocks[blockId].collidable;
+
+export const isCollectibleBlock = (blockId: BlockId): boolean => Blocks[blockId].collectible;
+
+export const isPlaceableBlock = (blockId: BlockId): boolean => Blocks[blockId].placeable;
 
 export const getBlockRenderPass = (blockId: BlockId): BlockRenderPass | null =>
   Blocks[blockId].renderPass;

@@ -21,6 +21,7 @@ const createInput = (overrides: Partial<InputState> = {}): InputState => ({
   backspacePressed: false,
   enterPressed: false,
   tabPressed: false,
+  hotbarSelection: null,
   windowWidth: 800,
   windowHeight: 600,
   framebufferWidth: 800,

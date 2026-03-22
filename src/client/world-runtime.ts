@@ -1,5 +1,6 @@
-import type { ChunkCoord } from "../types.ts";
+import type { ChunkCoord, InventorySnapshot } from "../types.ts";
 import { ACTIVE_CHUNK_RADIUS, CHUNK_SIZE, WORLD_LAYER_CHUNKS_Y } from "../world/constants.ts";
+import { createDefaultInventory, normalizeInventorySnapshot } from "../world/inventory.ts";
 import { VoxelWorld } from "../world/world.ts";
 import type { ChunkPayload } from "../shared/messages.ts";
 import type { IClientAdapter } from "./client-adapter.ts";
@@ -8,6 +9,7 @@ const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
 
 export class ClientWorldRuntime {
   public readonly world = new VoxelWorld();
+  public inventory: InventorySnapshot = createDefaultInventory();
   private readonly pendingChunkKeys = new Set<string>();
   private readonly chunkWaiters = new Set<{
     coords: ChunkCoord[];
@@ -18,6 +20,7 @@ export class ClientWorldRuntime {
 
   public reset(): void {
     this.world.clear();
+    this.inventory = createDefaultInventory();
     this.pendingChunkKeys.clear();
     this.chunkWaiters.clear();
   }
@@ -26,6 +29,10 @@ export class ClientWorldRuntime {
     this.world.replaceChunk(chunk.coord, chunk.blocks, chunk.revision);
     this.pendingChunkKeys.delete(chunkKey(chunk.coord));
     this.resolveWaiters();
+  }
+
+  public applyInventory(inventory: InventorySnapshot): void {
+    this.inventory = normalizeInventorySnapshot(inventory);
   }
 
   public getChunkCoordsAroundPosition(

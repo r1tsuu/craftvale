@@ -139,6 +139,11 @@ const GLFW_KEY_ENTER = 257;
 const GLFW_KEY_TAB = 258;
 const GLFW_KEY_BACKSPACE = 259;
 const GLFW_KEY_ESCAPE = 256;
+const GLFW_KEY_1 = 49;
+const GLFW_KEY_2 = 50;
+const GLFW_KEY_3 = 51;
+const GLFW_KEY_4 = 52;
+const GLFW_KEY_5 = 53;
 const GLFW_MOUSE_BUTTON_LEFT = 0;
 const GLFW_MOUSE_BUTTON_RIGHT = 1;
 
@@ -233,6 +238,17 @@ export class NativeBridge {
     const framebufferWidth = library.symbols.bridge_get_framebuffer_width();
     const framebufferHeight = library.symbols.bridge_get_framebuffer_height();
     const resized = Boolean(library.symbols.bridge_was_resized());
+    const hotbarSelection = Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_1))
+      ? 0
+      : Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_2))
+        ? 1
+        : Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_3))
+          ? 2
+          : Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_4))
+            ? 3
+            : Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_5))
+              ? 4
+              : null;
 
     const input: InputState = {
       moveForward: Boolean(library.symbols.bridge_is_key_down(GLFW_KEY_W)),
@@ -262,6 +278,7 @@ export class NativeBridge {
       tabPressed: Boolean(
         library.symbols.bridge_consume_key_press(GLFW_KEY_TAB),
       ),
+      hotbarSelection,
       windowWidth,
       windowHeight,
       framebufferWidth,

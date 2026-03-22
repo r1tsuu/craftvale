@@ -9,6 +9,7 @@ import { createInMemoryTransportPair } from "../src/shared/transport.ts";
 import { PortServerAdapter } from "../src/server/server-adapter.ts";
 import { ServerRuntime } from "../src/server/runtime.ts";
 import { BinaryWorldStorage } from "../src/server/world-storage.ts";
+import { DEFAULT_INVENTORY_STACK_SIZE } from "../src/world/inventory.ts";
 import { getTerrainHeight } from "../src/world/terrain.ts";
 
 const createHarness = async (): Promise<{
@@ -42,6 +43,9 @@ const createHarness = async (): Promise<{
   });
   client.eventBus.on("chunkChanged", ({ chunk }) => {
     worldRuntime.applyChunk(chunk);
+  });
+  client.eventBus.on("inventoryUpdated", ({ inventory }) => {
+    worldRuntime.applyInventory(inventory);
   });
 
   return {
@@ -108,15 +112,23 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
       payload: { name: "Alpha" },
     });
     harness.worldRuntime.reset();
+    harness.worldRuntime.applyInventory(joined.inventory);
 
     const coords = [{ x: 0, y: 0, z: 0 }];
     await harness.worldRuntime.requestMissingChunks(coords);
     await harness.worldRuntime.waitForChunks(coords);
 
     expect(harness.worldRuntime.world.hasChunk(coords[0]!)).toBe(true);
+    expect(harness.worldRuntime.inventory.selectedSlot).toBe(0);
+    expect(
+      harness.worldRuntime.inventory.slots.every(
+        (slot) => slot.count === DEFAULT_INVENTORY_STACK_SIZE,
+      ),
+    ).toBe(true);
 
     const targetY = getTerrainHeight(joined.world.seed, 1, 1);
-    expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).not.toBe(0);
+    const targetBlockId = harness.worldRuntime.world.getBlock(1, targetY, 1);
+    expect(targetBlockId).not.toBe(0);
 
     let changedChunkReceived = false;
     harness.client.eventBus.on("chunkChanged", () => {
@@ -136,6 +148,36 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
 
     expect(changedChunkReceived).toBe(true);
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(0);
+    const collectedSlot = harness.worldRuntime.inventory.slots.find((slot) => slot.blockId === targetBlockId);
+    expect(collectedSlot?.count).toBe(DEFAULT_INVENTORY_STACK_SIZE + 1);
+
+    const collectedSlotIndex = harness.worldRuntime.inventory.slots.findIndex(
+      (slot) => slot.blockId === targetBlockId,
+    );
+    harness.client.eventBus.send({
+      type: "selectInventorySlot",
+      payload: {
+        slot: collectedSlotIndex,
+      },
+    });
+    await Bun.sleep(0);
+    expect(harness.worldRuntime.inventory.selectedSlot).toBe(collectedSlotIndex);
+
+    harness.client.eventBus.send({
+      type: "mutateBlock",
+      payload: {
+        x: 1,
+        y: targetY,
+        z: 1,
+        blockId: targetBlockId,
+      },
+    });
+    await Bun.sleep(0);
+
+    expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(targetBlockId);
+    expect(
+      harness.worldRuntime.inventory.slots.find((slot) => slot.blockId === targetBlockId)?.count,
+    ).toBe(DEFAULT_INVENTORY_STACK_SIZE);
   } finally {
     await harness.serverRuntime.shutdown();
     harness.client.close();

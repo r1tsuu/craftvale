@@ -22,6 +22,7 @@ export interface InputState {
   backspacePressed: boolean;
   enterPressed: boolean;
   tabPressed: boolean;
+  hotbarSelection: number | null;
   windowWidth: number;
   windowHeight: number;
   framebufferWidth: number;
@@ -46,6 +47,16 @@ export interface MeshData {
 export interface TerrainMeshData {
   opaque: MeshData;
   cutout: MeshData;
+}
+
+export interface InventorySlot {
+  blockId: BlockId;
+  count: number;
+}
+
+export interface InventorySnapshot {
+  slots: InventorySlot[];
+  selectedSlot: number;
 }
 
 export interface PlayerState {

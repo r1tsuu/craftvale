@@ -45,6 +45,7 @@ export class ServerRuntime {
       const payload: JoinedWorldPayload = {
         world: this.activeWorld.summary,
         spawnPosition: this.activeWorld.spawnPosition,
+        inventory: await this.activeWorld.getInventorySnapshot(),
       };
       this.adapter.eventBus.send({
         type: "joinedWorld",
@@ -124,13 +125,32 @@ export class ServerRuntime {
         throw new Error("Join a world before mutating blocks.");
       }
 
-      const changedChunks = await this.activeWorld.applyBlockMutation(x, y, z, blockId);
-      for (const chunk of changedChunks) {
+      const result = await this.activeWorld.applyBlockMutation(x, y, z, blockId);
+      for (const chunk of result.changedChunks) {
         this.adapter.eventBus.send({
           type: "chunkChanged",
           payload: { chunk },
         });
       }
+
+      if (result.inventoryChanged) {
+        this.adapter.eventBus.send({
+          type: "inventoryUpdated",
+          payload: { inventory: result.inventory },
+        });
+      }
+    });
+
+    this.adapter.eventBus.on("selectInventorySlot", async ({ slot }) => {
+      if (!this.activeWorld) {
+        throw new Error("Join a world before selecting inventory.");
+      }
+
+      const inventory = await this.activeWorld.selectInventorySlot(slot);
+      this.adapter.eventBus.send({
+        type: "inventoryUpdated",
+        payload: { inventory },
+      });
     });
   }
 

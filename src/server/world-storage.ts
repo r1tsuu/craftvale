@@ -1,12 +1,15 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ChunkCoord } from "../types.ts";
+import type { ChunkCoord, InventorySnapshot } from "../types.ts";
 import type { WorldSummary } from "../shared/messages.ts";
+import { normalizeInventorySnapshot } from "../world/inventory.ts";
 
 const REGISTRY_MAGIC = "VWRG";
 const CHUNK_MAGIC = "VCHK";
+const INVENTORY_MAGIC = "VINV";
 const REGISTRY_VERSION = 1;
 const CHUNK_VERSION = 1;
+const INVENTORY_VERSION = 1;
 
 export interface StoredWorldRecord extends WorldSummary {
   directoryName: string;
@@ -18,6 +21,10 @@ export interface StoredChunkRecord {
   revision: number;
 }
 
+export interface StoredInventoryRecord {
+  inventory: InventorySnapshot;
+}
+
 export interface WorldStorage {
   listWorlds(): Promise<WorldSummary[]>;
   getWorld(name: string): Promise<StoredWorldRecord | null>;
@@ -26,6 +33,8 @@ export interface WorldStorage {
   loadChunk(worldName: string, coord: ChunkCoord): Promise<StoredChunkRecord | null>;
   saveChunk(worldName: string, chunk: StoredChunkRecord): Promise<void>;
   deleteChunk(worldName: string, coord: ChunkCoord): Promise<void>;
+  loadInventory(worldName: string): Promise<StoredInventoryRecord | null>;
+  saveInventory(worldName: string, inventory: StoredInventoryRecord): Promise<void>;
   touchWorld(worldName: string, updatedAt?: number): Promise<StoredWorldRecord>;
 }
 
@@ -33,6 +42,7 @@ const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
 const chunkFilename = (coord: ChunkCoord): string => `${coord.x}_${coord.y}_${coord.z}.bin`;
+const inventoryFilename = "inventory.bin";
 
 const writeString = (target: Uint8Array, offset: number, value: string): number => {
   const bytes = textEncoder.encode(value);
@@ -167,6 +177,61 @@ const decodeChunk = (bytes: Uint8Array): StoredChunkRecord => {
   };
 };
 
+const encodeInventory = (record: StoredInventoryRecord): Uint8Array => {
+  const inventory = normalizeInventorySnapshot(record.inventory);
+  const bytes = new Uint8Array(16 + inventory.slots.length * 8);
+  const view = new DataView(bytes.buffer);
+  bytes.set(textEncoder.encode(INVENTORY_MAGIC), 0);
+  view.setUint32(4, INVENTORY_VERSION, true);
+  view.setUint32(8, inventory.selectedSlot >>> 0, true);
+  view.setUint32(12, inventory.slots.length, true);
+
+  let offset = 16;
+  for (const slot of inventory.slots) {
+    view.setUint32(offset, slot.blockId >>> 0, true);
+    view.setUint32(offset + 4, Math.max(0, Math.trunc(slot.count)) >>> 0, true);
+    offset += 8;
+  }
+
+  return bytes;
+};
+
+const decodeInventory = (bytes: Uint8Array): StoredInventoryRecord => {
+  if (bytes.byteLength < 16) {
+    throw new Error("Inventory file is truncated.");
+  }
+
+  const magic = textDecoder.decode(bytes.subarray(0, 4));
+  if (magic !== INVENTORY_MAGIC) {
+    throw new Error(`Invalid inventory file header: ${magic}`);
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const version = view.getUint32(4, true);
+  if (version !== INVENTORY_VERSION) {
+    throw new Error(`Unsupported inventory file version ${version}.`);
+  }
+
+  const selectedSlot = view.getUint32(8, true);
+  const slotCount = view.getUint32(12, true);
+  const slots: InventorySnapshot["slots"] = [];
+  let offset = 16;
+  for (let index = 0; index < slotCount; index += 1) {
+    slots.push({
+      blockId: view.getUint32(offset, true),
+      count: view.getUint32(offset + 4, true),
+    });
+    offset += 8;
+  }
+
+  return {
+    inventory: normalizeInventorySnapshot({
+      slots,
+      selectedSlot,
+    }),
+  };
+};
+
 const sanitizeDirectoryToken = (value: string): string =>
   value
     .toLowerCase()
@@ -283,6 +348,33 @@ export class BinaryWorldStorage implements WorldStorage {
     });
   }
 
+  public async loadInventory(worldName: string): Promise<StoredInventoryRecord | null> {
+    return this.enqueue(async () => {
+      const world = await this.getWorldFromRegistry(worldName);
+      if (!world) {
+        return null;
+      }
+
+      try {
+        const bytes = new Uint8Array(await readFile(this.inventoryPath(world.directoryName)));
+        return decodeInventory(bytes);
+      } catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+          return null;
+        }
+        throw error;
+      }
+    });
+  }
+
+  public async saveInventory(worldName: string, inventory: StoredInventoryRecord): Promise<void> {
+    return this.enqueue(async () => {
+      const world = await this.requireWorld(worldName);
+      await this.ensureDirectories(world.directoryName);
+      await writeFile(this.inventoryPath(world.directoryName), encodeInventory(inventory));
+    });
+  }
+
   public async touchWorld(worldName: string, updatedAt = Date.now()): Promise<StoredWorldRecord> {
     return this.enqueue(async () => {
       const registry = await this.readRegistry();
@@ -342,6 +434,10 @@ export class BinaryWorldStorage implements WorldStorage {
 
   private chunkPath(directoryName: string, coord: ChunkCoord): string {
     return join(this.worldDirectory(directoryName), chunkFilename(coord));
+  }
+
+  private inventoryPath(directoryName: string): string {
+    return join(this.worldDirectory(directoryName), inventoryFilename);
   }
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {

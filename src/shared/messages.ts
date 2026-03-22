@@ -1,4 +1,4 @@
-import type { BlockId, ChunkCoord } from "../types.ts";
+import type { BlockId, ChunkCoord, InventorySnapshot } from "../types.ts";
 
 export interface WorldSummary {
   name: string;
@@ -37,6 +37,10 @@ export interface BlockMutationRequest {
   blockId: BlockId;
 }
 
+export interface InventorySelectionRequest {
+  slot: number;
+}
+
 export interface SaveStatusPayload {
   worldName: string;
   savedChunks: number;
@@ -47,6 +51,7 @@ export interface SaveStatusPayload {
 export interface JoinedWorldPayload {
   world: WorldSummary;
   spawnPosition: [number, number, number];
+  inventory: InventorySnapshot;
 }
 
 export interface ClientRequestMap {
@@ -69,12 +74,14 @@ export interface ClientResponseMap {
 
 export interface ClientEventMap {
   mutateBlock: BlockMutationRequest;
+  selectInventorySlot: InventorySelectionRequest;
 }
 
 export interface ServerEventMap {
   joinedWorld: JoinedWorldPayload;
   chunkDelivered: { chunk: ChunkPayload };
   chunkChanged: { chunk: ChunkPayload };
+  inventoryUpdated: { inventory: InventorySnapshot };
   saveStatus: SaveStatusPayload;
   worldDeleted: { name: string };
   serverError: { message: string; requestId?: string };
@@ -140,12 +147,13 @@ const CLIENT_REQUEST_TYPES = new Set<keyof ClientRequestMap>([
   "deleteWorld",
 ]);
 
-const CLIENT_EVENT_TYPES = new Set<keyof ClientEventMap>(["mutateBlock"]);
+const CLIENT_EVENT_TYPES = new Set<keyof ClientEventMap>(["mutateBlock", "selectInventorySlot"]);
 
 const SERVER_EVENT_TYPES = new Set<keyof ServerEventMap>([
   "joinedWorld",
   "chunkDelivered",
   "chunkChanged",
+  "inventoryUpdated",
   "saveStatus",
   "worldDeleted",
   "serverError",

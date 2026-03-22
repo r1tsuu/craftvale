@@ -1,10 +1,19 @@
-import type { BlockId, ChunkCoord } from "../types.ts";
+import type { BlockId, ChunkCoord, InventorySnapshot } from "../types.ts";
 import {
   type ChunkPayload,
   type WorldSummary,
 } from "../shared/messages.ts";
 import { Chunk } from "../world/chunk.ts";
+import { isCollectibleBlock, isPlaceableBlock } from "../world/blocks.ts";
 import { CHUNK_SIZE, WORLD_LAYER_CHUNKS_Y } from "../world/constants.ts";
+import {
+  adjustInventoryCount,
+  createDefaultInventory,
+  getInventoryCount,
+  getSelectedInventoryBlockId,
+  normalizeInventorySnapshot,
+  setSelectedInventorySlot,
+} from "../world/inventory.ts";
 import { createGeneratedChunk, getTerrainHeight } from "../world/terrain.ts";
 import { worldToChunkCoord } from "../world/world.ts";
 import type { WorldStorage } from "./world-storage.ts";
@@ -15,10 +24,18 @@ interface ServerChunkEntry {
   saveDirty: boolean;
 }
 
+interface BlockMutationResult {
+  changedChunks: ChunkPayload[];
+  inventory: InventorySnapshot;
+  inventoryChanged: boolean;
+}
+
 const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
 
 export class AuthoritativeWorld {
   private readonly chunks = new Map<string, ServerChunkEntry>();
+  private inventory: InventorySnapshot | null = null;
+  private inventoryDirty = false;
 
   public constructor(
     private world: WorldSummary,
@@ -39,21 +56,82 @@ export class AuthoritativeWorld {
     return this.toChunkPayload((await this.ensureChunkLoaded(coord)).chunk);
   }
 
+  public async getInventorySnapshot(): Promise<InventorySnapshot> {
+    return this.cloneInventory(await this.ensureInventoryLoaded());
+  }
+
+  public async selectInventorySlot(slot: number): Promise<InventorySnapshot> {
+    const current = await this.ensureInventoryLoaded();
+    const next = setSelectedInventorySlot(current, slot);
+    if (next.selectedSlot !== current.selectedSlot) {
+      this.inventory = next;
+      this.inventoryDirty = true;
+      return this.cloneInventory(next);
+    }
+
+    return this.cloneInventory(current);
+  }
+
   public async applyBlockMutation(
     worldX: number,
     worldY: number,
     worldZ: number,
     blockId: BlockId,
-  ): Promise<ChunkPayload[]> {
+  ): Promise<BlockMutationResult> {
+    const inventory = await this.ensureInventoryLoaded();
     const coords = worldToChunkCoord(worldX, worldY, worldZ);
     if (!WORLD_LAYER_CHUNKS_Y.includes(coords.chunk.y)) {
-      return [];
+      return {
+        changedChunks: [],
+        inventory: this.cloneInventory(inventory),
+        inventoryChanged: false,
+      };
     }
 
     const entry = await this.ensureChunkLoaded(coords.chunk);
     const current = entry.chunk.get(coords.local.x, coords.local.y, coords.local.z);
-    if (current === blockId) {
-      return [];
+    let nextInventory = inventory;
+    let inventoryChanged = false;
+
+    if (blockId === 0) {
+      if (current === 0) {
+        return {
+          changedChunks: [],
+          inventory: this.cloneInventory(nextInventory),
+          inventoryChanged: false,
+        };
+      }
+      if (isCollectibleBlock(current)) {
+        nextInventory = adjustInventoryCount(nextInventory, current, 1);
+        inventoryChanged = true;
+      }
+    } else {
+      if (current !== 0 || !isPlaceableBlock(blockId)) {
+        return {
+          changedChunks: [],
+          inventory: this.cloneInventory(nextInventory),
+          inventoryChanged: false,
+        };
+      }
+
+      if (getSelectedInventoryBlockId(nextInventory) !== blockId) {
+        return {
+          changedChunks: [],
+          inventory: this.cloneInventory(nextInventory),
+          inventoryChanged: false,
+        };
+      }
+
+      if (getInventoryCount(nextInventory, blockId) <= 0) {
+        return {
+          changedChunks: [],
+          inventory: this.cloneInventory(nextInventory),
+          inventoryChanged: false,
+        };
+      }
+
+      nextInventory = adjustInventoryCount(nextInventory, blockId, -1);
+      inventoryChanged = true;
     }
 
     entry.chunk.set(coords.local.x, coords.local.y, coords.local.z, blockId);
@@ -81,7 +159,16 @@ export class AuthoritativeWorld {
       maybeAffect({ x: coords.chunk.x, y: coords.chunk.y, z: coords.chunk.z + 1 });
     }
 
-    return [...affected].map((key) => this.toChunkPayload(this.chunks.get(key)!.chunk));
+    if (inventoryChanged) {
+      this.inventory = nextInventory;
+      this.inventoryDirty = true;
+    }
+
+    return {
+      changedChunks: [...affected].map((key) => this.toChunkPayload(this.chunks.get(key)!.chunk)),
+      inventory: this.cloneInventory(nextInventory),
+      inventoryChanged,
+    };
   }
 
   public async save(): Promise<{ world: WorldSummary; savedChunks: number }> {
@@ -117,6 +204,13 @@ export class AuthoritativeWorld {
       this.chunks.set(key, entry);
     }
 
+    if (this.inventoryDirty) {
+      await this.storage.saveInventory(this.world.name, {
+        inventory: this.cloneInventory(await this.ensureInventoryLoaded()),
+      });
+      this.inventoryDirty = false;
+    }
+
     this.world = await this.storage.touchWorld(this.world.name, Date.now());
     return {
       world: this.world,
@@ -148,11 +242,25 @@ export class AuthoritativeWorld {
     return entry;
   }
 
+  private async ensureInventoryLoaded(): Promise<InventorySnapshot> {
+    if (this.inventory) {
+      return this.inventory;
+    }
+
+    const persisted = await this.storage.loadInventory(this.world.name);
+    this.inventory = normalizeInventorySnapshot(persisted?.inventory ?? createDefaultInventory());
+    return this.inventory;
+  }
+
   private toChunkPayload(chunk: Chunk): ChunkPayload {
     return {
       coord: chunk.coord,
       blocks: chunk.cloneBlocks(),
       revision: chunk.revision,
     };
+  }
+
+  private cloneInventory(inventory: InventorySnapshot): InventorySnapshot {
+    return normalizeInventorySnapshot(inventory);
   }
 }

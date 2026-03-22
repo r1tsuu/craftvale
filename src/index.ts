@@ -17,7 +17,9 @@ import { VoxelRenderer } from "./render/renderer.ts";
 import type { TextDrawCommand } from "./render/text.ts";
 import { evaluateUi, type UiResolvedComponent } from "./ui/components.ts";
 import { buildMainMenu } from "./ui/menu.ts";
+import { Blocks } from "./world/blocks.ts";
 import { ACTIVE_CHUNK_RADIUS } from "./world/constants.ts";
+import { getSelectedInventorySlot } from "./world/inventory.ts";
 import { raycastVoxel } from "./world/raycast.ts";
 
 const FIXED_TIMESTEP = 1 / 60;
@@ -46,6 +48,15 @@ let appMode: AppMode = "menu";
 let menuState: MenuState = createMenuState();
 let currentWorldName: string | null = null;
 let lastServerMessage = "";
+
+const formatHotbarText = (): string =>
+  clientWorldRuntime.inventory.slots
+    .map((slot, index) => {
+      const label = Blocks[slot.blockId].name.toUpperCase();
+      const selected = clientWorldRuntime.inventory.selectedSlot === index ? ">" : " ";
+      return `${selected}${index + 1}:${label} ${slot.count}`;
+    })
+    .join("   ");
 
 const syncMenuWorlds = async (statusText = "SELECT OR CREATE A WORLD"): Promise<void> => {
   menuState = setMenuBusy(menuState, true, "LOADING WORLDS...");
@@ -84,6 +95,7 @@ const joinWorld = async (worldName: string): Promise<void> => {
     });
 
     clientWorldRuntime.reset();
+    clientWorldRuntime.applyInventory(joined.inventory);
     currentWorldName = joined.world.name;
     player.reset(joined.spawnPosition);
 
@@ -203,6 +215,15 @@ const updateGame = (input: ReturnType<NativeBridge["pollInput"]>, deltaSeconds: 
     nativeBridge.requestClose();
   }
 
+  if (input.hotbarSelection !== null) {
+    clientAdapter.eventBus.send({
+      type: "selectInventorySlot",
+      payload: {
+        slot: input.hotbarSelection,
+      },
+    });
+  }
+
   void clientWorldRuntime.requestChunksAroundPosition(player.state.position, ACTIVE_CHUNK_RADIUS);
   player.update(input, deltaSeconds, clientWorldRuntime.world);
 
@@ -226,13 +247,19 @@ const updateGame = (input: ReturnType<NativeBridge["pollInput"]>, deltaSeconds: 
   }
 
   if (hit && input.placeBlock && !previousSecondaryDown) {
+    const selectedSlot = getSelectedInventorySlot(clientWorldRuntime.inventory);
+    if (selectedSlot.count <= 0) {
+      lastServerMessage = `OUT OF ${Blocks[selectedSlot.blockId].name.toUpperCase()}`;
+      return;
+    }
+
     clientAdapter.eventBus.send({
       type: "mutateBlock",
       payload: {
         x: hit.place.x,
         y: hit.place.y,
         z: hit.place.z,
-        blockId: 3,
+        blockId: selectedSlot.blockId,
       },
     });
   }
@@ -268,6 +295,13 @@ clientAdapter.eventBus.on("chunkDelivered", ({ chunk }) => {
 
 clientAdapter.eventBus.on("chunkChanged", ({ chunk }) => {
   clientWorldRuntime.applyChunk(chunk);
+});
+
+clientAdapter.eventBus.on("inventoryUpdated", ({ inventory }) => {
+  clientWorldRuntime.applyInventory(inventory);
+  if (lastServerMessage.startsWith("OUT OF ")) {
+    lastServerMessage = "";
+  }
 });
 
 clientAdapter.eventBus.on("saveStatus", ({ worldName, savedChunks, success, error }) => {
@@ -418,6 +452,14 @@ try {
           y: 147,
           scale: 3,
           color: [0.98, 0.98, 0.98],
+          shadowColor: [0.05, 0.06, 0.08],
+        },
+        {
+          text: formatHotbarText(),
+          x: 20,
+          y: input.windowHeight - 50,
+          scale: 2,
+          color: [0.98, 0.93, 0.72],
           shadowColor: [0.05, 0.06, 0.08],
         },
       ];
