@@ -7,6 +7,7 @@ import {
   setMenuBusy,
   setMenuStatus,
   setMenuWorlds,
+  suggestWorldName,
   type MenuState,
 } from "./client/menu-state.ts";
 import { ClientWorldRuntime } from "./client/world-runtime.ts";
@@ -407,11 +408,7 @@ export class GameApp {
   }
 
   private async createWorld(): Promise<void> {
-    const worldName = this.state.menuState.createWorldName.trim();
-    if (!worldName) {
-      this.state.menuState = setMenuStatus(this.state.menuState, "WORLD NAME REQUIRED");
-      return;
-    }
+    const worldName = this.state.menuState.createWorldName.trim() || suggestWorldName(this.state.menuState.worlds);
 
     this.state.menuState = setMenuBusy(this.state.menuState, true, "CREATING WORLD...");
 

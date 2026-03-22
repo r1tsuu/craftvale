@@ -5,6 +5,7 @@ import {
   createMenuState,
   parseSeedInput,
   setMenuWorlds,
+  suggestWorldName,
 } from "../src/client/menu-state.ts";
 import type { InputState } from "../src/types.ts";
 
@@ -41,8 +42,9 @@ test("menu typing updates world name and seed fields", () => {
   expect(state.createWorldName).toBe("");
 
   state = applyMenuAction(state, "open-create-world");
+  expect(state.createWorldName).toBe("New World");
   state = applyMenuTyping(state, createInput({ typedText: "Alpha" }));
-  expect(state.createWorldName).toBe("Alpha");
+  expect(state.createWorldName).toBe("New WorldAlpha");
 
   state = applyMenuAction(state, "focus-world-seed");
   state = applyMenuTyping(state, createInput({ typedText: "12345" }));
@@ -63,6 +65,7 @@ test("menu actions drive screen navigation", () => {
   state = applyMenuAction(state, "open-create-world");
   expect(state.activeScreen).toBe("create-world");
   expect(state.focusedField).toBe("world-name");
+  expect(state.createWorldName).toBe("New World");
 
   state = applyMenuAction(state, "back-to-worlds");
   expect(state.activeScreen).toBe("worlds");
@@ -97,6 +100,17 @@ test("menu world refresh preserves an existing focused world when possible", () 
   ]);
 
   expect(refreshedState.selectedWorldName).toBe("Alpha");
+});
+
+test("suggestWorldName follows Minecraft-style base naming and skips taken variants", () => {
+  expect(suggestWorldName([])).toBe("New World");
+  expect(
+    suggestWorldName([
+      { name: "New World", seed: 1, createdAt: 0, updatedAt: 0 },
+      { name: "New World 2", seed: 2, createdAt: 0, updatedAt: 0 },
+      { name: "Alpha", seed: 3, createdAt: 0, updatedAt: 0 },
+    ]),
+  ).toBe("New World 3");
 });
 
 test("blank seed input falls back to a deterministic numeric seed shape", () => {

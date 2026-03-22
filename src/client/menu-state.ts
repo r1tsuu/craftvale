@@ -26,6 +26,24 @@ export const createMenuState = (): MenuState => ({
   busy: false,
 });
 
+const DEFAULT_WORLD_NAME = "New World";
+
+export const suggestWorldName = (worlds: readonly WorldSummary[]): string => {
+  const takenNames = new Set(worlds.map((world) => world.name.trim().toLowerCase()));
+  if (!takenNames.has(DEFAULT_WORLD_NAME.toLowerCase())) {
+    return DEFAULT_WORLD_NAME;
+  }
+
+  for (let suffix = 2; suffix < 10_000; suffix += 1) {
+    const candidate = `${DEFAULT_WORLD_NAME} ${suffix}`;
+    if (!takenNames.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+
+  return `${DEFAULT_WORLD_NAME} ${Date.now()}`;
+};
+
 const normalizeSelection = (
   worlds: readonly WorldSummary[],
   selectedWorldName: string | null,
@@ -78,6 +96,8 @@ export const applyMenuAction = (state: MenuState, action: string): MenuState => 
     return {
       ...state,
       activeScreen: "create-world",
+      createWorldName: suggestWorldName(state.worlds),
+      createSeedText: "",
       focusedField: "world-name",
     };
   }

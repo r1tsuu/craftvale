@@ -58,6 +58,7 @@ test("create world screen exposes confirm and cancel actions", () => {
     720,
     createViewModel({
       activeScreen: "create-world",
+      createWorldName: "New World",
       focusedField: "world-name",
     }),
   );
@@ -68,4 +69,9 @@ test("create world screen exposes confirm and cancel actions", () => {
   expect(actions).toContain("create-world");
   expect(actions).toContain("back-to-worlds");
   expect(actions).not.toContain("open-worlds");
+
+  const labels = components
+    .filter((component) => component.kind === "button")
+    .map((component) => component.text);
+  expect(labels.some((text) => text.includes("NAME: New World_"))).toBe(true);
 });
