@@ -28,15 +28,6 @@ export const worldToChunkCoord = (
   };
 };
 
-const terrainHeight = (worldX: number, worldZ: number): number => {
-  const rolling =
-    Math.sin(worldX * 0.18) * 1.4 +
-    Math.cos(worldZ * 0.14) * 1.1 +
-    Math.sin((worldX + worldZ) * 0.07) * 1.8;
-
-  return 6 + Math.floor(rolling);
-};
-
 export class VoxelWorld {
   private readonly chunks = new Map<string, Chunk>();
 
@@ -48,13 +39,16 @@ export class VoxelWorld {
     }
 
     const chunk = new Chunk(coord);
-    this.populateChunk(chunk);
     this.chunks.set(key, chunk);
     return chunk;
   }
 
   public getChunk(coord: ChunkCoord): Chunk | undefined {
     return this.chunks.get(chunkKey(coord));
+  }
+
+  public hasChunk(coord: ChunkCoord): boolean {
+    return this.chunks.has(chunkKey(coord));
   }
 
   public getBlock(worldX: number, worldY: number, worldZ: number): BlockId {
@@ -68,6 +62,13 @@ export class VoxelWorld {
     const chunk = this.ensureChunk(coords.chunk);
     chunk.set(coords.local.x, coords.local.y, coords.local.z, blockId);
     this.markNeighborBoundaries(coords.chunk, coords.local);
+  }
+
+  public replaceChunk(coord: ChunkCoord, blocks: Uint8Array, revision = 0): Chunk {
+    const chunk = this.ensureChunk(coord);
+    chunk.replace(blocks, revision);
+    this.markAdjacentChunksDirty(coord);
+    return chunk;
   }
 
   public ensureActiveArea(centerChunkX: number, centerChunkZ: number, radius: number): void {
@@ -84,33 +85,8 @@ export class VoxelWorld {
     return [...this.chunks.values()].map((chunk) => chunk.coord);
   }
 
-  private populateChunk(chunk: Chunk): void {
-    const { x: chunkX, y: chunkY, z: chunkZ } = chunk.coord;
-
-    for (let localZ = 0; localZ < CHUNK_SIZE; localZ += 1) {
-      for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
-        const worldX = chunkX * CHUNK_SIZE + localX;
-        const worldZ = chunkZ * CHUNK_SIZE + localZ;
-        const height = terrainHeight(worldX, worldZ);
-
-        for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
-          const worldY = chunkY * CHUNK_SIZE + localY;
-          let blockId: BlockId = 0;
-
-          if (worldY <= height) {
-            if (worldY === height) {
-              blockId = 1;
-            } else if (worldY >= height - 2) {
-              blockId = 2;
-            } else {
-              blockId = 3;
-            }
-          }
-
-          chunk.set(localX, localY, localZ, blockId);
-        }
-      }
-    }
+  public clear(): void {
+    this.chunks.clear();
   }
 
   private markNeighborBoundaries(chunk: ChunkCoord, local: ChunkCoord): void {
@@ -127,5 +103,21 @@ export class VoxelWorld {
     if (local.y === CHUNK_SIZE - 1) maybeDirty(chunk.x, chunk.y + 1, chunk.z);
     if (local.z === 0) maybeDirty(chunk.x, chunk.y, chunk.z - 1);
     if (local.z === CHUNK_SIZE - 1) maybeDirty(chunk.x, chunk.y, chunk.z + 1);
+  }
+
+  private markAdjacentChunksDirty(chunk: ChunkCoord): void {
+    const maybeDirty = (x: number, y: number, z: number): void => {
+      const target = this.getChunk({ x, y, z });
+      if (target) {
+        target.dirty = true;
+      }
+    };
+
+    maybeDirty(chunk.x - 1, chunk.y, chunk.z);
+    maybeDirty(chunk.x + 1, chunk.y, chunk.z);
+    maybeDirty(chunk.x, chunk.y - 1, chunk.z);
+    maybeDirty(chunk.x, chunk.y + 1, chunk.z);
+    maybeDirty(chunk.x, chunk.y, chunk.z - 1);
+    maybeDirty(chunk.x, chunk.y, chunk.z + 1);
   }
 }

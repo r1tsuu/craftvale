@@ -14,6 +14,9 @@ static int g_resized = 0;
 static double g_cursor_x = 0.0;
 static double g_cursor_y = 0.0;
 static char g_info_log[4096];
+static char g_typed_text[256];
+static int g_typed_text_length = 0;
+static int g_pressed_keys[GLFW_KEY_LAST + 1];
 
 static void window_size_callback(GLFWwindow *window, int width, int height) {
   (void)window;
@@ -32,6 +35,36 @@ static void cursor_position_callback(GLFWwindow *window, double x, double y) {
   (void)window;
   g_cursor_x = x;
   g_cursor_y = y;
+}
+
+static void key_callback(
+    GLFWwindow *window,
+    int key,
+    int scancode,
+    int action,
+    int mods) {
+  (void)window;
+  (void)scancode;
+  (void)mods;
+
+  if (action == GLFW_PRESS && key >= 0 && key <= GLFW_KEY_LAST) {
+    g_pressed_keys[key] = 1;
+  }
+}
+
+static void char_callback(GLFWwindow *window, unsigned int codepoint) {
+  (void)window;
+
+  if (codepoint < 32 || codepoint > 126) {
+    return;
+  }
+
+  if (g_typed_text_length >= (int)sizeof(g_typed_text) - 1) {
+    return;
+  }
+
+  g_typed_text[g_typed_text_length++] = (char)codepoint;
+  g_typed_text[g_typed_text_length] = '\0';
 }
 
 static const char *copy_shader_log(GLuint shader) {
@@ -71,9 +104,14 @@ int bridge_init_window(int width, int height, const char *title) {
   glfwSetWindowSizeCallback(g_window, window_size_callback);
   glfwSetFramebufferSizeCallback(g_window, framebuffer_size_callback);
   glfwSetCursorPosCallback(g_window, cursor_position_callback);
+  glfwSetKeyCallback(g_window, key_callback);
+  glfwSetCharCallback(g_window, char_callback);
   glfwGetWindowSize(g_window, &g_window_width, &g_window_height);
   glfwGetFramebufferSize(g_window, &g_framebuffer_width, &g_framebuffer_height);
   glfwGetCursorPos(g_window, &g_cursor_x, &g_cursor_y);
+  memset(g_pressed_keys, 0, sizeof(g_pressed_keys));
+  g_typed_text[0] = '\0';
+  g_typed_text_length = 0;
   g_resized = 1;
   return 1;
 }
@@ -135,6 +173,25 @@ int bridge_is_mouse_button_down(int button) {
     return 0;
   }
   return glfwGetMouseButton(g_window, button) == GLFW_PRESS;
+}
+
+const char *bridge_get_typed_text(void) {
+  return g_typed_text;
+}
+
+void bridge_consume_typed_text(void) {
+  g_typed_text[0] = '\0';
+  g_typed_text_length = 0;
+}
+
+int bridge_consume_key_press(int key) {
+  if (key < 0 || key > GLFW_KEY_LAST) {
+    return 0;
+  }
+
+  int pressed = g_pressed_keys[key];
+  g_pressed_keys[key] = 0;
+  return pressed;
 }
 
 double bridge_get_cursor_x(void) {

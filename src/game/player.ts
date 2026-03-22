@@ -32,9 +32,9 @@ export class PlayerController {
     pitch: -0.25,
   };
 
-  public reset(): void {
+  public reset(position: [number, number, number] = [0, 10, 0]): void {
     this.state = {
-      position: [0, 10, 0],
+      position,
       yaw: -Math.PI / 2,
       pitch: -0.25,
     };

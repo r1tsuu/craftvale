@@ -18,6 +18,10 @@ export interface InputState {
   mouseDeltaY: number;
   cursorX: number;
   cursorY: number;
+  typedText: string;
+  backspacePressed: boolean;
+  enterPressed: boolean;
+  tabPressed: boolean;
   windowWidth: number;
   windowHeight: number;
   framebufferWidth: number;

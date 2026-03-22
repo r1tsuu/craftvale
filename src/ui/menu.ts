@@ -1,9 +1,20 @@
+import type { WorldSummary } from "../shared/messages.ts";
 import {
   createButton,
   createLabel,
   createPanel,
   type UiComponent,
 } from "./components.ts";
+
+export interface MainMenuViewModel {
+  worlds: readonly WorldSummary[];
+  selectedWorldName: string | null;
+  createWorldName: string;
+  createSeedText: string;
+  focusedField: "world-name" | "world-seed" | null;
+  statusText: string;
+  busy: boolean;
+}
 
 const createSeededRandom = (seed: number): (() => number) => {
   let state = seed >>> 0;
@@ -163,14 +174,73 @@ const buildVoxelBackdrop = (
   return components;
 };
 
-export const buildMainMenu = (width: number, height: number, seed = 1337): UiComponent[] => {
-  const panelWidth = 520;
-  const panelHeight = 300;
+const formatInputValue = (
+  label: string,
+  value: string,
+  focused: boolean,
+  placeholder: string,
+): string => {
+  const content = value || placeholder;
+  return `${label}: ${content}${focused ? "_" : ""}`;
+};
+
+export const buildMainMenu = (
+  width: number,
+  height: number,
+  viewModel: MainMenuViewModel,
+  seed = 1337,
+): UiComponent[] => {
+  const panelWidth = 980;
+  const panelHeight = 560;
   const panelX = Math.round((width - panelWidth) / 2);
   const panelY = Math.round((height - panelHeight) / 2);
-  const buttonWidth = 280;
+  const listPanelWidth = 420;
+  const buttonWidth = 320;
   const buttonHeight = 56;
-  const buttonX = panelX + Math.round((panelWidth - buttonWidth) / 2);
+  const listX = panelX + 40;
+  const formX = panelX + 520;
+  const buttonX = formX;
+
+  const worldButtons: UiComponent[] = [];
+  const visibleWorlds = viewModel.worlds.slice(0, 6);
+
+  if (visibleWorlds.length === 0) {
+    worldButtons.push(
+      createLabel({
+        id: "world-empty",
+        kind: "label",
+        rect: {
+          x: listX,
+          y: panelY + 170,
+          width: listPanelWidth - 80,
+          height: 40,
+        },
+        text: "NO WORLDS YET",
+        scale: 3,
+        color: [0.82, 0.88, 0.92],
+        centered: true,
+      }),
+    );
+  } else {
+    visibleWorlds.forEach((world, index) => {
+      const selected = world.name === viewModel.selectedWorldName;
+      worldButtons.push(
+        createButton({
+          id: `world-${index}`,
+          kind: "button",
+          rect: {
+            x: listX,
+            y: panelY + 138 + index * 62,
+            width: listPanelWidth - 80,
+            height: 52,
+          },
+          text: `${selected ? "> " : ""}${world.name}  S:${world.seed}`,
+          action: `select-world:${world.name}`,
+          scale: 2,
+        }),
+      );
+    });
+  }
 
   return [
     ...buildVoxelBackdrop(width, height, seed),
@@ -211,21 +281,75 @@ export const buildMainMenu = (width: number, height: number, seed = 1337): UiCom
       centered: true,
     }),
     createLabel({
-      id: "menu-subtitle",
+      id: "menu-subtitle-left",
       kind: "label",
       rect: {
-        x: panelX + 40,
+        x: listX,
         y: panelY + 88,
-        width: panelWidth - 80,
+        width: 260,
         height: 24,
       },
-      text: "RANDOM MENU WORLD",
+      text: "WORLD LIST",
       scale: 3,
       color: [0.78, 0.86, 0.9],
-      centered: true,
+      centered: false,
+    }),
+    createLabel({
+      id: "menu-subtitle-right",
+      kind: "label",
+      rect: {
+        x: formX,
+        y: panelY + 88,
+        width: 320,
+        height: 24,
+      },
+      text: "CREATE WORLD",
+      scale: 3,
+      color: [0.78, 0.86, 0.9],
+      centered: false,
+    }),
+    ...worldButtons,
+    createButton({
+      id: "refresh-button",
+      kind: "button",
+      rect: {
+        x: listX,
+        y: panelY + 470,
+        width: 160,
+        height: buttonHeight,
+      },
+      text: "REFRESH",
+      action: "refresh-worlds",
+      scale: 3,
     }),
     createButton({
-      id: "start-button",
+      id: "join-button",
+      kind: "button",
+      rect: {
+        x: listX + 176,
+        y: panelY + 470,
+        width: 160,
+        height: buttonHeight,
+      },
+      text: "JOIN",
+      action: "join-world",
+      scale: 3,
+    }),
+    createButton({
+      id: "delete-button",
+      kind: "button",
+      rect: {
+        x: listX + 352,
+        y: panelY + 470,
+        width: 160,
+        height: buttonHeight,
+      },
+      text: "DELETE",
+      action: "delete-world",
+      scale: 3,
+    }),
+    createButton({
+      id: "name-input",
       kind: "button",
       rect: {
         x: buttonX,
@@ -233,12 +357,17 @@ export const buildMainMenu = (width: number, height: number, seed = 1337): UiCom
         width: buttonWidth,
         height: buttonHeight,
       },
-      text: "START GAME",
-      action: "start-game",
-      scale: 3,
+      text: formatInputValue(
+        "NAME",
+        viewModel.createWorldName,
+        viewModel.focusedField === "world-name",
+        "TYPE A NAME",
+      ),
+      action: "focus-world-name",
+      scale: 2,
     }),
     createButton({
-      id: "quit-button",
+      id: "seed-input",
       kind: "button",
       rect: {
         x: buttonX,
@@ -246,9 +375,53 @@ export const buildMainMenu = (width: number, height: number, seed = 1337): UiCom
         width: buttonWidth,
         height: buttonHeight,
       },
+      text: formatInputValue(
+        "SEED",
+        viewModel.createSeedText,
+        viewModel.focusedField === "world-seed",
+        "BLANK = RANDOM",
+      ),
+      action: "focus-world-seed",
+      scale: 2,
+    }),
+    createButton({
+      id: "create-button",
+      kind: "button",
+      rect: {
+        x: buttonX,
+        y: panelY + 310,
+        width: buttonWidth,
+        height: buttonHeight,
+      },
+      text: viewModel.busy ? "WORKING..." : "CREATE WORLD",
+      action: "create-world",
+      scale: 3,
+    }),
+    createButton({
+      id: "quit-button",
+      kind: "button",
+      rect: {
+        x: buttonX,
+        y: panelY + 382,
+        width: buttonWidth,
+        height: buttonHeight,
+      },
       text: "QUIT",
       action: "quit-game",
       scale: 3,
+    }),
+    createLabel({
+      id: "status-label",
+      kind: "label",
+      rect: {
+        x: formX,
+        y: panelY + 470,
+        width: 360,
+        height: 44,
+      },
+      text: viewModel.statusText,
+      scale: 2,
+      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
     }),
   ];
 };

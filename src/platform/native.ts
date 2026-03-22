@@ -31,6 +31,9 @@ const library = dlopen(libraryPath, {
   bridge_is_mouse_button_down: { args: [FFIType.i32], returns: FFIType.i32 },
   bridge_get_cursor_x: { args: [], returns: FFIType.f64 },
   bridge_get_cursor_y: { args: [], returns: FFIType.f64 },
+  bridge_get_typed_text: { args: [], returns: FFIType.cstring },
+  bridge_consume_typed_text: { args: [], returns: FFIType.void },
+  bridge_consume_key_press: { args: [FFIType.i32], returns: FFIType.i32 },
   bridge_get_window_width: { args: [], returns: FFIType.i32 },
   bridge_get_window_height: { args: [], returns: FFIType.i32 },
   bridge_get_framebuffer_width: { args: [], returns: FFIType.i32 },
@@ -106,6 +109,9 @@ const GLFW_KEY_S = 83;
 const GLFW_KEY_D = 68;
 const GLFW_KEY_SPACE = 32;
 const GLFW_KEY_LEFT_SHIFT = 340;
+const GLFW_KEY_ENTER = 257;
+const GLFW_KEY_TAB = 258;
+const GLFW_KEY_BACKSPACE = 259;
 const GLFW_KEY_ESCAPE = 256;
 const GLFW_MOUSE_BUTTON_LEFT = 0;
 const GLFW_MOUSE_BUTTON_RIGHT = 1;
@@ -185,6 +191,7 @@ export class NativeBridge {
 
     const cursorX = library.symbols.bridge_get_cursor_x();
     const cursorY = library.symbols.bridge_get_cursor_y();
+    const typedText = library.symbols.bridge_get_typed_text().toString();
     const windowWidth = library.symbols.bridge_get_window_width();
     const windowHeight = library.symbols.bridge_get_window_height();
     const framebufferWidth = library.symbols.bridge_get_framebuffer_width();
@@ -209,6 +216,16 @@ export class NativeBridge {
       mouseDeltaY: cursorY - this.lastCursorY,
       cursorX,
       cursorY,
+      typedText,
+      backspacePressed: Boolean(
+        library.symbols.bridge_consume_key_press(GLFW_KEY_BACKSPACE),
+      ),
+      enterPressed: Boolean(
+        library.symbols.bridge_consume_key_press(GLFW_KEY_ENTER),
+      ),
+      tabPressed: Boolean(
+        library.symbols.bridge_consume_key_press(GLFW_KEY_TAB),
+      ),
       windowWidth,
       windowHeight,
       framebufferWidth,
@@ -218,6 +235,7 @@ export class NativeBridge {
 
     this.lastCursorX = cursorX;
     this.lastCursorY = cursorY;
+    library.symbols.bridge_consume_typed_text();
     if (resized) {
       library.symbols.bridge_consume_resize();
     }

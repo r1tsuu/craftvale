@@ -98,7 +98,6 @@ export class VoxelRenderer {
 
     const playerChunkX = Math.floor(player.state.position[0] / CHUNK_SIZE);
     const playerChunkZ = Math.floor(player.state.position[2] / CHUNK_SIZE);
-    world.ensureActiveArea(playerChunkX, playerChunkZ, ACTIVE_CHUNK_RADIUS);
 
     for (const coord of world.getLoadedChunkCoords()) {
       if (
