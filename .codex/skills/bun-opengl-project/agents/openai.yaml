@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bun OpenGL Project"
+  short_description: "Repo workflow for bun-opengl"
+  default_prompt: "Use $bun-opengl-project to work safely and consistently in this voxel sandbox repository."

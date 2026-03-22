@@ -1,0 +1,283 @@
+# Architecture
+
+## Overview
+
+This project is a Bun/TypeScript voxel sandbox with a macOS-first native bridge for GLFW and OpenGL. The runtime is split into a client side and an authoritative server side, even in the current single-player setup. The client runs the app shell, rendering, input, menu, and local replicated world cache. The server runs inside a Worker and owns world generation, persistence, and all authoritative world mutations.
+
+At a high level:
+
+- `src/index.ts` is a tiny bootstrap that creates and runs the app.
+- `src/game-app.ts` owns the main application state and loop.
+- `src/client/*` implements the client runtime and worker-backed adapter.
+- `src/server/*` implements authoritative world/session behavior and storage.
+- `src/shared/*` defines typed messaging, transport, and event-bus plumbing.
+- `src/world/*` contains deterministic worldgen, chunk data, meshing, atlas, inventory helpers, and raycasting.
+- `src/render/*` and `src/ui/*` handle rendering and menu/HUD presentation.
+- `src/platform/*` and `native/*` bridge Bun to GLFW/OpenGL.
+
+## Runtime Topology
+
+### Main thread
+
+The main thread hosts the playable client app:
+
+- creates the window through `NativeBridge`
+- owns the render loop and input polling
+- runs the `GameApp` instance
+- keeps a replicated `VoxelWorld` for rendering, raycast, and collision
+- sends typed requests/events to the worker-backed server
+
+### Worker thread
+
+The worker hosts the authoritative server:
+
+- boots through `src/server/worker-entry.ts`
+- is attached to a `WorkerServerHost`
+- constructs a `ServerRuntime`
+- loads/saves worlds through `BinaryWorldStorage`
+- generates chunks, applies block mutations, and owns inventory state
+
+This separation means the client never directly mutates authoritative world state. It asks the server to do so and then applies the resulting authoritative updates.
+
+## Main App Structure
+
+`GameApp` in `src/game-app.ts` is the top-level state owner for the client runtime.
+
+It owns:
+
+- app mode (`menu` or `playing`)
+- menu state
+- current world/session metadata
+- transient HUD/status text
+- timing state for the fixed-step loop
+- input edge tracking such as previous mouse button state
+- lifecycle-managed event-bus subscriptions
+
+Its dependencies are injected explicitly:
+
+- `NativeBridge`
+- client adapter
+- `ClientWorldRuntime`
+- `PlayerController`
+- `VoxelRenderer`
+- menu seed
+
+The app loop roughly does this every frame:
+
+1. Poll native input.
+2. Advance timing state.
+3. If in menu mode, evaluate UI and issue world-management requests.
+4. If in play mode, run fixed-step gameplay updates.
+5. Build HUD/UI data.
+6. Render the frame.
+7. Yield back to the event loop.
+
+Shutdown is also instance-owned. `GameApp` saves the current world, closes the client adapter, and shuts down the native bridge.
+
+## Messaging And Adapters
+
+The client/server boundary is strongly typed through `src/shared/messages.ts`.
+
+There are three main categories:
+
+- client requests: request/response operations such as `listWorlds`, `joinWorld`, `requestChunks`, and `saveWorld`
+- client events: one-way gameplay intents such as `mutateBlock` and `selectInventorySlot`
+- server events: one-way authoritative updates such as `chunkDelivered`, `chunkChanged`, `inventoryUpdated`, and `saveStatus`
+
+`src/shared/event-bus.ts` wraps raw transport messages with typed handlers and request correlation.
+
+Current transport layers:
+
+- `WorkerClientAdapter` on the client side
+- `WorkerServerAdapter` on the worker side
+- `WorkerServerHost` as the worker lifecycle/controller instance
+
+Because the transport abstraction is explicit, the current worker-backed single-player setup can evolve later without changing gameplay/message semantics.
+
+## World Ownership Model
+
+### Client side
+
+`ClientWorldRuntime` owns the replicated client view of the world:
+
+- loaded chunk cache
+- pending chunk requests
+- chunk waiters for async loading
+- replicated inventory snapshot
+
+This local world is used for:
+
+- terrain rendering
+- player collision
+- voxel raycast/highlight
+- HUD/hotbar display
+
+### Server side
+
+`AuthoritativeWorld` owns the real gameplay state for one active world session:
+
+- authoritative chunks
+- dirty/save tracking
+- authoritative inventory snapshot
+- spawn computation
+- block mutation rules
+
+The server is responsible for:
+
+- chunk generation on demand
+- validating and applying block mutations
+- awarding/deducting inventory items
+- deciding which chunks must be resent after a mutation
+- persisting changed state
+
+## World Generation
+
+World generation is deterministic and seed-driven.
+
+The worldgen pipeline currently lives under `src/world/*`:
+
+- `noise.ts`: shared deterministic noise helpers
+- `biomes.ts`: biome sampling and biome definitions
+- `terrain.ts`: biome-aware terrain heights, surface blocks, and tree decoration
+
+The generation flow for a chunk is:
+
+1. Sample biome-influenced terrain parameters per world column.
+2. Compute the terrain height for each `(x, z)` column.
+3. Fill top/filler/deep blocks according to the local biome.
+4. Run a deterministic decoration pass for trees.
+
+Important property: generation is chunk-order safe.
+
+Trees are not created by mutating neighboring chunks after the fact. Instead, decoration samples candidate structure anchors in world space and writes only the voxels that fall inside the current chunk. That keeps generation deterministic regardless of load order.
+
+## Rendering Pipeline
+
+Rendering is handled by `VoxelRenderer` in `src/render/renderer.ts`.
+
+The pipeline is:
+
+1. Build or refresh chunk meshes from the replicated client world.
+2. Render opaque voxel faces.
+3. Render cutout voxel faces.
+4. Render the focused-block highlight.
+5. Render text overlay.
+6. Render UI overlay.
+
+Important rendering details:
+
+- voxel textures come from a shared atlas
+- directional face shading is applied in the shader
+- leaves use alpha-cutout rendering, not full sorted translucency
+- terrain meshing is split into opaque and cutout passes
+
+The native bridge in `src/platform/native.ts` and `native/bridge.c` exposes the minimal GLFW/OpenGL surface needed by the renderers.
+
+## Input, Player, And Gameplay Loop
+
+The native bridge polls input every frame and returns a plain `InputState`.
+
+`PlayerController` owns:
+
+- FPS movement
+- gravity/jump behavior
+- collision checks against the replicated world
+- camera/view-projection state
+
+Gameplay updates currently include:
+
+- requesting nearby chunks
+- movement and collision
+- raycasting from the eye position
+- breaking blocks through a server event
+- placing the selected hotbar block through a server event
+- selecting inventory slots with number keys
+
+The client never assumes a local placement/removal succeeded until the authoritative server sends updated chunks and/or inventory.
+
+## Inventory
+
+Inventory is modeled as a small hotbar-oriented snapshot:
+
+- fixed slot list
+- selected slot index
+- per-slot block id and count
+
+The client uses this replicated inventory for:
+
+- HUD display
+- current placement selection
+- local feedback such as out-of-stock messages
+
+The server owns the real counts:
+
+- breaking collectible blocks increments counts
+- successful placement decrements counts
+- invalid placement does not consume inventory
+- inventory persists per world through storage
+
+## Persistence
+
+Persistence is implemented in `src/server/world-storage.ts`.
+
+Current persisted data:
+
+- world registry metadata
+- per-world chunk override files
+- per-world inventory file
+
+The save model is baseline-aware:
+
+- generated chunks are deterministic from the world seed
+- only changed chunks need to be persisted
+- if a chunk matches regenerated baseline data again, its override file can be removed
+
+This keeps storage focused on player-caused differences instead of caching the full generated world.
+
+## UI
+
+UI is intentionally lightweight and code-driven.
+
+The main pieces are:
+
+- `src/ui/menu.ts`: menu layout generation
+- `src/ui/components.ts`: simple panel/label/button model plus hit evaluation
+- `src/ui/renderer.ts`: draws UI rectangles and text
+
+The menu is evaluated each frame from state plus pointer input rather than maintained through a retained widget tree.
+
+## Tests
+
+The test suite covers the main architectural seams:
+
+- client/server request-response behavior
+- authoritative chunk/inventory replication
+- storage round-trips
+- terrain and biome determinism
+- meshing and atlas behavior
+- player collision and movement
+- worker-host lifecycle behavior
+
+This matters because the architecture depends heavily on deterministic generation and explicit ownership boundaries.
+
+## Design Principles
+
+The current codebase leans on a few consistent principles:
+
+- authoritative server state, even in single-player
+- deterministic procedural generation from world seed
+- explicit instances for stateful runtime behavior
+- typed message boundaries between subsystems
+- small native surface area with most logic in TypeScript
+- data-oriented worldgen/config where possible
+
+## Likely Future Extension Points
+
+The current architecture should support future work such as:
+
+- alternate transports beyond worker-backed local play
+- richer biome/decorator systems
+- more inventory/content systems
+- headless or dedicated-server modes
+- improved renderer resource cleanup/lifecycle
+- larger app-shell testing surface through injected fakes
