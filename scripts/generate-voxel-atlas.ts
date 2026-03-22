@@ -8,7 +8,7 @@ const rootDir = import.meta.dir.endsWith("/scripts")
 
 const ATLAS_TILE_SIZE = 16;
 const ATLAS_COLUMNS = 4;
-const ATLAS_ROWS = 2;
+const ATLAS_ROWS = 3;
 const ATLAS_WIDTH = ATLAS_TILE_SIZE * ATLAS_COLUMNS;
 const ATLAS_HEIGHT = ATLAS_TILE_SIZE * ATLAS_ROWS;
 
@@ -19,7 +19,11 @@ type AtlasTileId =
   | "stone"
   | "log-top"
   | "log-side"
-  | "leaves";
+  | "leaves"
+  | "sand"
+  | "planks"
+  | "cobblestone"
+  | "brick";
 type Rgba = readonly [number, number, number, number];
 
 const AtlasTiles: Record<AtlasTileId, { x: number; y: number }> = {
@@ -30,6 +34,10 @@ const AtlasTiles: Record<AtlasTileId, { x: number; y: number }> = {
   dirt: { x: 0, y: 1 },
   stone: { x: 1, y: 1 },
   "log-side": { x: 2, y: 1 },
+  sand: { x: 3, y: 1 },
+  planks: { x: 0, y: 2 },
+  cobblestone: { x: 1, y: 2 },
+  brick: { x: 2, y: 2 },
 };
 
 const rgba = (red: number, green: number, blue: number, alpha = 255): Rgba => [
@@ -207,6 +215,69 @@ const createLeavesPixel = (x: number, y: number): Rgba => {
   return color;
 };
 
+const createSandPixel = (x: number, y: number): Rgba => {
+  const base = rgba(213, 198, 132);
+  const noise = hash2d(x, y, 0x1187c3);
+  let color = tint(base, ((noise & 0x7) - 3) * 4);
+
+  if (((noise >>> 4) & 0xf) === 0) {
+    color = tint(color, 14);
+  } else if (((noise >>> 8) & 0xf) <= 1) {
+    color = tint(color, -12);
+  }
+
+  return color;
+};
+
+const createPlanksPixel = (x: number, y: number): Rgba => {
+  const base = rgba(168, 124, 70);
+  const plankBand = Math.floor(y / 4);
+  const grain = ((hash2d(x, y, 0x4ab292) & 0x7) - 3) * 3;
+  let color = tint(base, plankBand % 2 === 0 ? 8 : -6);
+  color = tint(color, grain);
+
+  if (y % 4 === 0 || y % 4 === 3) {
+    color = tint(color, -20);
+  }
+
+  if ((x === 2 || x === 13) && plankBand !== 1) {
+    color = tint(color, -18);
+  }
+
+  return color;
+};
+
+const createCobblestonePixel = (x: number, y: number): Rgba => {
+  const cellX = Math.floor(x / 4);
+  const cellY = Math.floor(y / 4);
+  const stoneSeed = hash2d(cellX, cellY, 0x6ca4f1);
+  const base = rgba(118, 118, 124);
+  let color = tint(base, ((stoneSeed & 0x7) - 3) * 7);
+
+  if (x % 4 === 0 || y % 4 === 0) {
+    color = rgba(86, 86, 92);
+  } else if (((stoneSeed >>> 5) & 0x7) === 0) {
+    color = tint(color, 14);
+  }
+
+  return color;
+};
+
+const createBrickPixel = (x: number, y: number): Rgba => {
+  const mortar = rgba(157, 150, 144);
+  const brickBase = rgba(162, 66, 48);
+  const row = Math.floor(y / 4);
+  const offset = row % 2 === 0 ? 0 : 4;
+  const localX = (x + offset) % 8;
+
+  if (y % 4 === 0 || localX === 0) {
+    return mortar;
+  }
+
+  const noise = hash2d(x, y, 0x9f31d2);
+  return tint(brickBase, ((noise & 0x7) - 3) * 4);
+};
+
 const createAtlasPixels = (): Uint8Array => {
   const pixels = new Uint8Array(ATLAS_WIDTH * ATLAS_HEIGHT * 4);
   fillTile(pixels, "grass-top", createGrassTopPixel);
@@ -216,6 +287,10 @@ const createAtlasPixels = (): Uint8Array => {
   fillTile(pixels, "log-top", createLogTopPixel);
   fillTile(pixels, "log-side", createLogSidePixel);
   fillTile(pixels, "leaves", createLeavesPixel);
+  fillTile(pixels, "sand", createSandPixel);
+  fillTile(pixels, "planks", createPlanksPixel);
+  fillTile(pixels, "cobblestone", createCobblestonePixel);
+  fillTile(pixels, "brick", createBrickPixel);
   return pixels;
 };
 

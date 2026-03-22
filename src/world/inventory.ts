@@ -1,7 +1,7 @@
 import type { BlockId, InventorySnapshot, InventorySlot } from "../types.ts";
 import { Blocks } from "./blocks.ts";
 
-export const HOTBAR_BLOCK_IDS = [1, 2, 3, 4, 5] as const satisfies readonly BlockId[];
+export const HOTBAR_BLOCK_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const satisfies readonly BlockId[];
 export const DEFAULT_INVENTORY_STACK_SIZE = 64;
 const HOTBAR_BLOCK_ID_SET = new Set<BlockId>(HOTBAR_BLOCK_IDS);
 

@@ -3,7 +3,7 @@ import { decodePng } from "../platform/png.ts";
 
 export const ATLAS_TILE_SIZE = 16;
 export const ATLAS_COLUMNS = 4;
-export const ATLAS_ROWS = 2;
+export const ATLAS_ROWS = 3;
 export const ATLAS_WIDTH = ATLAS_TILE_SIZE * ATLAS_COLUMNS;
 export const ATLAS_HEIGHT = ATLAS_TILE_SIZE * ATLAS_ROWS;
 export const VOXEL_ATLAS_ASSET_PATH = "assets/textures/voxel-atlas.png";
@@ -15,7 +15,11 @@ export type AtlasTileId =
   | "stone"
   | "log-top"
   | "log-side"
-  | "leaves";
+  | "leaves"
+  | "sand"
+  | "planks"
+  | "cobblestone"
+  | "brick";
 
 export interface AtlasTileCoord {
   x: number;
@@ -37,6 +41,10 @@ export const AtlasTiles: Record<AtlasTileId, AtlasTileCoord> = {
   dirt: { x: 0, y: 1 },
   stone: { x: 1, y: 1 },
   "log-side": { x: 2, y: 1 },
+  sand: { x: 3, y: 1 },
+  planks: { x: 0, y: 2 },
+  cobblestone: { x: 1, y: 2 },
+  brick: { x: 2, y: 2 },
 };
 
 const UV_INSET_X = 0.5 / ATLAS_WIDTH;

@@ -59,7 +59,9 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
     const loadedInventory = await storage.loadInventory("Alpha");
     expect(loadedInventory).not.toBeNull();
     expect(loadedInventory?.inventory.selectedSlot).toBe(2);
+    expect(loadedInventory?.inventory.slots).toHaveLength(9);
     expect(loadedInventory?.inventory.slots.find((slot) => slot.blockId === 3)?.count).toBe(5);
+    expect(loadedInventory?.inventory.slots.find((slot) => slot.blockId === 6)?.count).toBe(0);
 
     const deleted = await storage.deleteWorld("Alpha");
     expect(deleted).toBe(true);

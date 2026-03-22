@@ -144,6 +144,10 @@ const GLFW_KEY_2 = 50;
 const GLFW_KEY_3 = 51;
 const GLFW_KEY_4 = 52;
 const GLFW_KEY_5 = 53;
+const GLFW_KEY_6 = 54;
+const GLFW_KEY_7 = 55;
+const GLFW_KEY_8 = 56;
+const GLFW_KEY_9 = 57;
 const GLFW_MOUSE_BUTTON_LEFT = 0;
 const GLFW_MOUSE_BUTTON_RIGHT = 1;
 
@@ -248,6 +252,14 @@ export class NativeBridge {
             ? 3
             : Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_5))
               ? 4
+              : Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_6))
+                ? 5
+                : Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_7))
+                  ? 6
+                  : Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_8))
+                    ? 7
+                    : Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_9))
+                      ? 8
               : null;
 
     const input: InputState = {

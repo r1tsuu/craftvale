@@ -164,6 +164,24 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     expect(harness.worldRuntime.inventory.selectedSlot).toBe(collectedSlotIndex);
 
     harness.client.eventBus.send({
+      type: "selectInventorySlot",
+      payload: {
+        slot: 8,
+      },
+    });
+    await Bun.sleep(0);
+    expect(harness.worldRuntime.inventory.selectedSlot).toBe(8);
+
+    harness.client.eventBus.send({
+      type: "selectInventorySlot",
+      payload: {
+        slot: collectedSlotIndex,
+      },
+    });
+    await Bun.sleep(0);
+    expect(harness.worldRuntime.inventory.selectedSlot).toBe(collectedSlotIndex);
+
+    harness.client.eventBus.send({
       type: "mutateBlock",
       payload: {
         x: 1,

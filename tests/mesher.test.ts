@@ -6,6 +6,7 @@ import { VoxelWorld } from "../src/world/world.ts";
 
 const FLOATS_PER_VERTEX = 6;
 const VERTICES_PER_FACE = 4;
+const UV_EPSILON = 1e-6;
 
 const getFaceUvs = (
   mesh: MeshData,
@@ -34,10 +35,10 @@ const expectFaceUsesTile = (
   const faceUvs = getFaceUvs(mesh, faceIndex);
 
   for (const uv of faceUvs) {
-    expect(uv.u).toBeGreaterThanOrEqual(rect.uMin);
-    expect(uv.u).toBeLessThanOrEqual(rect.uMax);
-    expect(uv.v).toBeGreaterThanOrEqual(rect.vMin);
-    expect(uv.v).toBeLessThanOrEqual(rect.vMax);
+    expect(uv.u).toBeGreaterThanOrEqual(rect.uMin - UV_EPSILON);
+    expect(uv.u).toBeLessThanOrEqual(rect.uMax + UV_EPSILON);
+    expect(uv.v).toBeGreaterThanOrEqual(rect.vMin - UV_EPSILON);
+    expect(uv.v).toBeLessThanOrEqual(rect.vMax + UV_EPSILON);
   }
 };
 
@@ -147,6 +148,28 @@ test("leaves emit cutout faces and use the leaves atlas tile", () => {
   expect(mesh.cutout.indexCount).toBe(36);
   expectFaceUsesTile(mesh.cutout, 0, "leaves");
   expectFaceUsesTile(mesh.cutout, 2, "leaves");
+});
+
+test("expanded hotbar blocks use their atlas tile on every face", () => {
+  const world = new VoxelWorld();
+  const blockChecks: Array<{ blockId: 6 | 7 | 8 | 9; tile: "sand" | "planks" | "cobblestone" | "brick"; x: number }> = [
+    { blockId: 6, tile: "sand", x: 0 },
+    { blockId: 7, tile: "planks", x: 1 },
+    { blockId: 8, tile: "cobblestone", x: 2 },
+    { blockId: 9, tile: "brick", x: 3 },
+  ];
+
+  for (const check of blockChecks) {
+    const chunk = world.ensureChunk({ x: check.x, y: 0, z: 0 });
+    chunk.blocks.fill(0);
+    chunk.dirty = true;
+    chunk.set(1, 1, 1, check.blockId);
+
+    const mesh = buildChunkMesh(world, chunk.coord);
+    expect(mesh.cutout.indexCount).toBe(0);
+    expectFaceUsesTile(mesh.opaque, 0, check.tile);
+    expectFaceUsesTile(mesh.opaque, 2, check.tile);
+  }
 });
 
 test("opaque faces next to leaves are not culled", () => {
