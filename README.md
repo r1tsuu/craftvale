@@ -1,18 +1,25 @@
 # Minecraft Clone
 
-A macOS-first Bun desktop voxel sandbox using a thin C bridge for GLFW windowing and OpenGL rendering. Bun/TypeScript handles the world, meshing, player/controller logic, menu UI, and HUD.
+A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing and OpenGL rendering. Bun/TypeScript handles the client/server runtime split, world generation, meshing, player/controller logic, persistence, menu UI, and HUD.
 
 ## Current Features
 
 - GLFW window creation and OpenGL 3.3 core rendering through a Bun FFI bridge
-- Chunked voxel terrain with face-culling meshing
+- Textured voxel rendering with a shared atlas and directional face shading
+- Opaque and cutout terrain passes for solid blocks and transparent leaves
+- Chunked voxel terrain with biome-aware procedural generation
+- Forest, plains, scrub, and highlands-style world regions
+- Deterministic tree generation with chunk-safe cross-border placement
 - First-person camera with grounded FPS movement
 - Jump, gravity, and voxel collision
-- Block breaking and placing
 - Focused block highlight
+- Server-authoritative block breaking and placing through a worker-backed client/server architecture
+- Per-world save/load with named worlds and binary chunk persistence
+- Server-authoritative hotbar inventory with starter stacks and HUD display
+- Create, join, delete, and save worlds from the menu
 - Pre-game menu with reusable UI components and clickable buttons
 - Seeded Minecraft-like menu background
-- On-screen HUD text for FPS, position, and rotation
+- On-screen HUD text for FPS, position, rotation, world name, status, and hotbar contents
 
 ## Requirements
 
@@ -41,22 +48,29 @@ A macOS-first Bun desktop voxel sandbox using a thin C bridge for GLFW windowing
 - Mouse look
 - `Space` jump
 - Left click break block
-- Right click place stone block
+- Right click place the selected hotbar block
+- `1`-`5` select hotbar slots
 - `Esc` exits
 
 ## Project Layout
 
+- `src/client` client runtime and worker client adapter
+- `src/server` authoritative world runtime and binary world storage
+- `src/shared` typed message schemas, transport, and event-bus plumbing
 - `src/platform` native bridge loading and GL bindings
 - `src/render` voxel rendering, text, UI rectangles, and highlight rendering
-- `src/world` chunks, terrain generation, meshing, and raycasting
+- `src/world` chunks, biome/terrain generation, meshing, atlas data, inventory helpers, and raycasting
 - `src/game` player movement and physics
 - `src/ui` menu layout, UI components, and UI rendering
 - `native` GLFW/OpenGL bridge in C
 - `assets/shaders` GLSL shaders
-- `tests` world, meshing, raycast, player, highlight, text, and UI tests
+- `plans` implementation plans for major feature work
+- `tests` coverage for client/server flow, storage, terrain, meshing, raycast, player, highlight, text, and UI
 
 ## Notes
 
-- World generation starts only after `START GAME` is pressed.
+- World generation starts after a world is created or joined.
+- Biomes, terrain, and trees are all derived deterministically from the world seed.
+- World state is worker/server-authoritative even in the current single-player setup.
 - The menu background is seeded and stable for a given run.
 - The current implementation targets macOS first.

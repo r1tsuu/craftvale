@@ -1,67 +1,11 @@
 import type { BlockId, ChunkCoord } from "../types.ts";
 import { Chunk } from "./chunk.ts";
+import { Biomes, getBiomeAt, sampleBiome, type BiomeDefinition } from "./biomes.ts";
 import { CHUNK_SIZE } from "./constants.ts";
-
-const clamp = (value: number, min: number, max: number): number =>
-  Math.max(min, Math.min(max, value));
-
-const lerp = (start: number, end: number, alpha: number): number =>
-  start + (end - start) * alpha;
-
-const smoothstep = (value: number): number => value * value * (3 - 2 * value);
-
-const hash2dInt = (x: number, z: number, seed: number): number => {
-  let hash = seed ^ Math.imul(x, 0x45d9f3b) ^ Math.imul(z, 0x27d4eb2d);
-  hash = Math.imul(hash ^ (hash >>> 16), 0x7feb352d);
-  hash = Math.imul(hash ^ (hash >>> 15), 0x846ca68b);
-  hash ^= hash >>> 16;
-  return hash >>> 0;
-};
-
-const hash2d = (x: number, z: number, seed: number): number => {
-  const hash = hash2dInt(x, z, seed);
-  return ((hash >>> 0) / 0xffffffff) * 2 - 1;
-};
-
-const sampleValueNoise = (
-  worldX: number,
-  worldZ: number,
-  seed: number,
-  cellSize: number,
-): number => {
-  const scaledX = worldX / cellSize;
-  const scaledZ = worldZ / cellSize;
-  const cellX = Math.floor(scaledX);
-  const cellZ = Math.floor(scaledZ);
-  const tx = smoothstep(scaledX - cellX);
-  const tz = smoothstep(scaledZ - cellZ);
-
-  const topLeft = hash2d(cellX, cellZ, seed);
-  const topRight = hash2d(cellX + 1, cellZ, seed);
-  const bottomLeft = hash2d(cellX, cellZ + 1, seed);
-  const bottomRight = hash2d(cellX + 1, cellZ + 1, seed);
-
-  return lerp(lerp(topLeft, topRight, tx), lerp(bottomLeft, bottomRight, tx), tz);
-};
-
-export const getTerrainHeight = (seed: number, worldX: number, worldZ: number): number => {
-  const seedX = (seed & 0xffff) / 4096;
-  const seedZ = ((seed >>> 16) & 0xffff) / 4096;
-  const rollingWaves =
-    Math.sin((worldX + seedX * 19) * 0.18) * 1.4 +
-    Math.cos((worldZ - seedZ * 17) * 0.14) * 1.1 +
-    Math.sin((worldX + worldZ + seedX * 11 - seedZ * 13) * 0.07) * 1.8;
-  const largeNoise = sampleValueNoise(worldX, worldZ, seed ^ 0x9e3779b9, 14) * 1.1;
-  const detailNoise = sampleValueNoise(worldX, worldZ, seed ^ 0x85ebca6b, 6) * 0.35;
-  const rolling = rollingWaves + largeNoise + detailNoise;
-
-  return clamp(6 + Math.floor(rolling), 1, CHUNK_SIZE - 2);
-};
+import { clamp, hash2dInt, sampleValueNoise } from "./noise.ts";
 
 const TREE_CELL_SIZE = 7;
-const TREE_CANOPY_RADIUS = 2;
-const TREE_MIN_TRUNK_HEIGHT = 3;
-const TREE_MAX_TRUNK_HEIGHT = 4;
+const TREE_MAX_TRUNK_HEIGHT = 5;
 const TREE_MAX_SURFACE_HEIGHT = CHUNK_SIZE - (TREE_MAX_TRUNK_HEIGHT + 2);
 
 interface TreeAnchor {
@@ -69,31 +13,80 @@ interface TreeAnchor {
   z: number;
   surfaceY: number;
   trunkHeight: number;
+  canopyRadius: 1 | 2;
 }
 
 const floorDiv = (value: number, size: number): number => Math.floor(value / size);
 
-const getTreeAnchorForCell = (seed: number, cellX: number, cellZ: number): TreeAnchor | null => {
-  const cellSeed = hash2dInt(cellX, cellZ, seed ^ 0x51f15e37);
-  if ((cellSeed % 100) >= 42) {
-    return null;
-  }
+const getBiomeHeightParameters = (
+  seed: number,
+  worldX: number,
+  worldZ: number,
+): {
+  baseHeight: number;
+  waveAmplitude: number;
+  largeNoiseAmplitude: number;
+  detailNoiseAmplitude: number;
+} => {
+  const sample = sampleBiome(seed, worldX, worldZ);
+  let baseHeight = 0;
+  let waveAmplitude = 0;
+  let largeNoiseAmplitude = 0;
+  let detailNoiseAmplitude = 0;
 
-  const usableCellWidth = TREE_CELL_SIZE - 2;
-  const worldX = cellX * TREE_CELL_SIZE + 1 + (cellSeed % usableCellWidth);
-  const worldZ =
-    cellZ * TREE_CELL_SIZE + 1 + (((cellSeed >>> 6) & 0xffff) % usableCellWidth);
-  const surfaceY = getTerrainHeight(seed, worldX, worldZ);
-  if (surfaceY > TREE_MAX_SURFACE_HEIGHT) {
-    return null;
+  for (const [biomeId, weight] of Object.entries(sample.weights) as Array<
+    [keyof typeof sample.weights, number]
+  >) {
+    const biome = Biomes[biomeId];
+    baseHeight += biome.baseHeight * weight;
+    waveAmplitude += biome.waveAmplitude * weight;
+    largeNoiseAmplitude += biome.largeNoiseAmplitude * weight;
+    detailNoiseAmplitude += biome.detailNoiseAmplitude * weight;
   }
 
   return {
-    x: worldX,
-    z: worldZ,
-    surfaceY,
-    trunkHeight: TREE_MIN_TRUNK_HEIGHT + ((cellSeed >>> 12) % 2),
+    baseHeight,
+    waveAmplitude,
+    largeNoiseAmplitude,
+    detailNoiseAmplitude,
   };
+};
+
+export const getTerrainHeight = (seed: number, worldX: number, worldZ: number): number => {
+  const seedX = (seed & 0xffff) / 4096;
+  const seedZ = ((seed >>> 16) & 0xffff) / 4096;
+  const params = getBiomeHeightParameters(seed, worldX, worldZ);
+  const rollingWaves =
+    Math.sin((worldX + seedX * 19) * 0.16) * (0.8 * params.waveAmplitude) +
+    Math.cos((worldZ - seedZ * 17) * 0.13) * (0.6 * params.waveAmplitude) +
+    Math.sin((worldX + worldZ + seedX * 11 - seedZ * 13) * 0.065) * params.waveAmplitude;
+  const largeNoise = sampleValueNoise(worldX, worldZ, seed ^ 0x9e3779b9, 16) *
+    params.largeNoiseAmplitude;
+  const detailNoise = sampleValueNoise(worldX, worldZ, seed ^ 0x85ebca6b, 6) *
+    params.detailNoiseAmplitude;
+  const height = params.baseHeight + rollingWaves + largeNoise + detailNoise;
+
+  return clamp(Math.round(height), 1, CHUNK_SIZE - 2);
+};
+
+const getColumnBlocksForBiome = (
+  biome: BiomeDefinition,
+  height: number,
+  worldY: number,
+): BlockId => {
+  if (worldY > height) {
+    return 0;
+  }
+
+  if (worldY === height) {
+    return biome.surfaceBlock;
+  }
+
+  if (worldY >= height - 2) {
+    return biome.fillerBlock;
+  }
+
+  return biome.deepBlock;
 };
 
 const setGeneratedBlockIfInChunk = (
@@ -132,15 +125,41 @@ const setGeneratedBlockIfInChunk = (
   chunk.set(localX, localY, localZ, blockId);
 };
 
+const getTreeAnchorForCell = (seed: number, cellX: number, cellZ: number): TreeAnchor | null => {
+  const cellSeed = hash2dInt(cellX, cellZ, seed ^ 0x51f15e37);
+  const worldX = cellX * TREE_CELL_SIZE + 1 + (cellSeed % (TREE_CELL_SIZE - 2));
+  const worldZ = cellZ * TREE_CELL_SIZE + 1 + (((cellSeed >>> 6) & 0xffff) % (TREE_CELL_SIZE - 2));
+  const biomeId = getBiomeAt(seed, worldX, worldZ);
+  const biome = Biomes[biomeId];
+
+  if ((cellSeed % 100) >= biome.treeChancePercent || biome.surfaceBlock !== 1) {
+    return null;
+  }
+
+  const surfaceY = getTerrainHeight(seed, worldX, worldZ);
+  if (surfaceY > TREE_MAX_SURFACE_HEIGHT) {
+    return null;
+  }
+
+  return {
+    x: worldX,
+    z: worldZ,
+    surfaceY,
+    trunkHeight: biome.trunkHeightMin + ((cellSeed >>> 12) % Math.max(1, biome.trunkHeightVariance)),
+    canopyRadius: biome.canopyRadius,
+  };
+};
+
 const decorateChunkWithTrees = (chunk: Chunk, seed: number): void => {
   if (chunk.coord.y !== 0) {
     return;
   }
 
-  const minWorldX = chunk.coord.x * CHUNK_SIZE - TREE_CANOPY_RADIUS;
-  const maxWorldX = chunk.coord.x * CHUNK_SIZE + CHUNK_SIZE - 1 + TREE_CANOPY_RADIUS;
-  const minWorldZ = chunk.coord.z * CHUNK_SIZE - TREE_CANOPY_RADIUS;
-  const maxWorldZ = chunk.coord.z * CHUNK_SIZE + CHUNK_SIZE - 1 + TREE_CANOPY_RADIUS;
+  const structureRadius = 2;
+  const minWorldX = chunk.coord.x * CHUNK_SIZE - structureRadius;
+  const maxWorldX = chunk.coord.x * CHUNK_SIZE + CHUNK_SIZE - 1 + structureRadius;
+  const minWorldZ = chunk.coord.z * CHUNK_SIZE - structureRadius;
+  const maxWorldZ = chunk.coord.z * CHUNK_SIZE + CHUNK_SIZE - 1 + structureRadius;
 
   const minCellX = floorDiv(minWorldX, TREE_CELL_SIZE);
   const maxCellX = floorDiv(maxWorldX, TREE_CELL_SIZE);
@@ -161,9 +180,12 @@ const decorateChunkWithTrees = (chunk: Chunk, seed: number): void => {
         setGeneratedBlockIfInChunk(chunk, tree.x, worldY, tree.z, 4);
       }
 
-      for (let offsetZ = -2; offsetZ <= 2; offsetZ += 1) {
-        for (let offsetX = -2; offsetX <= 2; offsetX += 1) {
-          if (Math.abs(offsetX) === 2 && Math.abs(offsetZ) === 2) {
+      for (let offsetZ = -tree.canopyRadius; offsetZ <= tree.canopyRadius; offsetZ += 1) {
+        for (let offsetX = -tree.canopyRadius; offsetX <= tree.canopyRadius; offsetX += 1) {
+          if (tree.canopyRadius === 2 && Math.abs(offsetX) === 2 && Math.abs(offsetZ) === 2) {
+            continue;
+          }
+          if (tree.canopyRadius === 1 && Math.abs(offsetX) === 1 && Math.abs(offsetZ) === 1) {
             continue;
           }
 
@@ -196,19 +218,11 @@ export const populateGeneratedChunk = (chunk: Chunk, seed: number): Chunk => {
       const worldX = chunkX * CHUNK_SIZE + localX;
       const worldZ = chunkZ * CHUNK_SIZE + localZ;
       const height = getTerrainHeight(seed, worldX, worldZ);
+      const biome = Biomes[getBiomeAt(seed, worldX, worldZ)];
 
       for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
         const worldY = chunkY * CHUNK_SIZE + localY;
-
-        if (worldY > height) {
-          chunk.set(localX, localY, localZ, 0);
-        } else if (worldY === height) {
-          chunk.set(localX, localY, localZ, 1);
-        } else if (worldY >= height - 2) {
-          chunk.set(localX, localY, localZ, 2);
-        } else {
-          chunk.set(localX, localY, localZ, 3);
-        }
+        chunk.set(localX, localY, localZ, getColumnBlocksForBiome(biome, height, worldY));
       }
     }
   }
