@@ -162,7 +162,7 @@ The pipeline is:
 3. Render cutout voxel faces.
 4. Render the focused-block highlight.
 5. Render text overlay.
-6. Render UI overlay.
+6. Render UI overlay, including the play HUD and crosshair.
 
 Important rendering details:
 
@@ -170,6 +170,7 @@ Important rendering details:
 - directional face shading is applied in the shader
 - leaves use alpha-cutout rendering, not full sorted translucency
 - terrain meshing is split into opaque and cutout passes
+- the play HUD is composed from lightweight rectangle/text overlays rather than a separate retained UI layer
 
 The native bridge in `src/platform/native.ts` and `native/bridge.c` exposes the minimal GLFW/OpenGL surface needed by the renderers.
 
@@ -191,21 +192,23 @@ Gameplay updates currently include:
 - raycasting from the eye position
 - breaking blocks through a server event
 - placing the selected hotbar block through a server event
-- selecting inventory slots with number keys
+- selecting inventory slots with number keys `1..9`
 
 The client never assumes a local placement/removal succeeded until the authoritative server sends updated chunks and/or inventory.
 
 ## Inventory
 
-Inventory is modeled as a small hotbar-oriented snapshot:
+Inventory is modeled as a hotbar-oriented snapshot:
 
 - fixed slot list
 - selected slot index
 - per-slot block id and count
 
+The current default setup is a nine-slot hotbar with starter stacks for newly created worlds.
+
 The client uses this replicated inventory for:
 
-- HUD display
+- hotbar HUD display
 - current placement selection
 - local feedback such as out-of-stock messages
 
@@ -215,6 +218,8 @@ The server owns the real counts:
 - successful placement decrements counts
 - invalid placement does not consume inventory
 - inventory persists per world through storage
+
+Inventory normalization also acts as a compatibility layer for older persisted snapshots when the hotbar/block catalog grows.
 
 ## Persistence
 
@@ -241,10 +246,13 @@ UI is intentionally lightweight and code-driven.
 The main pieces are:
 
 - `src/ui/menu.ts`: menu layout generation
+- `src/ui/hud.ts`: play HUD and crosshair composition
 - `src/ui/components.ts`: simple panel/label/button model plus hit evaluation
 - `src/ui/renderer.ts`: draws UI rectangles and text
 
 The menu is evaluated each frame from state plus pointer input rather than maintained through a retained widget tree.
+
+In play mode, the hotbar, selected-item label, and centered crosshair follow the same code-driven overlay model and are rendered through the existing rectangle/text UI path.
 
 ## Tests
 
@@ -255,6 +263,7 @@ The test suite covers the main architectural seams:
 - storage round-trips
 - terrain and biome determinism
 - meshing and atlas behavior
+- hotbar normalization and HUD composition
 - player collision and movement
 - worker-host lifecycle behavior
 

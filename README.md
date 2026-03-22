@@ -12,14 +12,17 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Deterministic tree generation with chunk-safe cross-border placement
 - First-person camera with grounded FPS movement
 - Jump, gravity, and voxel collision
+- Centered in-game crosshair
 - Focused block highlight
 - Server-authoritative block breaking and placing through a worker-backed client/server architecture
 - Per-world save/load with named worlds and binary chunk persistence
-- Server-authoritative hotbar inventory with starter stacks and HUD display
+- Server-authoritative 9-slot hotbar inventory with starter stacks and HUD display
+- Nine placeable hotbar block types including terrain, wood, and masonry-style blocks
 - Create, join, delete, and save worlds from the menu
 - Pre-game menu with reusable UI components and clickable buttons
 - Seeded Minecraft-like menu background
-- On-screen HUD text for FPS, position, rotation, world name, status, and hotbar contents
+- On-screen HUD text for FPS, position, rotation, world name, and status
+- Bottom-center hotbar strip with slot highlight, counts, and selected-item label
 
 ## Requirements
 
@@ -49,7 +52,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `Space` jump
 - Left click break block
 - Right click place the selected hotbar block
-- `1`-`5` select hotbar slots
+- `1`-`9` select hotbar slots
 - `Esc` exits
 
 ## Project Layout
@@ -61,7 +64,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `src/render` voxel rendering, text, UI rectangles, and highlight rendering
 - `src/world` chunks, biome/terrain generation, meshing, atlas data, inventory helpers, and raycasting
 - `src/game` player movement and physics
-- `src/ui` menu layout, UI components, and UI rendering
+- `src/ui` menu layout, HUD composition, UI components, and UI rendering
 - `native` GLFW/OpenGL bridge in C
 - `assets/shaders` GLSL shaders
 - `plans` implementation plans for major feature work
@@ -73,4 +76,5 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Biomes, terrain, and trees are all derived deterministically from the world seed.
 - World state is worker/server-authoritative even in the current single-player setup.
 - The menu background is seeded and stable for a given run.
+- The play HUD is built from lightweight rectangle/text overlays rather than a retained widget framework.
 - The current implementation targets macOS first.
