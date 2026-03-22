@@ -1,10 +1,12 @@
 import type { BlockId, ChunkCoord, MeshData } from "../types.ts";
-import { Blocks, isSolidBlock } from "./blocks.ts";
+import { getAtlasUvRect } from "./atlas.ts";
+import { Blocks, getBlockFaceTile, isSolidBlock, type BlockFaceRole } from "./blocks.ts";
 import { CHUNK_SIZE } from "./constants.ts";
 import { VoxelWorld } from "./world.ts";
 
 const FACE_DEFINITIONS = [
   {
+    faceRole: "side",
     normal: [1, 0, 0],
     shade: 0.88,
     vertices: [
@@ -13,8 +15,15 @@ const FACE_DEFINITIONS = [
       [1, 1, 1],
       [1, 0, 1],
     ],
+    uvs: [
+      [0, 1],
+      [0, 0],
+      [1, 0],
+      [1, 1],
+    ],
   },
   {
+    faceRole: "side",
     normal: [-1, 0, 0],
     shade: 0.72,
     vertices: [
@@ -23,8 +32,15 @@ const FACE_DEFINITIONS = [
       [0, 1, 0],
       [0, 0, 0],
     ],
+    uvs: [
+      [0, 1],
+      [0, 0],
+      [1, 0],
+      [1, 1],
+    ],
   },
   {
+    faceRole: "top",
     normal: [0, 1, 0],
     shade: 1.0,
     vertices: [
@@ -33,8 +49,15 @@ const FACE_DEFINITIONS = [
       [1, 1, 0],
       [0, 1, 0],
     ],
+    uvs: [
+      [0, 1],
+      [1, 1],
+      [1, 0],
+      [0, 0],
+    ],
   },
   {
+    faceRole: "bottom",
     normal: [0, -1, 0],
     shade: 0.56,
     vertices: [
@@ -43,8 +66,15 @@ const FACE_DEFINITIONS = [
       [1, 0, 1],
       [0, 0, 1],
     ],
+    uvs: [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [0, 1],
+    ],
   },
   {
+    faceRole: "side",
     normal: [0, 0, 1],
     shade: 0.8,
     vertices: [
@@ -53,8 +83,15 @@ const FACE_DEFINITIONS = [
       [0, 1, 1],
       [0, 0, 1],
     ],
+    uvs: [
+      [0, 1],
+      [0, 0],
+      [1, 0],
+      [1, 1],
+    ],
   },
   {
+    faceRole: "side",
     normal: [0, 0, -1],
     shade: 0.68,
     vertices: [
@@ -62,6 +99,12 @@ const FACE_DEFINITIONS = [
       [0, 1, 0],
       [1, 1, 0],
       [1, 0, 0],
+    ],
+    uvs: [
+      [0, 1],
+      [0, 0],
+      [1, 0],
+      [1, 1],
     ],
   },
 ] as const;
@@ -76,17 +119,27 @@ const pushFace = (
   worldZ: number,
   face: (typeof FACE_DEFINITIONS)[number],
 ): void => {
-  const [red, green, blue] = Blocks[blockId].color;
+  const tile = getBlockFaceTile(blockId, face.faceRole as BlockFaceRole);
+  if (!tile) {
+    return;
+  }
+
+  const uvRect = getAtlasUvRect(tile);
   const shade = face.shade;
 
-  for (const [offsetX, offsetY, offsetZ] of face.vertices) {
+  for (let index = 0; index < face.vertices.length; index += 1) {
+    const [offsetX, offsetY, offsetZ] = face.vertices[index];
+    const [u, v] = face.uvs[index];
+    const atlasU = u === 0 ? uvRect.uMin : uvRect.uMax;
+    const atlasV = v === 0 ? uvRect.vMin : uvRect.vMax;
+
     vertices.push(
       worldX + offsetX,
       worldY + offsetY,
       worldZ + offsetZ,
-      red * shade,
-      green * shade,
-      blue * shade,
+      atlasU,
+      atlasV,
+      shade,
     );
   }
 

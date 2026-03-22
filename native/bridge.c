@@ -312,6 +312,10 @@ void bridge_gl_uniform_matrix4fv(int location, const float *value) {
   glUniformMatrix4fv(location, 1, GL_FALSE, value);
 }
 
+void bridge_gl_uniform1i(int location, int value) {
+  glUniform1i(location, value);
+}
+
 GLuint bridge_gl_gen_vertex_array(void) {
   GLuint vao = 0;
   glGenVertexArrays(1, &vao);
@@ -324,6 +328,12 @@ GLuint bridge_gl_gen_buffer(void) {
   return buffer;
 }
 
+GLuint bridge_gl_gen_texture(void) {
+  GLuint texture = 0;
+  glGenTextures(1, &texture);
+  return texture;
+}
+
 void bridge_gl_bind_vertex_array(GLuint vao) {
   glBindVertexArray(vao);
 }
@@ -332,12 +342,46 @@ void bridge_gl_bind_buffer(unsigned int target, GLuint buffer) {
   glBindBuffer(target, buffer);
 }
 
+void bridge_gl_active_texture(unsigned int texture) {
+  glActiveTexture(texture);
+}
+
+void bridge_gl_bind_texture(unsigned int target, GLuint texture) {
+  glBindTexture(target, texture);
+}
+
 void bridge_gl_buffer_data(
     unsigned int target,
     const void *data,
     int size,
     unsigned int usage) {
   glBufferData(target, size, data, usage);
+}
+
+void bridge_gl_tex_image_2d(
+    unsigned int target,
+    int level,
+    int internal_format,
+    int width,
+    int height,
+    int border,
+    unsigned int format,
+    unsigned int type,
+    const void *data) {
+  glTexImage2D(
+      target,
+      level,
+      internal_format,
+      width,
+      height,
+      border,
+      format,
+      type,
+      data);
+}
+
+void bridge_gl_tex_parameteri(unsigned int target, unsigned int name, int value) {
+  glTexParameteri(target, name, value);
 }
 
 void bridge_gl_enable_vertex_attrib_array(unsigned int index) {
@@ -374,4 +418,8 @@ void bridge_gl_delete_vertex_array(GLuint vao) {
 
 void bridge_gl_delete_buffer(GLuint buffer) {
   glDeleteBuffers(1, &buffer);
+}
+
+void bridge_gl_delete_texture(GLuint texture) {
+  glDeleteTextures(1, &texture);
 }

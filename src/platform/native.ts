@@ -75,12 +75,37 @@ const library = dlopen(libraryPath, {
     args: [FFIType.i32, FFIType.ptr],
     returns: FFIType.void,
   },
+  bridge_gl_uniform1i: {
+    args: [FFIType.i32, FFIType.i32],
+    returns: FFIType.void,
+  },
   bridge_gl_gen_vertex_array: { args: [], returns: FFIType.u32 },
   bridge_gl_gen_buffer: { args: [], returns: FFIType.u32 },
+  bridge_gl_gen_texture: { args: [], returns: FFIType.u32 },
   bridge_gl_bind_vertex_array: { args: [FFIType.u32], returns: FFIType.void },
   bridge_gl_bind_buffer: { args: [FFIType.u32, FFIType.u32], returns: FFIType.void },
+  bridge_gl_active_texture: { args: [FFIType.u32], returns: FFIType.void },
+  bridge_gl_bind_texture: { args: [FFIType.u32, FFIType.u32], returns: FFIType.void },
   bridge_gl_buffer_data: {
     args: [FFIType.u32, FFIType.ptr, FFIType.i32, FFIType.u32],
+    returns: FFIType.void,
+  },
+  bridge_gl_tex_image_2d: {
+    args: [
+      FFIType.u32,
+      FFIType.i32,
+      FFIType.i32,
+      FFIType.i32,
+      FFIType.i32,
+      FFIType.i32,
+      FFIType.u32,
+      FFIType.u32,
+      FFIType.ptr,
+    ],
+    returns: FFIType.void,
+  },
+  bridge_gl_tex_parameteri: {
+    args: [FFIType.u32, FFIType.u32, FFIType.i32],
     returns: FFIType.void,
   },
   bridge_gl_enable_vertex_attrib_array: { args: [FFIType.u32], returns: FFIType.void },
@@ -101,6 +126,7 @@ const library = dlopen(libraryPath, {
   },
   bridge_gl_delete_vertex_array: { args: [FFIType.u32], returns: FFIType.void },
   bridge_gl_delete_buffer: { args: [FFIType.u32], returns: FFIType.void },
+  bridge_gl_delete_texture: { args: [FFIType.u32], returns: FFIType.void },
 });
 
 const GLFW_KEY_W = 87;
@@ -135,6 +161,16 @@ export const GL = {
   TRIANGLES: 0x0004,
   LINES: 0x0001,
   UNSIGNED_INT: 0x1405,
+  UNSIGNED_BYTE: 0x1401,
+  TEXTURE_2D: 0x0de1,
+  TEXTURE0: 0x84c0,
+  TEXTURE_MIN_FILTER: 0x2801,
+  TEXTURE_MAG_FILTER: 0x2800,
+  TEXTURE_WRAP_S: 0x2802,
+  TEXTURE_WRAP_T: 0x2803,
+  CLAMP_TO_EDGE: 0x812f,
+  NEAREST: 0x2600,
+  RGBA: 0x1908,
 } as const;
 
 export class NativeBridge {
@@ -274,17 +310,47 @@ export class NativeBridge {
       library.symbols.bridge_gl_get_uniform_location(program, cstring(name)),
     uniformMatrix4fv: (location: number, value: Float32Array): void =>
       library.symbols.bridge_gl_uniform_matrix4fv(location, ptr(value)),
+    uniform1i: (location: number, value: number): void =>
+      library.symbols.bridge_gl_uniform1i(location, value),
     genVertexArray: (): number => library.symbols.bridge_gl_gen_vertex_array(),
     genBuffer: (): number => library.symbols.bridge_gl_gen_buffer(),
+    genTexture: (): number => library.symbols.bridge_gl_gen_texture(),
     bindVertexArray: (vao: number): void => library.symbols.bridge_gl_bind_vertex_array(vao),
     bindBuffer: (target: number, buffer: number): void =>
       library.symbols.bridge_gl_bind_buffer(target, buffer),
+    activeTexture: (texture: number): void => library.symbols.bridge_gl_active_texture(texture),
+    bindTexture: (target: number, texture: number): void =>
+      library.symbols.bridge_gl_bind_texture(target, texture),
     bufferData: (
       target: number,
       value: Float32Array | Uint32Array,
       usage: number,
     ): void =>
       library.symbols.bridge_gl_buffer_data(target, ptr(value), value.byteLength, usage),
+    texImage2D: (
+      target: number,
+      level: number,
+      internalFormat: number,
+      width: number,
+      height: number,
+      border: number,
+      format: number,
+      type: number,
+      value: Uint8Array,
+    ): void =>
+      library.symbols.bridge_gl_tex_image_2d(
+        target,
+        level,
+        internalFormat,
+        width,
+        height,
+        border,
+        format,
+        type,
+        ptr(value),
+      ),
+    texParameteri: (target: number, name: number, value: number): void =>
+      library.symbols.bridge_gl_tex_parameteri(target, name, value),
     enableVertexAttribArray: (index: number): void =>
       library.symbols.bridge_gl_enable_vertex_attrib_array(index),
     vertexAttribPointer: (
@@ -308,8 +374,13 @@ export class NativeBridge {
     deleteVertexArray: (vao: number): void =>
       library.symbols.bridge_gl_delete_vertex_array(vao),
     deleteBuffer: (buffer: number): void => library.symbols.bridge_gl_delete_buffer(buffer),
+    deleteTexture: (texture: number): void =>
+      library.symbols.bridge_gl_delete_texture(texture),
   };
 }
 
 export const loadTextAsset = (relativePath: string): string =>
   readFileSync(join(rootDir, relativePath), "utf8");
+
+export const loadBinaryAsset = (relativePath: string): Uint8Array =>
+  new Uint8Array(readFileSync(join(rootDir, relativePath)));

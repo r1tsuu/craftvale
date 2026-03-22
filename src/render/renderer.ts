@@ -3,6 +3,7 @@ import type { ChunkCoord } from "../types.ts";
 import { ACTIVE_CHUNK_RADIUS, CHUNK_SIZE } from "../world/constants.ts";
 import { buildChunkMesh } from "../world/mesher.ts";
 import { VoxelWorld } from "../world/world.ts";
+import { loadVoxelAtlasImageData } from "../world/atlas.ts";
 import { PlayerController } from "../game/player.ts";
 import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
 import { FocusHighlightRenderer } from "./highlight.ts";
@@ -33,6 +34,8 @@ const compileShader = (nativeBridge: NativeBridge, type: number, source: string)
 export class VoxelRenderer {
   private readonly program: number;
   private readonly viewProjectionLocation: number;
+  private readonly atlasSamplerLocation: number;
+  private readonly atlasTexture: number;
   private readonly meshes = new Map<string, GpuMesh>();
   private readonly focusHighlightRenderer: FocusHighlightRenderer;
   private readonly textOverlayRenderer: TextOverlayRenderer;
@@ -71,6 +74,8 @@ export class VoxelRenderer {
       this.program,
       "uViewProjection",
     );
+    this.atlasSamplerLocation = nativeBridge.gl.getUniformLocation(this.program, "uAtlas");
+    this.atlasTexture = this.createAtlasTexture();
     this.focusHighlightRenderer = new FocusHighlightRenderer(nativeBridge);
     this.textOverlayRenderer = new TextOverlayRenderer(nativeBridge);
     this.uiRenderer = new UiRenderer(nativeBridge);
@@ -91,6 +96,9 @@ export class VoxelRenderer {
     this.nativeBridge.gl.clearColor(0.56, 0.76, 0.94, 1);
     this.nativeBridge.gl.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
     this.nativeBridge.gl.useProgram(this.program);
+    this.nativeBridge.gl.activeTexture(GL.TEXTURE0);
+    this.nativeBridge.gl.bindTexture(GL.TEXTURE_2D, this.atlasTexture);
+    this.nativeBridge.gl.uniform1i(this.atlasSamplerLocation, 0);
 
     const aspect = Math.max(width / Math.max(height, 1), 0.01);
     const viewProjection = player.getViewProjection(aspect);
@@ -159,11 +167,20 @@ export class VoxelRenderer {
     this.nativeBridge.gl.enableVertexAttribArray(1);
     this.nativeBridge.gl.vertexAttribPointer(
       1,
-      3,
+      2,
       GL.FLOAT,
       false,
       stride,
       3 * Float32Array.BYTES_PER_ELEMENT,
+    );
+    this.nativeBridge.gl.enableVertexAttribArray(2);
+    this.nativeBridge.gl.vertexAttribPointer(
+      2,
+      1,
+      GL.FLOAT,
+      false,
+      stride,
+      5 * Float32Array.BYTES_PER_ELEMENT,
     );
 
     this.meshes.set(key, {
@@ -172,5 +189,30 @@ export class VoxelRenderer {
       ebo,
       indexCount: mesh.indexCount,
     });
+  }
+
+  private createAtlasTexture(): number {
+    const texture = this.nativeBridge.gl.genTexture();
+    const atlas = loadVoxelAtlasImageData();
+
+    this.nativeBridge.gl.activeTexture(GL.TEXTURE0);
+    this.nativeBridge.gl.bindTexture(GL.TEXTURE_2D, texture);
+    this.nativeBridge.gl.texImage2D(
+      GL.TEXTURE_2D,
+      0,
+      GL.RGBA,
+      atlas.width,
+      atlas.height,
+      0,
+      GL.RGBA,
+      GL.UNSIGNED_BYTE,
+      atlas.pixels,
+    );
+    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.NEAREST);
+    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.NEAREST);
+    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE);
+    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, GL.CLAMP_TO_EDGE);
+
+    return texture;
   }
 }

@@ -1,9 +1,13 @@
 #version 330 core
 
-in vec3 vColor;
+in vec2 vUv;
+in float vShade;
+
+uniform sampler2D uAtlas;
 
 out vec4 fragColor;
 
 void main() {
-  fragColor = vec4(vColor, 1.0);
+  vec4 sampled = texture(uAtlas, vUv);
+  fragColor = vec4(sampled.rgb * vShade, 1.0);
 }
