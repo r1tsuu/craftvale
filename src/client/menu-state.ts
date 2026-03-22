@@ -1,9 +1,11 @@
 import type { InputState } from "../types.ts";
 import type { WorldSummary } from "../shared/messages.ts";
 
+export type MenuScreen = "play" | "worlds" | "create-world";
 export type MenuFocusField = "world-name" | "world-seed" | null;
 
 export interface MenuState {
+  activeScreen: MenuScreen;
   worlds: WorldSummary[];
   selectedWorldName: string | null;
   createWorldName: string;
@@ -14,11 +16,12 @@ export interface MenuState {
 }
 
 export const createMenuState = (): MenuState => ({
+  activeScreen: "play",
   worlds: [],
   selectedWorldName: null,
   createWorldName: "",
   createSeedText: "",
-  focusedField: "world-name",
+  focusedField: null,
   statusText: "LOADING WORLDS...",
   busy: false,
 });
@@ -27,15 +30,11 @@ const normalizeSelection = (
   worlds: readonly WorldSummary[],
   selectedWorldName: string | null,
 ): string | null => {
-  if (!worlds.length) {
-    return null;
-  }
-
   if (selectedWorldName && worlds.some((world) => world.name === selectedWorldName)) {
     return selectedWorldName;
   }
 
-  return worlds[0]?.name ?? null;
+  return null;
 };
 
 export const setMenuWorlds = (
@@ -59,6 +58,30 @@ export const setMenuStatus = (state: MenuState, statusText: string): MenuState =
 });
 
 export const applyMenuAction = (state: MenuState, action: string): MenuState => {
+  if (action === "open-play" || action === "back-to-play") {
+    return {
+      ...state,
+      activeScreen: "play",
+      focusedField: null,
+    };
+  }
+
+  if (action === "open-worlds" || action === "back-to-worlds") {
+    return {
+      ...state,
+      activeScreen: "worlds",
+      focusedField: null,
+    };
+  }
+
+  if (action === "open-create-world") {
+    return {
+      ...state,
+      activeScreen: "create-world",
+      focusedField: "world-name",
+    };
+  }
+
   if (action.startsWith("select-world:")) {
     return {
       ...state,
@@ -69,6 +92,7 @@ export const applyMenuAction = (state: MenuState, action: string): MenuState => 
   if (action === "focus-world-name") {
     return {
       ...state,
+      activeScreen: "create-world",
       focusedField: "world-name",
     };
   }
@@ -76,6 +100,7 @@ export const applyMenuAction = (state: MenuState, action: string): MenuState => 
   if (action === "focus-world-seed") {
     return {
       ...state,
+      activeScreen: "create-world",
       focusedField: "world-seed",
     };
   }
@@ -102,6 +127,10 @@ const cycleFocus = (focusedField: MenuFocusField): MenuFocusField => {
 };
 
 export const applyMenuTyping = (state: MenuState, input: InputState): MenuState => {
+  if (state.activeScreen !== "create-world") {
+    return state;
+  }
+
   let nextState = state;
 
   if (input.tabPressed) {

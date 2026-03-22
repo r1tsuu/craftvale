@@ -1,3 +1,4 @@
+import type { MenuFocusField, MenuScreen } from "../client/menu-state.ts";
 import type { WorldSummary } from "../shared/messages.ts";
 import {
   createButton,
@@ -7,11 +8,12 @@ import {
 } from "./components.ts";
 
 export interface MainMenuViewModel {
+  activeScreen: MenuScreen;
   worlds: readonly WorldSummary[];
   selectedWorldName: string | null;
   createWorldName: string;
   createSeedText: string;
-  focusedField: "world-name" | "world-seed" | null;
+  focusedField: MenuFocusField;
   statusText: string;
   busy: boolean;
 }
@@ -184,35 +186,192 @@ const formatInputValue = (
   return `${label}: ${content}${focused ? "_" : ""}`;
 };
 
-export const buildMainMenu = (
+const buildMenuShell = (
+  width: number,
+  height: number,
+  title: string,
+  subtitle: string,
+  seed: number,
+  panelWidth: number,
+  panelHeight: number,
+): {
+  components: UiComponent[];
+  panelX: number;
+  panelY: number;
+} => {
+  const panelX = Math.round((width - panelWidth) / 2);
+  const panelY = Math.round((height - panelHeight) / 2);
+
+  return {
+    panelX,
+    panelY,
+    components: [
+      ...buildVoxelBackdrop(width, height, seed),
+      createPanel({
+        id: "menu-shadow",
+        kind: "panel",
+        rect: {
+          x: panelX - 10,
+          y: panelY - 10,
+          width: panelWidth + 20,
+          height: panelHeight + 20,
+        },
+        color: [0.08, 0.09, 0.1],
+      }),
+      createPanel({
+        id: "menu-frame",
+        kind: "panel",
+        rect: {
+          x: panelX - 4,
+          y: panelY - 4,
+          width: panelWidth + 8,
+          height: panelHeight + 8,
+        },
+        color: [0.22, 0.23, 0.24],
+      }),
+      createPanel({
+        id: "menu-panel",
+        kind: "panel",
+        rect: {
+          x: panelX,
+          y: panelY,
+          width: panelWidth,
+          height: panelHeight,
+        },
+        color: [0.16, 0.18, 0.2],
+      }),
+      createLabel({
+        id: "menu-title",
+        kind: "label",
+        rect: {
+          x: panelX + 30,
+          y: panelY + 26,
+          width: panelWidth - 60,
+          height: 58,
+        },
+        text: title,
+        scale: 5,
+        color: [0.98, 0.98, 0.98],
+        centered: true,
+      }),
+      createLabel({
+        id: "menu-subtitle",
+        kind: "label",
+        rect: {
+          x: panelX + 30,
+          y: panelY + 86,
+          width: panelWidth - 60,
+          height: 30,
+        },
+        text: subtitle,
+        scale: 2,
+        color: [0.82, 0.86, 0.89],
+        centered: true,
+      }),
+    ],
+  };
+};
+
+const buildPlayMenu = (
   width: number,
   height: number,
   viewModel: MainMenuViewModel,
-  seed = 1337,
+  seed: number,
 ): UiComponent[] => {
-  const panelWidth = 980;
-  const panelHeight = 560;
-  const panelX = Math.round((width - panelWidth) / 2);
-  const panelY = Math.round((height - panelHeight) / 2);
-  const listPanelWidth = 420;
+  const panelWidth = 620;
+  const panelHeight = 390;
+  const shell = buildMenuShell(
+    width,
+    height,
+    "MINECRAFT CLONE",
+    "A worker-backed voxel sandbox",
+    seed,
+    panelWidth,
+    panelHeight,
+  );
   const buttonWidth = 320;
   const buttonHeight = 56;
-  const listX = panelX + 40;
-  const formX = panelX + 520;
-  const buttonX = formX;
+  const buttonX = shell.panelX + Math.round((panelWidth - buttonWidth) / 2);
 
-  const worldButtons: UiComponent[] = [];
+  return [
+    ...shell.components,
+    createLabel({
+      id: "play-screen-label",
+      kind: "label",
+      rect: {
+        x: shell.panelX + 70,
+        y: shell.panelY + 140,
+        width: panelWidth - 140,
+        height: 34,
+      },
+      text: "SELECT PLAY TO OPEN YOUR WORLDS",
+      scale: 2,
+      color: [0.9, 0.92, 0.95],
+      centered: true,
+    }),
+    createButton({
+      id: "play-button",
+      kind: "button",
+      rect: {
+        x: buttonX,
+        y: shell.panelY + 192,
+        width: buttonWidth,
+        height: buttonHeight,
+      },
+      text: "PLAY",
+      action: "open-worlds",
+      scale: 3,
+      variant: "primary",
+      disabled: viewModel.busy,
+    }),
+    createButton({
+      id: "quit-button",
+      kind: "button",
+      rect: {
+        x: buttonX,
+        y: shell.panelY + 266,
+        width: buttonWidth,
+        height: buttonHeight,
+      },
+      text: "QUIT GAME",
+      action: "quit-game",
+      scale: 3,
+      variant: "secondary",
+    }),
+    createLabel({
+      id: "status-label",
+      kind: "label",
+      rect: {
+        x: shell.panelX + 36,
+        y: shell.panelY + 334,
+        width: panelWidth - 72,
+        height: 24,
+      },
+      text: viewModel.statusText,
+      scale: 2,
+      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
+      centered: true,
+    }),
+  ];
+};
+
+const buildWorldList = (
+  viewModel: MainMenuViewModel,
+  listX: number,
+  listY: number,
+  listWidth: number,
+): UiComponent[] => {
   const visibleWorlds = viewModel.worlds.slice(0, 6);
 
   if (visibleWorlds.length === 0) {
-    worldButtons.push(
+    return [
       createLabel({
         id: "world-empty",
         kind: "label",
         rect: {
-          x: listX,
-          y: panelY + 170,
-          width: listPanelWidth - 80,
+          x: listX + 30,
+          y: listY + 92,
+          width: listWidth - 60,
           height: 40,
         },
         text: "NO WORLDS YET",
@@ -220,142 +379,297 @@ export const buildMainMenu = (
         color: [0.82, 0.88, 0.92],
         centered: true,
       }),
-    );
-  } else {
-    visibleWorlds.forEach((world, index) => {
-      const selected = world.name === viewModel.selectedWorldName;
-      worldButtons.push(
-        createButton({
-          id: `world-${index}`,
-          kind: "button",
-          rect: {
-            x: listX,
-            y: panelY + 138 + index * 62,
-            width: listPanelWidth - 80,
-            height: 52,
-          },
-          text: `${selected ? "> " : ""}${world.name}  S:${world.seed}`,
-          action: `select-world:${world.name}`,
-          scale: 2,
-        }),
-      );
-    });
+      createLabel({
+        id: "world-empty-hint",
+        kind: "label",
+        rect: {
+          x: listX + 30,
+          y: listY + 136,
+          width: listWidth - 60,
+          height: 26,
+        },
+        text: "CREATE ONE TO START PLAYING",
+        scale: 2,
+        color: [0.78, 0.82, 0.86],
+        centered: true,
+      }),
+    ];
   }
 
+  return visibleWorlds.map((world, index) => {
+    const selected = world.name === viewModel.selectedWorldName;
+    return createButton({
+      id: `world-${index}`,
+      kind: "button",
+      rect: {
+        x: listX + 22,
+        y: listY + 56 + index * 60,
+        width: listWidth - 44,
+        height: 48,
+      },
+      text: `${selected ? "> " : ""}${world.name}   SEED ${world.seed}`,
+      action: `select-world:${world.name}`,
+      scale: 2,
+      variant: selected ? "primary" : "secondary",
+      disabled: viewModel.busy,
+    });
+  });
+};
+
+const buildWorldsMenu = (
+  width: number,
+  height: number,
+  viewModel: MainMenuViewModel,
+  seed: number,
+): UiComponent[] => {
+  const panelWidth = 980;
+  const panelHeight = 570;
+  const shell = buildMenuShell(
+    width,
+    height,
+    "SELECT WORLD",
+    "Click a world to focus it, or create a new one",
+    seed,
+    panelWidth,
+    panelHeight,
+  );
+  const listX = shell.panelX + 36;
+  const listY = shell.panelY + 132;
+  const listWidth = 540;
+  const sideX = shell.panelX + 608;
+  const buttonWidth = 320;
+  const buttonHeight = 52;
+  const selectedWorld = viewModel.worlds.find((world) => world.name === viewModel.selectedWorldName) ?? null;
+
   return [
-    ...buildVoxelBackdrop(width, height, seed),
+    ...shell.components,
     createPanel({
-      id: "menu-backdrop",
+      id: "world-list-frame",
       kind: "panel",
       rect: {
-        x: panelX - 8,
-        y: panelY - 8,
-        width: panelWidth + 16,
-        height: panelHeight + 16,
+        x: listX,
+        y: listY,
+        width: listWidth,
+        height: 364,
       },
-      color: [0.12, 0.16, 0.2],
+      color: [0.11, 0.12, 0.13],
     }),
     createPanel({
-      id: "menu-panel",
+      id: "world-list-panel",
       kind: "panel",
       rect: {
-        x: panelX,
-        y: panelY,
-        width: panelWidth,
-        height: panelHeight,
+        x: listX + 4,
+        y: listY + 4,
+        width: listWidth - 8,
+        height: 356,
       },
-      color: [0.18, 0.24, 0.3],
+      color: [0.24, 0.26, 0.28],
     }),
     createLabel({
-      id: "menu-title",
+      id: "world-list-title",
       kind: "label",
       rect: {
-        x: panelX + 40,
-        y: panelY + 32,
-        width: panelWidth - 80,
-        height: 50,
+        x: listX + 22,
+        y: listY + 18,
+        width: listWidth - 44,
+        height: 24,
       },
-      text: "MINECRAFT CLONE",
-      scale: 5,
-      color: [0.98, 0.98, 0.98],
+      text: "YOUR WORLDS",
+      scale: 3,
+      color: [0.94, 0.95, 0.96],
+      centered: false,
+    }),
+    ...buildWorldList(viewModel, listX, listY, listWidth),
+    createPanel({
+      id: "world-side-panel",
+      kind: "panel",
+      rect: {
+        x: sideX,
+        y: listY,
+        width: 336,
+        height: 364,
+      },
+      color: [0.19, 0.2, 0.22],
+    }),
+    createLabel({
+      id: "world-selection-title",
+      kind: "label",
+      rect: {
+        x: sideX + 20,
+        y: listY + 18,
+        width: 296,
+        height: 24,
+      },
+      text: "FOCUSED WORLD",
+      scale: 3,
+      color: [0.94, 0.95, 0.96],
       centered: true,
     }),
     createLabel({
-      id: "menu-subtitle-left",
+      id: "world-selection-name",
       kind: "label",
       rect: {
-        x: listX,
-        y: panelY + 88,
-        width: 260,
-        height: 24,
+        x: sideX + 20,
+        y: listY + 64,
+        width: 296,
+        height: 44,
       },
-      text: "WORLD LIST",
+      text: selectedWorld?.name ?? "CLICK A WORLD",
       scale: 3,
-      color: [0.78, 0.86, 0.9],
-      centered: false,
+      color: selectedWorld ? [0.98, 0.95, 0.76] : [0.8, 0.84, 0.88],
+      centered: true,
     }),
     createLabel({
-      id: "menu-subtitle-right",
+      id: "world-selection-seed",
       kind: "label",
       rect: {
-        x: formX,
-        y: panelY + 88,
-        width: 320,
+        x: sideX + 20,
+        y: listY + 112,
+        width: 296,
         height: 24,
       },
-      text: "CREATE WORLD",
-      scale: 3,
-      color: [0.78, 0.86, 0.9],
-      centered: false,
-    }),
-    ...worldButtons,
-    createButton({
-      id: "refresh-button",
-      kind: "button",
-      rect: {
-        x: listX,
-        y: panelY + 470,
-        width: 160,
-        height: buttonHeight,
-      },
-      text: "REFRESH",
-      action: "refresh-worlds",
-      scale: 3,
+      text: selectedWorld ? `SEED ${selectedWorld.seed}` : "FOCUS ONE WITH A MOUSE CLICK",
+      scale: 2,
+      color: [0.84, 0.88, 0.91],
+      centered: true,
     }),
     createButton({
       id: "join-button",
       kind: "button",
       rect: {
-        x: listX + 176,
-        y: panelY + 470,
-        width: 160,
+        x: sideX + 8,
+        y: listY + 166,
+        width: buttonWidth,
         height: buttonHeight,
       },
-      text: "JOIN",
+      text: viewModel.busy ? "JOINING..." : "PLAY SELECTED WORLD",
       action: "join-world",
+      scale: 2,
+      variant: "primary",
+      disabled: viewModel.busy || selectedWorld === null,
+    }),
+    createButton({
+      id: "create-button",
+      kind: "button",
+      rect: {
+        x: sideX + 8,
+        y: listY + 230,
+        width: buttonWidth,
+        height: buttonHeight,
+      },
+      text: "CREATE WORLD",
+      action: "open-create-world",
       scale: 3,
+      variant: "secondary",
+      disabled: viewModel.busy,
+    }),
+    createButton({
+      id: "refresh-button",
+      kind: "button",
+      rect: {
+        x: sideX + 8,
+        y: listY + 294,
+        width: 152,
+        height: buttonHeight,
+      },
+      text: "REFRESH",
+      action: "refresh-worlds",
+      scale: 2,
+      variant: "secondary",
+      disabled: viewModel.busy,
     }),
     createButton({
       id: "delete-button",
       kind: "button",
       rect: {
-        x: listX + 352,
-        y: panelY + 470,
-        width: 160,
+        x: sideX + 176,
+        y: listY + 294,
+        width: 152,
         height: buttonHeight,
       },
       text: "DELETE",
       action: "delete-world",
-      scale: 3,
+      scale: 2,
+      variant: "danger",
+      disabled: viewModel.busy || selectedWorld === null,
+    }),
+    createButton({
+      id: "back-button",
+      kind: "button",
+      rect: {
+        x: shell.panelX + 36,
+        y: shell.panelY + 514,
+        width: 200,
+        height: 42,
+      },
+      text: "BACK",
+      action: "back-to-play",
+      scale: 2,
+      variant: "secondary",
+      disabled: viewModel.busy,
+    }),
+    createLabel({
+      id: "status-label",
+      kind: "label",
+      rect: {
+        x: shell.panelX + 254,
+        y: shell.panelY + 514,
+        width: panelWidth - 290,
+        height: 42,
+      },
+      text: viewModel.statusText,
+      scale: 2,
+      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
+      centered: false,
+    }),
+  ];
+};
+
+const buildCreateWorldMenu = (
+  width: number,
+  height: number,
+  viewModel: MainMenuViewModel,
+  seed: number,
+): UiComponent[] => {
+  const panelWidth = 760;
+  const panelHeight = 470;
+  const shell = buildMenuShell(
+    width,
+    height,
+    "CREATE NEW WORLD",
+    "Set a name and optional numeric seed",
+    seed,
+    panelWidth,
+    panelHeight,
+  );
+  const contentX = shell.panelX + 112;
+  const fieldWidth = 536;
+  const fieldHeight = 60;
+
+  return [
+    ...shell.components,
+    createLabel({
+      id: "create-world-hint",
+      kind: "label",
+      rect: {
+        x: shell.panelX + 80,
+        y: shell.panelY + 136,
+        width: panelWidth - 160,
+        height: 28,
+      },
+      text: "PRESS TAB TO SWITCH FIELDS",
+      scale: 2,
+      color: [0.86, 0.9, 0.94],
+      centered: true,
     }),
     createButton({
       id: "name-input",
       kind: "button",
       rect: {
-        x: buttonX,
-        y: panelY + 150,
-        width: buttonWidth,
-        height: buttonHeight,
+        x: contentX,
+        y: shell.panelY + 184,
+        width: fieldWidth,
+        height: fieldHeight,
       },
       text: formatInputValue(
         "NAME",
@@ -365,15 +679,17 @@ export const buildMainMenu = (
       ),
       action: "focus-world-name",
       scale: 2,
+      variant: "secondary",
+      disabled: viewModel.busy,
     }),
     createButton({
       id: "seed-input",
       kind: "button",
       rect: {
-        x: buttonX,
-        y: panelY + 222,
-        width: buttonWidth,
-        height: buttonHeight,
+        x: contentX,
+        y: shell.panelY + 258,
+        width: fieldWidth,
+        height: fieldHeight,
       },
       text: formatInputValue(
         "SEED",
@@ -383,45 +699,69 @@ export const buildMainMenu = (
       ),
       action: "focus-world-seed",
       scale: 2,
+      variant: "secondary",
+      disabled: viewModel.busy,
     }),
     createButton({
-      id: "create-button",
+      id: "confirm-create-button",
       kind: "button",
       rect: {
-        x: buttonX,
-        y: panelY + 310,
-        width: buttonWidth,
-        height: buttonHeight,
+        x: contentX,
+        y: shell.panelY + 346,
+        width: 258,
+        height: 54,
       },
-      text: viewModel.busy ? "WORKING..." : "CREATE WORLD",
+      text: viewModel.busy ? "CREATING..." : "CREATE WORLD",
       action: "create-world",
       scale: 3,
+      variant: "primary",
+      disabled: viewModel.busy,
     }),
     createButton({
-      id: "quit-button",
+      id: "cancel-create-button",
       kind: "button",
       rect: {
-        x: buttonX,
-        y: panelY + 382,
-        width: buttonWidth,
-        height: buttonHeight,
+        x: contentX + 278,
+        y: shell.panelY + 346,
+        width: 258,
+        height: 54,
       },
-      text: "QUIT",
-      action: "quit-game",
+      text: "CANCEL",
+      action: "back-to-worlds",
       scale: 3,
+      variant: "secondary",
+      disabled: viewModel.busy,
     }),
     createLabel({
       id: "status-label",
       kind: "label",
       rect: {
-        x: formX,
-        y: panelY + 470,
-        width: 360,
-        height: 44,
+        x: shell.panelX + 56,
+        y: shell.panelY + 416,
+        width: panelWidth - 112,
+        height: 24,
       },
       text: viewModel.statusText,
       scale: 2,
       color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
+      centered: true,
     }),
   ];
+};
+
+export const buildMainMenu = (
+  width: number,
+  height: number,
+  viewModel: MainMenuViewModel,
+  seed = 1337,
+): UiComponent[] => {
+  if (viewModel.activeScreen === "worlds") {
+    return buildWorldsMenu(width, height, viewModel, seed);
+  }
+
+  if (viewModel.activeScreen === "create-world") {
+    return buildCreateWorldMenu(width, height, viewModel, seed);
+  }
+
+  return buildPlayMenu(width, height, viewModel, seed);
 };

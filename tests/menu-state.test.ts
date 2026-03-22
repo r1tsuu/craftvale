@@ -37,6 +37,10 @@ const createInput = (overrides: Partial<InputState> = {}): InputState => ({
 
 test("menu typing updates world name and seed fields", () => {
   let state = createMenuState();
+  state = applyMenuTyping(state, createInput({ typedText: "Ignored" }));
+  expect(state.createWorldName).toBe("");
+
+  state = applyMenuAction(state, "open-create-world");
   state = applyMenuTyping(state, createInput({ typedText: "Alpha" }));
   expect(state.createWorldName).toBe("Alpha");
 
@@ -48,14 +52,51 @@ test("menu typing updates world name and seed fields", () => {
   expect(state.createSeedText).toBe("1234");
 });
 
-test("menu world selection follows available worlds", () => {
+test("menu actions drive screen navigation", () => {
+  let state = createMenuState();
+  expect(state.activeScreen).toBe("play");
+
+  state = applyMenuAction(state, "open-worlds");
+  expect(state.activeScreen).toBe("worlds");
+  expect(state.focusedField).toBeNull();
+
+  state = applyMenuAction(state, "open-create-world");
+  expect(state.activeScreen).toBe("create-world");
+  expect(state.focusedField).toBe("world-name");
+
+  state = applyMenuAction(state, "back-to-worlds");
+  expect(state.activeScreen).toBe("worlds");
+  expect(state.focusedField).toBeNull();
+
+  state = applyMenuAction(state, "back-to-play");
+  expect(state.activeScreen).toBe("play");
+});
+
+test("menu world selection starts unfocused and only changes on explicit selection", () => {
   const state = setMenuWorlds(createMenuState(), [
     { name: "Bravo", seed: 2, createdAt: 0, updatedAt: 0 },
     { name: "Alpha", seed: 1, createdAt: 0, updatedAt: 0 },
   ]);
 
-  expect(state.selectedWorldName).toBe("Bravo");
+  expect(state.selectedWorldName).toBeNull();
   expect(applyMenuAction(state, "select-world:Alpha").selectedWorldName).toBe("Alpha");
+});
+
+test("menu world refresh preserves an existing focused world when possible", () => {
+  const initialState = applyMenuAction(
+    setMenuWorlds(createMenuState(), [
+      { name: "Bravo", seed: 2, createdAt: 0, updatedAt: 0 },
+      { name: "Alpha", seed: 1, createdAt: 0, updatedAt: 0 },
+    ]),
+    "select-world:Alpha",
+  );
+
+  const refreshedState = setMenuWorlds(initialState, [
+    { name: "Alpha", seed: 1, createdAt: 0, updatedAt: 1 },
+    { name: "Charlie", seed: 3, createdAt: 0, updatedAt: 1 },
+  ]);
+
+  expect(refreshedState.selectedWorldName).toBe("Alpha");
 });
 
 test("blank seed input falls back to a deterministic numeric seed shape", () => {

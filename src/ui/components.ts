@@ -30,11 +30,15 @@ export interface UiLabel extends UiBaseComponent {
   centered?: boolean;
 }
 
+export type UiButtonVariant = "primary" | "secondary" | "danger";
+
 export interface UiButton extends UiBaseComponent {
   kind: "button";
   text: string;
   action: string;
   scale: number;
+  variant?: UiButtonVariant;
+  disabled?: boolean;
 }
 
 export type UiComponent = UiPanel | UiLabel | UiButton;
@@ -73,7 +77,7 @@ export const evaluateUi = (
       continue;
     }
 
-    const hovered = containsPoint(component.rect, pointer.x, pointer.y);
+    const hovered = !component.disabled && containsPoint(component.rect, pointer.x, pointer.y);
     if (hovered && pointer.primaryPressed) {
       actions.push(component.action);
     }

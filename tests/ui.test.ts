@@ -42,3 +42,25 @@ test("button does not trigger action when pointer is outside", () => {
   expect(evaluation.actions).toEqual([]);
   expect(evaluation.components[0]).toMatchObject({ hovered: false });
 });
+
+test("disabled button ignores hover and clicks", () => {
+  const button = createButton({
+    id: "delete",
+    kind: "button",
+    rect: { x: 100, y: 100, width: 200, height: 50 },
+    text: "DELETE",
+    action: "delete-world",
+    scale: 3,
+    disabled: true,
+  });
+
+  const evaluation = evaluateUi([button], {
+    x: 150,
+    y: 120,
+    primaryDown: true,
+    primaryPressed: true,
+  });
+
+  expect(evaluation.actions).toEqual([]);
+  expect(evaluation.components[0]).toMatchObject({ hovered: false, disabled: true });
+});

@@ -149,7 +149,11 @@ export class GameApp {
         await this.handleMenuAction(action);
       }
 
-      if (input.enterPressed && !this.state.menuState.busy) {
+      if (
+        input.enterPressed &&
+        !this.state.menuState.busy &&
+        this.state.menuState.activeScreen === "create-world"
+      ) {
         void this.createWorld();
       }
     } else {
@@ -197,6 +201,11 @@ export class GameApp {
 
   private async handleMenuAction(action: string): Promise<void> {
     this.state.menuState = applyMenuAction(this.state.menuState, action);
+
+    if (action === "open-worlds" && !this.state.menuState.busy && this.state.menuState.worlds.length === 0) {
+      await this.syncMenuWorlds();
+      return;
+    }
 
     if (action === "refresh-worlds" && !this.state.menuState.busy) {
       await this.syncMenuWorlds();
@@ -422,8 +431,10 @@ export class GameApp {
       this.state.menuState = setMenuWorlds(
         {
           ...this.state.menuState,
+          activeScreen: "worlds",
           busy: false,
           selectedWorldName: response.world.name,
+          focusedField: null,
           createWorldName: "",
           createSeedText: "",
           statusText: `CREATED ${response.world.name}`,
