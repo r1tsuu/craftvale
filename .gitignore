@@ -1,0 +1,3 @@
+/node_modules
+/native/libvoxel_bridge.dylib
+.DS_Store
