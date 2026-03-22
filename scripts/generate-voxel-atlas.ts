@@ -7,19 +7,29 @@ const rootDir = import.meta.dir.endsWith("/scripts")
   : import.meta.dir;
 
 const ATLAS_TILE_SIZE = 16;
-const ATLAS_COLUMNS = 2;
+const ATLAS_COLUMNS = 4;
 const ATLAS_ROWS = 2;
 const ATLAS_WIDTH = ATLAS_TILE_SIZE * ATLAS_COLUMNS;
 const ATLAS_HEIGHT = ATLAS_TILE_SIZE * ATLAS_ROWS;
 
-type AtlasTileId = "grass-top" | "grass-side" | "dirt" | "stone";
+type AtlasTileId =
+  | "grass-top"
+  | "grass-side"
+  | "dirt"
+  | "stone"
+  | "log-top"
+  | "log-side"
+  | "leaves";
 type Rgba = readonly [number, number, number, number];
 
 const AtlasTiles: Record<AtlasTileId, { x: number; y: number }> = {
   "grass-top": { x: 0, y: 0 },
   "grass-side": { x: 1, y: 0 },
+  "log-top": { x: 2, y: 0 },
+  leaves: { x: 3, y: 0 },
   dirt: { x: 0, y: 1 },
   stone: { x: 1, y: 1 },
+  "log-side": { x: 2, y: 1 },
 };
 
 const rgba = (red: number, green: number, blue: number, alpha = 255): Rgba => [
@@ -142,12 +152,70 @@ const createGrassSidePixel = (x: number, y: number): Rgba => {
   return dirtColor;
 };
 
+const createLogTopPixel = (x: number, y: number): Rgba => {
+  const centerX = 7.5;
+  const centerY = 7.5;
+  const dx = x - centerX;
+  const dy = y - centerY;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  const ring = Math.floor(distance * 1.35);
+  const base = rgba(156, 122, 72);
+  let color = tint(base, (ring % 2 === 0 ? 1 : -1) * 14);
+
+  if (distance > 5.9) {
+    color = rgba(93, 69, 39);
+  } else if (((hash2d(x, y, 0x4f19a3) >>> 3) & 0x7) === 0) {
+    color = tint(color, 12);
+  }
+
+  return color;
+};
+
+const createLogSidePixel = (x: number, y: number): Rgba => {
+  const base = rgba(111, 82, 47);
+  const stripe = ((x * 3 + ((y + x) & 1)) % 5) - 2;
+  let color = tint(base, stripe * 7);
+  const noise = hash2d(x, y, 0x99117b);
+
+  if (((noise >>> 4) & 0xf) === 0) {
+    color = tint(color, 10);
+  } else if ((noise & 0xf) <= 1) {
+    color = tint(color, -12);
+  }
+
+  return color;
+};
+
+const createLeavesPixel = (x: number, y: number): Rgba => {
+  const base = rgba(72, 136, 55);
+  const noise = hash2d(x, y, 0x83b51d);
+
+  if (
+    (x > 2 && x < 13 && y > 2 && y < 13 && (noise & 0x1f) === 0) ||
+    ((noise >>> 8) & 0x3f) === 0
+  ) {
+    return rgba(0, 0, 0, 0);
+  }
+
+  let color = tint(base, ((noise >>> 4) & 0x3) * 7 - 8);
+  if (((noise >>> 10) & 0xf) <= 1) {
+    color = tint(color, 14);
+  } else if ((x === 0 || y === 0 || x === 15 || y === 15) && ((noise >>> 14) & 0x3) <= 1) {
+    color = tint(color, -10);
+  }
+
+  return color;
+};
+
 const createAtlasPixels = (): Uint8Array => {
   const pixels = new Uint8Array(ATLAS_WIDTH * ATLAS_HEIGHT * 4);
   fillTile(pixels, "grass-top", createGrassTopPixel);
   fillTile(pixels, "grass-side", createGrassSidePixel);
   fillTile(pixels, "dirt", createDirtPixel);
   fillTile(pixels, "stone", createStonePixel);
+  fillTile(pixels, "log-top", createLogTopPixel);
+  fillTile(pixels, "log-side", createLogSidePixel);
+  fillTile(pixels, "leaves", createLeavesPixel);
   return pixels;
 };
 

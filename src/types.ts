@@ -29,7 +29,7 @@ export interface InputState {
   resized: boolean;
 }
 
-export type BlockId = 0 | 1 | 2 | 3;
+export type BlockId = 0 | 1 | 2 | 3 | 4 | 5;
 
 export interface ChunkCoord {
   x: number;
@@ -41,6 +41,11 @@ export interface MeshData {
   vertexData: Float32Array;
   indexData: Uint32Array;
   indexCount: number;
+}
+
+export interface TerrainMeshData {
+  opaque: MeshData;
+  cutout: MeshData;
 }
 
 export interface PlayerState {

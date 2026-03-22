@@ -2,13 +2,20 @@ import { loadBinaryAsset } from "../platform/native.ts";
 import { decodePng } from "../platform/png.ts";
 
 export const ATLAS_TILE_SIZE = 16;
-export const ATLAS_COLUMNS = 2;
+export const ATLAS_COLUMNS = 4;
 export const ATLAS_ROWS = 2;
 export const ATLAS_WIDTH = ATLAS_TILE_SIZE * ATLAS_COLUMNS;
 export const ATLAS_HEIGHT = ATLAS_TILE_SIZE * ATLAS_ROWS;
 export const VOXEL_ATLAS_ASSET_PATH = "assets/textures/voxel-atlas.png";
 
-export type AtlasTileId = "grass-top" | "grass-side" | "dirt" | "stone";
+export type AtlasTileId =
+  | "grass-top"
+  | "grass-side"
+  | "dirt"
+  | "stone"
+  | "log-top"
+  | "log-side"
+  | "leaves";
 
 export interface AtlasTileCoord {
   x: number;
@@ -25,8 +32,11 @@ export interface AtlasUvRect {
 export const AtlasTiles: Record<AtlasTileId, AtlasTileCoord> = {
   "grass-top": { x: 0, y: 0 },
   "grass-side": { x: 1, y: 0 },
+  "log-top": { x: 2, y: 0 },
+  leaves: { x: 3, y: 0 },
   dirt: { x: 0, y: 1 },
   stone: { x: 1, y: 1 },
+  "log-side": { x: 2, y: 1 },
 };
 
 const UV_INSET_X = 0.5 / ATLAS_WIDTH;

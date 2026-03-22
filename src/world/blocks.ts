@@ -2,6 +2,8 @@ import type { BlockId } from "../types.ts";
 import type { AtlasTileId } from "./atlas.ts";
 
 export type BlockFaceRole = "top" | "bottom" | "side";
+export type BlockOcclusionMode = "none" | "full" | "self";
+export type BlockRenderPass = "opaque" | "cutout";
 
 export interface BlockTiles {
   top: AtlasTileId;
@@ -12,17 +14,28 @@ export interface BlockTiles {
 export interface BlockDefinition {
   id: BlockId;
   name: string;
-  solid: boolean;
+  collidable: boolean;
+  occlusion: BlockOcclusionMode;
+  renderPass: BlockRenderPass | null;
   color: [number, number, number];
   tiles?: BlockTiles;
 }
 
 export const Blocks: Record<BlockId, BlockDefinition> = {
-  0: { id: 0, name: "air", solid: false, color: [0, 0, 0] },
+  0: {
+    id: 0,
+    name: "air",
+    collidable: false,
+    occlusion: "none",
+    renderPass: null,
+    color: [0, 0, 0],
+  },
   1: {
     id: 1,
     name: "grass",
-    solid: true,
+    collidable: true,
+    occlusion: "full",
+    renderPass: "opaque",
     color: [0.42, 0.71, 0.31],
     tiles: {
       top: "grass-top",
@@ -33,7 +46,9 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
   2: {
     id: 2,
     name: "dirt",
-    solid: true,
+    collidable: true,
+    occlusion: "full",
+    renderPass: "opaque",
     color: [0.48, 0.34, 0.2],
     tiles: {
       top: "dirt",
@@ -44,7 +59,9 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
   3: {
     id: 3,
     name: "stone",
-    solid: true,
+    collidable: true,
+    occlusion: "full",
+    renderPass: "opaque",
     color: [0.5, 0.5, 0.56],
     tiles: {
       top: "stone",
@@ -52,9 +69,54 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
       side: "stone",
     },
   },
+  4: {
+    id: 4,
+    name: "log",
+    collidable: true,
+    occlusion: "full",
+    renderPass: "opaque",
+    color: [0.48, 0.37, 0.24],
+    tiles: {
+      top: "log-top",
+      bottom: "log-top",
+      side: "log-side",
+    },
+  },
+  5: {
+    id: 5,
+    name: "leaves",
+    collidable: true,
+    occlusion: "self",
+    renderPass: "cutout",
+    color: [0.32, 0.58, 0.22],
+    tiles: {
+      top: "leaves",
+      bottom: "leaves",
+      side: "leaves",
+    },
+  },
 };
 
-export const isSolidBlock = (blockId: BlockId): boolean => Blocks[blockId].solid;
+export const isSolidBlock = (blockId: BlockId): boolean => Blocks[blockId].collidable;
+
+export const getBlockRenderPass = (blockId: BlockId): BlockRenderPass | null =>
+  Blocks[blockId].renderPass;
+
+export const doesBlockOccludeNeighborFace = (
+  blockId: BlockId,
+  neighborId: BlockId,
+): boolean => {
+  const neighbor = Blocks[neighborId];
+  if (neighbor.occlusion === "none") {
+    return false;
+  }
+
+  if (neighbor.occlusion === "full") {
+    return true;
+  }
+
+  return blockId === neighborId;
+};
 
 export const getBlockFaceTile = (
   blockId: BlockId,

@@ -1,6 +1,12 @@
-import type { BlockId, ChunkCoord, MeshData } from "../types.ts";
+import type { BlockId, ChunkCoord, MeshData, TerrainMeshData } from "../types.ts";
 import { getAtlasUvRect } from "./atlas.ts";
-import { Blocks, getBlockFaceTile, isSolidBlock, type BlockFaceRole } from "./blocks.ts";
+import {
+  doesBlockOccludeNeighborFace,
+  getBlockFaceTile,
+  getBlockRenderPass,
+  isSolidBlock,
+  type BlockFaceRole,
+} from "./blocks.ts";
 import { CHUNK_SIZE } from "./constants.ts";
 import { VoxelWorld } from "./world.ts";
 
@@ -109,10 +115,32 @@ const FACE_DEFINITIONS = [
   },
 ] as const;
 
+interface MeshAccumulator {
+  vertices: number[];
+  indices: number[];
+  baseIndex: number;
+}
+
+const createMeshAccumulator = (): MeshAccumulator => ({
+  vertices: [],
+  indices: [],
+  baseIndex: 0,
+});
+
+const toMeshData = (mesh: MeshAccumulator): MeshData => ({
+  vertexData: new Float32Array(mesh.vertices),
+  indexData: new Uint32Array(mesh.indices),
+  indexCount: mesh.indices.length,
+});
+
+const createEmptyMeshData = (): MeshData => ({
+  vertexData: new Float32Array(),
+  indexData: new Uint32Array(),
+  indexCount: 0,
+});
+
 const pushFace = (
-  vertices: number[],
-  indices: number[],
-  baseIndex: number,
+  mesh: MeshAccumulator,
   blockId: BlockId,
   worldX: number,
   worldY: number,
@@ -133,7 +161,7 @@ const pushFace = (
     const atlasU = u === 0 ? uvRect.uMin : uvRect.uMax;
     const atlasV = v === 0 ? uvRect.vMin : uvRect.vMax;
 
-    vertices.push(
+    mesh.vertices.push(
       worldX + offsetX,
       worldY + offsetY,
       worldZ + offsetZ,
@@ -143,32 +171,31 @@ const pushFace = (
     );
   }
 
-  indices.push(
-    baseIndex,
-    baseIndex + 1,
-    baseIndex + 2,
-    baseIndex,
-    baseIndex + 2,
-    baseIndex + 3,
+  mesh.indices.push(
+    mesh.baseIndex,
+    mesh.baseIndex + 1,
+    mesh.baseIndex + 2,
+    mesh.baseIndex,
+    mesh.baseIndex + 2,
+    mesh.baseIndex + 3,
   );
+  mesh.baseIndex += 4;
 };
 
 export const buildChunkMesh = (
   world: VoxelWorld,
   coord: ChunkCoord,
-): MeshData => {
+): TerrainMeshData => {
   const chunk = world.getChunk(coord);
   if (!chunk) {
     return {
-      vertexData: new Float32Array(),
-      indexData: new Uint32Array(),
-      indexCount: 0,
+      opaque: createEmptyMeshData(),
+      cutout: createEmptyMeshData(),
     };
   }
 
-  const vertices: number[] = [];
-  const indices: number[] = [];
-  let baseIndex = 0;
+  const opaqueMesh = createMeshAccumulator();
+  const cutoutMesh = createMeshAccumulator();
 
   for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
     for (let localZ = 0; localZ < CHUNK_SIZE; localZ += 1) {
@@ -178,19 +205,24 @@ export const buildChunkMesh = (
           continue;
         }
 
+        const renderPass = getBlockRenderPass(blockId);
+        if (!renderPass) {
+          continue;
+        }
+
         const worldX = coord.x * CHUNK_SIZE + localX;
         const worldY = coord.y * CHUNK_SIZE + localY;
         const worldZ = coord.z * CHUNK_SIZE + localZ;
+        const targetMesh = renderPass === "opaque" ? opaqueMesh : cutoutMesh;
 
         for (const face of FACE_DEFINITIONS) {
           const [dx, dy, dz] = face.normal;
           const neighbor = world.getBlock(worldX + dx, worldY + dy, worldZ + dz);
-          if (neighbor !== 0 && Blocks[neighbor].solid) {
+          if (doesBlockOccludeNeighborFace(blockId, neighbor)) {
             continue;
           }
 
-          pushFace(vertices, indices, baseIndex, blockId, worldX, worldY, worldZ, face);
-          baseIndex += 4;
+          pushFace(targetMesh, blockId, worldX, worldY, worldZ, face);
         }
       }
     }
@@ -199,8 +231,7 @@ export const buildChunkMesh = (
   chunk.dirty = false;
 
   return {
-    vertexData: new Float32Array(vertices),
-    indexData: new Uint32Array(indices),
-    indexCount: indices.length,
+    opaque: toMeshData(opaqueMesh),
+    cutout: toMeshData(cutoutMesh),
   };
 };

@@ -1,5 +1,5 @@
 import type { Vec3 } from "../math/vec3.ts";
-import type { ChunkCoord } from "../types.ts";
+import type { ChunkCoord, MeshData } from "../types.ts";
 import { ACTIVE_CHUNK_RADIUS, CHUNK_SIZE } from "../world/constants.ts";
 import { buildChunkMesh } from "../world/mesher.ts";
 import { VoxelWorld } from "../world/world.ts";
@@ -16,6 +16,11 @@ interface GpuMesh {
   vbo: number;
   ebo: number;
   indexCount: number;
+}
+
+interface GpuChunkMesh {
+  opaque: GpuMesh | null;
+  cutout: GpuMesh | null;
 }
 
 const meshKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
@@ -36,7 +41,7 @@ export class VoxelRenderer {
   private readonly viewProjectionLocation: number;
   private readonly atlasSamplerLocation: number;
   private readonly atlasTexture: number;
-  private readonly meshes = new Map<string, GpuMesh>();
+  private readonly meshes = new Map<string, GpuChunkMesh>();
   private readonly focusHighlightRenderer: FocusHighlightRenderer;
   private readonly textOverlayRenderer: TextOverlayRenderer;
   private readonly uiRenderer: UiRenderer;
@@ -107,22 +112,41 @@ export class VoxelRenderer {
     const playerChunkX = Math.floor(player.state.position[0] / CHUNK_SIZE);
     const playerChunkZ = Math.floor(player.state.position[2] / CHUNK_SIZE);
 
-    for (const coord of world.getLoadedChunkCoords()) {
-      if (
-        Math.abs(coord.x - playerChunkX) > ACTIVE_CHUNK_RADIUS ||
-        Math.abs(coord.z - playerChunkZ) > ACTIVE_CHUNK_RADIUS
-      ) {
-        continue;
-      }
+    const visibleCoords = world.getLoadedChunkCoords().filter(
+      (coord) =>
+        Math.abs(coord.x - playerChunkX) <= ACTIVE_CHUNK_RADIUS &&
+        Math.abs(coord.z - playerChunkZ) <= ACTIVE_CHUNK_RADIUS,
+    );
 
+    for (const coord of visibleCoords) {
       this.syncChunkMesh(world, coord);
       const gpuMesh = this.meshes.get(meshKey(coord));
-      if (!gpuMesh || gpuMesh.indexCount === 0) {
+      if (!gpuMesh?.opaque) {
         continue;
       }
 
-      this.nativeBridge.gl.bindVertexArray(gpuMesh.vao);
-      this.nativeBridge.gl.drawElements(GL.TRIANGLES, gpuMesh.indexCount, GL.UNSIGNED_INT, 0);
+      this.nativeBridge.gl.bindVertexArray(gpuMesh.opaque.vao);
+      this.nativeBridge.gl.drawElements(
+        GL.TRIANGLES,
+        gpuMesh.opaque.indexCount,
+        GL.UNSIGNED_INT,
+        0,
+      );
+    }
+
+    for (const coord of visibleCoords) {
+      const gpuMesh = this.meshes.get(meshKey(coord));
+      if (!gpuMesh?.cutout) {
+        continue;
+      }
+
+      this.nativeBridge.gl.bindVertexArray(gpuMesh.cutout.vao);
+      this.nativeBridge.gl.drawElements(
+        GL.TRIANGLES,
+        gpuMesh.cutout.indexCount,
+        GL.UNSIGNED_INT,
+        0,
+      );
     }
 
     this.nativeBridge.gl.bindVertexArray(0);
@@ -144,13 +168,22 @@ export class VoxelRenderer {
     }
 
     if (existing) {
-      this.nativeBridge.gl.deleteBuffer(existing.vbo);
-      this.nativeBridge.gl.deleteBuffer(existing.ebo);
-      this.nativeBridge.gl.deleteVertexArray(existing.vao);
+      this.deleteGpuChunkMesh(existing);
       this.meshes.delete(key);
     }
 
     const mesh = buildChunkMesh(world, coord);
+    this.meshes.set(key, {
+      opaque: this.createGpuMesh(mesh.opaque),
+      cutout: this.createGpuMesh(mesh.cutout),
+    });
+  }
+
+  private createGpuMesh(mesh: MeshData): GpuMesh | null {
+    if (mesh.indexCount === 0) {
+      return null;
+    }
+
     const vao = this.nativeBridge.gl.genVertexArray();
     const vbo = this.nativeBridge.gl.genBuffer();
     const ebo = this.nativeBridge.gl.genBuffer();
@@ -183,12 +216,26 @@ export class VoxelRenderer {
       5 * Float32Array.BYTES_PER_ELEMENT,
     );
 
-    this.meshes.set(key, {
+    return {
       vao,
       vbo,
       ebo,
       indexCount: mesh.indexCount,
-    });
+    };
+  }
+
+  private deleteGpuChunkMesh(mesh: GpuChunkMesh): void {
+    if (mesh.opaque) {
+      this.nativeBridge.gl.deleteBuffer(mesh.opaque.vbo);
+      this.nativeBridge.gl.deleteBuffer(mesh.opaque.ebo);
+      this.nativeBridge.gl.deleteVertexArray(mesh.opaque.vao);
+    }
+
+    if (mesh.cutout) {
+      this.nativeBridge.gl.deleteBuffer(mesh.cutout.vbo);
+      this.nativeBridge.gl.deleteBuffer(mesh.cutout.ebo);
+      this.nativeBridge.gl.deleteVertexArray(mesh.cutout.vao);
+    }
   }
 
   private createAtlasTexture(): number {
