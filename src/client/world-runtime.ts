@@ -1,8 +1,14 @@
-import type { ChunkCoord, InventorySnapshot } from "../types.ts";
+import type {
+  ChunkCoord,
+  InventorySnapshot,
+  PlayerName,
+  PlayerSnapshot,
+  PlayerState,
+} from "../types.ts";
 import { ACTIVE_CHUNK_RADIUS, CHUNK_SIZE, WORLD_LAYER_CHUNKS_Y } from "../world/constants.ts";
 import { createDefaultInventory, normalizeInventorySnapshot } from "../world/inventory.ts";
 import { VoxelWorld } from "../world/world.ts";
-import type { ChunkPayload } from "../shared/messages.ts";
+import type { ChunkPayload, JoinedWorldPayload } from "../shared/messages.ts";
 import type { IClientAdapter } from "./client-adapter.ts";
 
 const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
@@ -10,6 +16,8 @@ const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
 export class ClientWorldRuntime {
   public readonly world = new VoxelWorld();
   public inventory: InventorySnapshot = createDefaultInventory();
+  public clientPlayerName: PlayerName | null = null;
+  public readonly players = new Map<PlayerName, PlayerSnapshot>();
   private readonly pendingChunkKeys = new Set<string>();
   private readonly chunkWaiters = new Set<{
     coords: ChunkCoord[];
@@ -21,6 +29,8 @@ export class ClientWorldRuntime {
   public reset(): void {
     this.world.clear();
     this.inventory = createDefaultInventory();
+    this.clientPlayerName = null;
+    this.players.clear();
     this.pendingChunkKeys.clear();
     this.chunkWaiters.clear();
   }
@@ -33,6 +43,48 @@ export class ClientWorldRuntime {
 
   public applyInventory(inventory: InventorySnapshot): void {
     this.inventory = normalizeInventorySnapshot(inventory);
+  }
+
+  public applyJoinedWorld(joined: JoinedWorldPayload): void {
+    this.clientPlayerName = joined.clientPlayerName;
+    this.players.clear();
+    this.applyPlayer(joined.clientPlayer);
+    for (const player of joined.players) {
+      this.applyPlayer(player);
+    }
+    this.applyInventory(joined.inventory);
+  }
+
+  public applyPlayer(player: PlayerSnapshot): void {
+    this.players.set(player.name, this.clonePlayerSnapshot(player));
+  }
+
+  public removePlayer(playerName: PlayerName): void {
+    this.players.delete(playerName);
+  }
+
+  public getClientPlayer(): PlayerSnapshot | null {
+    if (!this.clientPlayerName) {
+      return null;
+    }
+
+    return this.players.get(this.clientPlayerName) ?? null;
+  }
+
+  public createLocalPlayerSnapshot(state: PlayerState): PlayerSnapshot | null {
+    if (!this.clientPlayerName) {
+      return null;
+    }
+
+    return {
+      name: this.clientPlayerName,
+      active: true,
+      state: {
+        position: [...state.position],
+        yaw: state.yaw,
+        pitch: state.pitch,
+      },
+    };
   }
 
   public getChunkCoordsAroundPosition(
@@ -113,5 +165,17 @@ export class ClientWorldRuntime {
         waiter.resolve();
       }
     }
+  }
+
+  private clonePlayerSnapshot(player: PlayerSnapshot): PlayerSnapshot {
+    return {
+      name: player.name,
+      active: player.active,
+      state: {
+        position: [...player.state.position],
+        yaw: player.state.yaw,
+        pitch: player.state.pitch,
+      },
+    };
   }
 }

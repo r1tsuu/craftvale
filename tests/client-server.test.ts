@@ -12,6 +12,8 @@ import { BinaryWorldStorage } from "../src/server/world-storage.ts";
 import { DEFAULT_INVENTORY_STACK_SIZE } from "../src/world/inventory.ts";
 import { getTerrainHeight } from "../src/world/terrain.ts";
 
+const PLAYER_NAME = "Alice";
+
 const createHarness = async (): Promise<{
   rootDir: string;
   transport: ReturnType<
@@ -44,8 +46,19 @@ const createHarness = async (): Promise<{
   client.eventBus.on("chunkChanged", ({ chunk }) => {
     worldRuntime.applyChunk(chunk);
   });
-  client.eventBus.on("inventoryUpdated", ({ inventory }) => {
-    worldRuntime.applyInventory(inventory);
+  client.eventBus.on("inventoryUpdated", ({ playerName, inventory }) => {
+    if (playerName === worldRuntime.clientPlayerName) {
+      worldRuntime.applyInventory(inventory);
+    }
+  });
+  client.eventBus.on("playerJoined", ({ player }) => {
+    worldRuntime.applyPlayer(player);
+  });
+  client.eventBus.on("playerUpdated", ({ player }) => {
+    worldRuntime.applyPlayer(player);
+  });
+  client.eventBus.on("playerLeft", ({ playerName }) => {
+    worldRuntime.removePlayer(playerName);
   });
 
   return {
@@ -108,17 +121,23 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     });
 
     const joined = await harness.client.eventBus.send({
-      type: "joinWorld",
-      payload: { name: "Alpha" },
-    });
+        type: "joinWorld",
+        payload: {
+          name: "Alpha",
+          playerName: PLAYER_NAME,
+        },
+      });
     harness.worldRuntime.reset();
-    harness.worldRuntime.applyInventory(joined.inventory);
+    harness.worldRuntime.applyJoinedWorld(joined);
 
     const coords = [{ x: 0, y: 0, z: 0 }];
     await harness.worldRuntime.requestMissingChunks(coords);
     await harness.worldRuntime.waitForChunks(coords);
 
     expect(harness.worldRuntime.world.hasChunk(coords[0]!)).toBe(true);
+    expect(joined.clientPlayerName).toBe(PLAYER_NAME);
+    expect(harness.worldRuntime.clientPlayerName).toBe(PLAYER_NAME);
+    expect(harness.worldRuntime.getClientPlayer()?.name).toBe(PLAYER_NAME);
     expect(harness.worldRuntime.inventory.selectedSlot).toBe(0);
     expect(
       harness.worldRuntime.inventory.slots.every(
@@ -134,6 +153,23 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     harness.client.eventBus.on("chunkChanged", () => {
       changedChunkReceived = true;
     });
+
+    harness.client.eventBus.send({
+      type: "updatePlayerState",
+      payload: {
+        state: {
+          position: [14, joined.clientPlayer.state.position[1], -6],
+          yaw: 0.5,
+          pitch: -0.2,
+        },
+      },
+    });
+    await Bun.sleep(0);
+    expect(harness.worldRuntime.getClientPlayer()?.state.position).toEqual([
+      14,
+      joined.clientPlayer.state.position[1],
+      -6,
+    ]);
 
     harness.client.eventBus.send({
       type: "mutateBlock",

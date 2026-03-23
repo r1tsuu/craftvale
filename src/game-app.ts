@@ -17,6 +17,7 @@ import { NativeBridge } from "./platform/native.ts";
 import { VoxelRenderer } from "./render/renderer.ts";
 import type { TextDrawCommand } from "./render/text.ts";
 import { type ClientEventBus } from "./shared/event-bus.ts";
+import type { PlayerName } from "./types.ts";
 import {
   evaluateUi,
   type UiResolvedComponent,
@@ -56,6 +57,7 @@ export interface GameAppDependencies {
   player: PlayerController;
   renderer: VoxelRenderer;
   menuSeed: number;
+  playerName: PlayerName;
 }
 
 export class GameApp {
@@ -254,11 +256,27 @@ export class GameApp {
       this.deps.clientAdapter.eventBus.on("chunkChanged", ({ chunk }) => {
         this.deps.clientWorldRuntime.applyChunk(chunk);
       }),
-      this.deps.clientAdapter.eventBus.on("inventoryUpdated", ({ inventory }) => {
+      this.deps.clientAdapter.eventBus.on("inventoryUpdated", ({ playerName, inventory }) => {
+        if (playerName !== this.deps.clientWorldRuntime.clientPlayerName) {
+          return;
+        }
+
         this.deps.clientWorldRuntime.applyInventory(inventory);
         if (this.state.lastServerMessage.startsWith("OUT OF ")) {
           this.state.lastServerMessage = "";
         }
+      }),
+      this.deps.clientAdapter.eventBus.on("playerJoined", ({ player }) => {
+        this.deps.clientWorldRuntime.applyPlayer(player);
+      }),
+      this.deps.clientAdapter.eventBus.on("playerUpdated", ({ player }) => {
+        this.deps.clientWorldRuntime.applyPlayer(player);
+        if (player.name === this.deps.clientWorldRuntime.clientPlayerName) {
+          this.deps.player.syncFromState(player.state);
+        }
+      }),
+      this.deps.clientAdapter.eventBus.on("playerLeft", ({ playerName }) => {
+        this.deps.clientWorldRuntime.removePlayer(playerName);
       }),
       this.deps.clientAdapter.eventBus.on("saveStatus", ({ worldName, savedChunks, success, error }) => {
         this.state.lastServerMessage = success
@@ -381,17 +399,20 @@ export class GameApp {
     try {
       const joined = await this.deps.clientAdapter.eventBus.send({
         type: "joinWorld",
-        payload: { name: worldName },
+        payload: {
+          name: worldName,
+          playerName: this.deps.playerName,
+        },
       });
 
       this.deps.clientWorldRuntime.reset();
-      this.deps.clientWorldRuntime.applyInventory(joined.inventory);
+      this.deps.clientWorldRuntime.applyJoinedWorld(joined);
       this.state.currentWorldName = joined.world.name;
       this.state.currentWorldSeed = joined.world.seed;
-      this.deps.player.reset(joined.spawnPosition);
+      this.deps.player.resetFromState(joined.clientPlayer.state);
 
       const initialCoords = this.deps.clientWorldRuntime.getChunkCoordsAroundPosition(
-        joined.spawnPosition,
+        joined.clientPlayer.state.position,
         ACTIVE_CHUNK_RADIUS,
       );
       await this.deps.clientWorldRuntime.requestMissingChunks(initialCoords);
@@ -522,6 +543,20 @@ export class GameApp {
       ACTIVE_CHUNK_RADIUS,
     );
     this.deps.player.update(input, deltaSeconds, this.deps.clientWorldRuntime.world);
+    const localPlayer = this.deps.clientWorldRuntime.createLocalPlayerSnapshot(this.deps.player.state);
+    if (localPlayer) {
+      this.deps.clientWorldRuntime.applyPlayer(localPlayer);
+      this.deps.clientAdapter.eventBus.send({
+        type: "updatePlayerState",
+        payload: {
+          state: {
+            position: [...this.deps.player.state.position],
+            yaw: this.deps.player.state.yaw,
+            pitch: this.deps.player.state.pitch,
+          },
+        },
+      });
+    }
 
     const hit = raycastVoxel(
       this.deps.clientWorldRuntime.world,
@@ -586,7 +621,7 @@ export class GameApp {
   }
 }
 
-export const createDefaultGameApp = (): GameApp => {
+export const createDefaultGameApp = (options: { playerName: PlayerName }): GameApp => {
   const menuSeed = (Date.now() ^ 0x5f3759df) >>> 0;
   const nativeBridge = new NativeBridge();
   nativeBridge.initWindow({
@@ -608,5 +643,6 @@ export const createDefaultGameApp = (): GameApp => {
     player,
     renderer,
     menuSeed,
+    playerName: options.playerName,
   });
 };

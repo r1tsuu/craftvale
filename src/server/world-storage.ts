@@ -1,15 +1,21 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { BlockId, ChunkCoord, InventorySnapshot } from "../types.ts";
+import type {
+  BlockId,
+  ChunkCoord,
+  InventorySnapshot,
+  PlayerName,
+  PlayerSnapshot,
+} from "../types.ts";
 import type { WorldSummary } from "../shared/messages.ts";
 import { normalizeInventorySnapshot } from "../world/inventory.ts";
 
 const REGISTRY_MAGIC = "VWRG";
 const CHUNK_MAGIC = "VCHK";
-const INVENTORY_MAGIC = "VINV";
+const PLAYER_MAGIC = "VPLY";
 const REGISTRY_VERSION = 1;
 const CHUNK_VERSION = 1;
-const INVENTORY_VERSION = 1;
+const PLAYER_VERSION = 1;
 
 export interface StoredWorldRecord extends WorldSummary {
   directoryName: string;
@@ -21,7 +27,8 @@ export interface StoredChunkRecord {
   revision: number;
 }
 
-export interface StoredInventoryRecord {
+export interface StoredPlayerRecord {
+  snapshot: PlayerSnapshot;
   inventory: InventorySnapshot;
 }
 
@@ -33,8 +40,8 @@ export interface WorldStorage {
   loadChunk(worldName: string, coord: ChunkCoord): Promise<StoredChunkRecord | null>;
   saveChunk(worldName: string, chunk: StoredChunkRecord): Promise<void>;
   deleteChunk(worldName: string, coord: ChunkCoord): Promise<void>;
-  loadInventory(worldName: string): Promise<StoredInventoryRecord | null>;
-  saveInventory(worldName: string, inventory: StoredInventoryRecord): Promise<void>;
+  loadPlayer(worldName: string, playerName: PlayerName): Promise<StoredPlayerRecord | null>;
+  savePlayer(worldName: string, player: StoredPlayerRecord): Promise<void>;
   touchWorld(worldName: string, updatedAt?: number): Promise<StoredWorldRecord>;
 }
 
@@ -42,7 +49,7 @@ const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
 const chunkFilename = (coord: ChunkCoord): string => `${coord.x}_${coord.y}_${coord.z}.bin`;
-const inventoryFilename = "inventory.bin";
+const playerFilename = (playerName: PlayerName): string => `${encodeURIComponent(playerName)}.bin`;
 
 const writeString = (target: Uint8Array, offset: number, value: string): number => {
   const bytes = textEncoder.encode(value);
@@ -177,16 +184,21 @@ const decodeChunk = (bytes: Uint8Array): StoredChunkRecord => {
   };
 };
 
-const encodeInventory = (record: StoredInventoryRecord): Uint8Array => {
+const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
   const inventory = normalizeInventorySnapshot(record.inventory);
-  const bytes = new Uint8Array(16 + inventory.slots.length * 8);
+  const bytes = new Uint8Array(56 + inventory.slots.length * 8);
   const view = new DataView(bytes.buffer);
-  bytes.set(textEncoder.encode(INVENTORY_MAGIC), 0);
-  view.setUint32(4, INVENTORY_VERSION, true);
-  view.setUint32(8, inventory.selectedSlot >>> 0, true);
-  view.setUint32(12, inventory.slots.length, true);
+  bytes.set(textEncoder.encode(PLAYER_MAGIC), 0);
+  view.setUint32(4, PLAYER_VERSION, true);
+  view.setFloat64(8, record.snapshot.state.position[0], true);
+  view.setFloat64(16, record.snapshot.state.position[1], true);
+  view.setFloat64(24, record.snapshot.state.position[2], true);
+  view.setFloat64(32, record.snapshot.state.yaw, true);
+  view.setFloat64(40, record.snapshot.state.pitch, true);
+  view.setUint32(48, inventory.selectedSlot >>> 0, true);
+  view.setUint32(52, inventory.slots.length, true);
 
-  let offset = 16;
+  let offset = 56;
   for (const slot of inventory.slots) {
     view.setUint32(offset, slot.blockId >>> 0, true);
     view.setUint32(offset + 4, Math.max(0, Math.trunc(slot.count)) >>> 0, true);
@@ -196,26 +208,26 @@ const encodeInventory = (record: StoredInventoryRecord): Uint8Array => {
   return bytes;
 };
 
-const decodeInventory = (bytes: Uint8Array): StoredInventoryRecord => {
-  if (bytes.byteLength < 16) {
-    throw new Error("Inventory file is truncated.");
+const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRecord => {
+  if (bytes.byteLength < 56) {
+    throw new Error("Player file is truncated.");
   }
 
   const magic = textDecoder.decode(bytes.subarray(0, 4));
-  if (magic !== INVENTORY_MAGIC) {
-    throw new Error(`Invalid inventory file header: ${magic}`);
+  if (magic !== PLAYER_MAGIC) {
+    throw new Error(`Invalid player file header: ${magic}`);
   }
 
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const version = view.getUint32(4, true);
-  if (version !== INVENTORY_VERSION) {
-    throw new Error(`Unsupported inventory file version ${version}.`);
+  if (version !== PLAYER_VERSION) {
+    throw new Error(`Unsupported player file version ${version}.`);
   }
 
-  const selectedSlot = view.getUint32(8, true);
-  const slotCount = view.getUint32(12, true);
+  const selectedSlot = view.getUint32(48, true);
+  const slotCount = view.getUint32(52, true);
   const slots: InventorySnapshot["slots"] = [];
-  let offset = 16;
+  let offset = 56;
   for (let index = 0; index < slotCount; index += 1) {
     slots.push({
       blockId: view.getUint32(offset, true) as BlockId,
@@ -225,6 +237,19 @@ const decodeInventory = (bytes: Uint8Array): StoredInventoryRecord => {
   }
 
   return {
+    snapshot: {
+      name: playerName,
+      active: false,
+      state: {
+        position: [
+          view.getFloat64(8, true),
+          view.getFloat64(16, true),
+          view.getFloat64(24, true),
+        ],
+        yaw: view.getFloat64(32, true),
+        pitch: view.getFloat64(40, true),
+      },
+    },
     inventory: normalizeInventorySnapshot({
       slots,
       selectedSlot,
@@ -348,7 +373,7 @@ export class BinaryWorldStorage implements WorldStorage {
     });
   }
 
-  public async loadInventory(worldName: string): Promise<StoredInventoryRecord | null> {
+  public async loadPlayer(worldName: string, playerName: PlayerName): Promise<StoredPlayerRecord | null> {
     return this.enqueue(async () => {
       const world = await this.getWorldFromRegistry(worldName);
       if (!world) {
@@ -356,8 +381,8 @@ export class BinaryWorldStorage implements WorldStorage {
       }
 
       try {
-        const bytes = new Uint8Array(await readFile(this.inventoryPath(world.directoryName)));
-        return decodeInventory(bytes);
+        const bytes = new Uint8Array(await readFile(this.playerPath(world.directoryName, playerName)));
+        return decodePlayer(bytes, playerName);
       } catch (error) {
         if (error instanceof Error && "code" in error && error.code === "ENOENT") {
           return null;
@@ -367,11 +392,14 @@ export class BinaryWorldStorage implements WorldStorage {
     });
   }
 
-  public async saveInventory(worldName: string, inventory: StoredInventoryRecord): Promise<void> {
+  public async savePlayer(worldName: string, player: StoredPlayerRecord): Promise<void> {
     return this.enqueue(async () => {
       const world = await this.requireWorld(worldName);
       await this.ensureDirectories(world.directoryName);
-      await writeFile(this.inventoryPath(world.directoryName), encodeInventory(inventory));
+      await writeFile(
+        this.playerPath(world.directoryName, player.snapshot.name),
+        encodePlayer(player),
+      );
     });
   }
 
@@ -406,6 +434,7 @@ export class BinaryWorldStorage implements WorldStorage {
     await mkdir(this.worldsRoot, { recursive: true });
     if (directoryName) {
       await mkdir(this.worldDirectory(directoryName), { recursive: true });
+      await mkdir(this.playerDirectory(directoryName), { recursive: true });
     }
   }
 
@@ -436,8 +465,12 @@ export class BinaryWorldStorage implements WorldStorage {
     return join(this.worldDirectory(directoryName), chunkFilename(coord));
   }
 
-  private inventoryPath(directoryName: string): string {
-    return join(this.worldDirectory(directoryName), inventoryFilename);
+  private playerDirectory(directoryName: string): string {
+    return join(this.worldDirectory(directoryName), "players");
+  }
+
+  private playerPath(directoryName: string, playerName: PlayerName): string {
+    return join(this.playerDirectory(directoryName), playerFilename(playerName));
   }
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {

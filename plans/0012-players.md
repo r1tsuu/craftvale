@@ -1,25 +1,25 @@
 # Players
 
 ## Summary
-Add an explicit player system so the server can own multiple players at once instead of implicitly assuming a single local controller. The first pass should focus on stable player identity, server-authoritative player session state, and client-side knowledge of which replicated player is the local player. Each player should have a UUID that is stored locally on the client machine, reused across runs, and optionally overridden for a launch via a CLI argument.
+Add an explicit player system so the server can own multiple players at once instead of implicitly assuming a single local controller. The first pass should focus on stable player identity, server-authoritative player session state, and client-side knowledge of which replicated player is the local player. Each player should have a simple player name that is stored locally on the client machine, reused across runs, and optionally overridden for a launch via a CLI argument.
 
 ## Key Changes
 
 ### Add an explicit player identity model
 - Introduce a stable player identifier type rather than treating the local runtime as “the player.”
 - Recommended base types:
-  - `PlayerId` as a UUID string
+  - `PlayerName` as a simple string name
   - `PlayerProfile` or `PlayerIdentity` for locally persisted identity metadata
   - `PlayerSnapshot` for replicated authoritative player state
 - A player snapshot should include at minimum:
-  - UUID
+  - player name
   - display/debug name if we want one later
   - position
   - rotation
   - connection/session presence state if needed
 - Keep player identity distinct from world identity:
   - worlds remain named/seeded server data
-  - player UUIDs are client identity data
+- player names are client identity data
 
 ### Support multiple players on the server
 - Refactor the authoritative world/session model so it can hold multiple players at once.
@@ -27,10 +27,10 @@ Add an explicit player system so the server can own multiple players at once ins
   - one implicit player spawn
   - one implicit movement/input owner
   - one implicit inventory owner if inventory remains per-player
-- The server should maintain a player registry keyed by UUID for the active world/session.
+- The server should maintain a player registry keyed by player name for the active world/session.
 - Minimum player lifecycle operations:
-  - player connects or joins world with UUID
-  - server loads or creates player state for that UUID
+  - player connects or joins world with a player name
+  - server loads or creates player state for that player name
   - server marks player active in the session
   - player disconnects/leaves without deleting long-lived identity
 - Preserve server authority:
@@ -40,46 +40,46 @@ Add an explicit player system so the server can own multiple players at once ins
 ### Make the client explicitly know which player is the local player
 - The client should no longer infer “I am the only player.”
 - World/session join responses should explicitly identify:
-  - the client player UUID
+  - the client player name
   - the authoritative snapshot for that player
   - any other already-present players in the session
 - The client runtime should store:
-  - `clientPlayerId`
-  - a replicated player map keyed by UUID
-- Input, camera, and local HUD logic should target the player whose UUID matches `clientPlayerId`.
+  - `clientPlayerName`
+  - a replicated player map keyed by player name
+- Input, camera, and local HUD logic should target the player whose name matches `clientPlayerName`.
 - Remote players should be treated as replicated entities, not accidentally driven by local input.
 
-### Persist the player UUID locally
+### Persist the player name locally
 - Add a small local client-identity persistence layer separate from world save data.
-- If no player UUID exists locally:
-  - generate a UUID
+- If no player name exists locally:
+  - generate a simple default player name
   - persist it in a client-local file
   - reuse it on future launches
 - This storage should live alongside other client-local runtime data, not inside a world save file.
 - Keep the format intentionally small and versionable, for example:
   - `player-profile.json`
   - or a tiny binary/JSON client metadata file under the storage root
-- The stored UUID should be per-machine/client profile, not per world.
+- The stored player name should be per-machine/client profile, not per world.
 
-### Allow CLI override of the local player UUID
-- Add a startup option so the local persisted UUID can be overridden from the command line.
+### Allow CLI override of the local player name
+- Add a startup option so the local persisted player name can be overridden from the command line.
 - Recommended flag:
-  - `--player-uuid=<uuid>`
+  - `--player-name=<name>`
 - Also accept the spaced form if convenient:
-  - `--player-uuid <uuid>`
+  - `--player-name <name>`
 - The bootstrap path should:
   - parse CLI arguments in `src/index.ts` or a nearby startup helper
-  - validate the provided UUID format
+  - validate the provided player name format
   - pass the effective player identity into the client/server startup flow
 - Recommended default behavior:
   - CLI override wins for the current process
-  - CLI override does not rewrite the stored UUID unless we later add an explicit “set profile UUID” command
-- Invalid UUID input should fail fast with a clear startup error.
+  - CLI override does not rewrite the stored player name unless we later add an explicit “set profile name” command
+- Invalid player name input should fail fast with a clear startup error.
 
 ### Extend the client/server protocol for player-aware sessions
 - Update shared message types so player identity is explicit at the protocol boundary.
 - Likely additions include:
-  - join/connect payloads carrying `playerId`
+  - join/connect payloads carrying `playerName`
   - server events for player join/leave/update
   - authoritative player snapshot replication
 - Keep the current transport-neutral design:
@@ -93,8 +93,8 @@ Add an explicit player system so the server can own multiple players at once ins
   - position/rotation are per-player
   - inventory is per-player
   - chunk/world blocks remain per-world
-- Joining a world with the same player UUID should restore that player’s saved state for the world if persistence is enabled.
-- A different player UUID joining the same world should not overwrite another player’s inventory or spawn state.
+- Joining a world with the same player name should restore that player’s saved state for the world if persistence is enabled.
+- A different player name joining the same world should not overwrite another player’s inventory or spawn state.
 
 ### Client runtime and rendering implications
 - Extend the client runtime to maintain replicated player snapshots alongside chunks and inventory.
@@ -124,29 +124,29 @@ Add an explicit player system so the server can own multiple players at once ins
 
 ## Test Plan
 - Identity tests:
-  - missing local player profile generates and persists a UUID
-  - subsequent launches reuse the stored UUID
-  - CLI UUID override replaces the effective runtime UUID
-  - invalid CLI UUID fails with a clear error
+  - missing local player profile generates and persists a player name
+  - subsequent launches reuse the stored player name
+  - CLI name override replaces the effective runtime name
+  - invalid CLI name input fails with a clear error
 - Server player-session tests:
-  - joining a world creates or restores player state by UUID
+  - joining a world creates or restores player state by player name
   - multiple players can coexist in the same authoritative world session
   - disconnecting one player does not delete another player’s state
 - Client replication tests:
-  - join response exposes `clientPlayerId`
+  - join response exposes `clientPlayerName`
   - client stores remote and local player snapshots separately
   - local input updates only the client player
 - Persistence tests:
-  - player-local UUID storage is separate from world registry/chunk files
-  - per-player world state, if persisted, round-trips correctly for distinct UUIDs
+  - player-local name storage is separate from world registry/chunk files
+  - per-player world state, if persisted, round-trips correctly for distinct player names
 - Integration smoke tests:
-  - launch normally and verify stable UUID reuse
-  - launch with `--player-uuid=<uuid>` and verify the client identifies that UUID as local
+  - launch normally and verify stable player-name reuse
+  - launch with `--player-name=<name>` and verify the client identifies that player name as local
   - connect multiple players to the same server path and verify authoritative player separation
 
 ## Assumptions And Defaults
 - Use the next plan filename in sequence: `0012-players.md`.
-- Player identity uses UUID strings, preferably standard v4 formatting.
-- The local player UUID is client-local metadata and should not be embedded in the world registry as global world identity.
+- Player identity uses simple player-name strings.
+- The local player name is client-local metadata and should not be embedded in the world registry as global world identity.
 - CLI override is intended for testing, debugging, or running multiple local clients with distinct identities.
 - This plan is about player identity and multi-player-capable state modeling first; a full real-network transport can follow on top of the same client/server split.

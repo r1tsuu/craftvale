@@ -59,8 +59,23 @@ export interface InventorySnapshot {
   selectedSlot: number;
 }
 
+export type PlayerName = string;
+
 export interface PlayerState {
   position: [number, number, number];
   yaw: number;
   pitch: number;
+}
+
+export interface PlayerProfile {
+  version: 1;
+  playerName: PlayerName;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PlayerSnapshot {
+  name: PlayerName;
+  state: PlayerState;
+  active: boolean;
 }

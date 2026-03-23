@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { type JoinedWorldPayload, type SaveStatusPayload } from "../shared/messages.ts";
+import type { PlayerName } from "../types.ts";
 import { AuthoritativeWorld } from "./authoritative-world.ts";
 import { BinaryWorldStorage, type WorldStorage } from "./world-storage.ts";
 import type { IServerAdapter } from "./server-adapter.ts";
@@ -12,6 +13,7 @@ export const DEFAULT_WORLD_STORAGE_ROOT = join(projectRoot, "data");
 
 export class ServerRuntime {
   private activeWorld: AuthoritativeWorld | null = null;
+  private currentPlayerName: PlayerName | null = null;
 
   public constructor(
     private readonly adapter: Pick<IServerAdapter, "eventBus" | "close">,
@@ -34,18 +36,30 @@ export class ServerRuntime {
       world: await this.storage.createWorld(name, seed),
     }));
 
-    this.adapter.eventBus.on("joinWorld", async ({ name }) => {
-      await this.flushActiveWorld();
+    this.adapter.eventBus.on("joinWorld", async ({ name, playerName }) => {
+      if (this.activeWorld?.summary.name !== name) {
+        await this.flushActiveWorld();
+      } else {
+        await this.releaseCurrentPlayer();
+      }
+
       const world = await this.storage.getWorld(name);
       if (!world) {
         throw new Error(`World "${name}" does not exist.`);
       }
 
-      this.activeWorld = new AuthoritativeWorld(world, this.storage);
+      if (!this.activeWorld || this.activeWorld.summary.name !== name) {
+        this.activeWorld = new AuthoritativeWorld(world, this.storage);
+      }
+
+      const joinedPlayer = await this.activeWorld.joinPlayer(playerName);
+      this.currentPlayerName = playerName;
       const payload: JoinedWorldPayload = {
         world: this.activeWorld.summary,
-        spawnPosition: this.activeWorld.spawnPosition,
-        inventory: await this.activeWorld.getInventorySnapshot(),
+        clientPlayerName: playerName,
+        clientPlayer: joinedPlayer.clientPlayer,
+        players: joinedPlayer.players,
+        inventory: joinedPlayer.inventory,
       };
       this.adapter.eventBus.send({
         type: "joinedWorld",
@@ -121,11 +135,11 @@ export class ServerRuntime {
     });
 
     this.adapter.eventBus.on("mutateBlock", async ({ x, y, z, blockId }) => {
-      if (!this.activeWorld) {
+      if (!this.activeWorld || !this.currentPlayerName) {
         throw new Error("Join a world before mutating blocks.");
       }
 
-      const result = await this.activeWorld.applyBlockMutation(x, y, z, blockId);
+      const result = await this.activeWorld.applyBlockMutation(this.currentPlayerName, x, y, z, blockId);
       for (const chunk of result.changedChunks) {
         this.adapter.eventBus.send({
           type: "chunkChanged",
@@ -136,20 +150,38 @@ export class ServerRuntime {
       if (result.inventoryChanged) {
         this.adapter.eventBus.send({
           type: "inventoryUpdated",
-          payload: { inventory: result.inventory },
+          payload: {
+            playerName: this.currentPlayerName,
+            inventory: result.inventory,
+          },
         });
       }
     });
 
     this.adapter.eventBus.on("selectInventorySlot", async ({ slot }) => {
-      if (!this.activeWorld) {
+      if (!this.activeWorld || !this.currentPlayerName) {
         throw new Error("Join a world before selecting inventory.");
       }
 
-      const inventory = await this.activeWorld.selectInventorySlot(slot);
+      const inventory = await this.activeWorld.selectInventorySlot(this.currentPlayerName, slot);
       this.adapter.eventBus.send({
         type: "inventoryUpdated",
-        payload: { inventory },
+        payload: {
+          playerName: this.currentPlayerName,
+          inventory,
+        },
+      });
+    });
+
+    this.adapter.eventBus.on("updatePlayerState", async ({ state }) => {
+      if (!this.activeWorld || !this.currentPlayerName) {
+        throw new Error("Join a world before updating player state.");
+      }
+
+      const player = await this.activeWorld.updatePlayerState(this.currentPlayerName, state);
+      this.adapter.eventBus.send({
+        type: "playerUpdated",
+        payload: { player },
       });
     });
   }
@@ -166,6 +198,26 @@ export class ServerRuntime {
       return;
     }
 
+    await this.releaseCurrentPlayer();
     await this.activeWorld.save();
+    this.activeWorld = null;
+  }
+
+  private async releaseCurrentPlayer(): Promise<void> {
+    if (!this.activeWorld || !this.currentPlayerName) {
+      return;
+    }
+
+    const playerName = this.currentPlayerName;
+    const leftPlayer = await this.activeWorld.leavePlayer(playerName);
+    this.currentPlayerName = null;
+    if (!leftPlayer) {
+      return;
+    }
+
+    this.adapter.eventBus.send({
+      type: "playerLeft",
+      payload: { playerName },
+    });
   }
 }

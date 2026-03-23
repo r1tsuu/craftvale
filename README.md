@@ -15,8 +15,10 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Centered in-game crosshair
 - Focused block highlight
 - Server-authoritative block breaking and placing through a worker-backed client/server architecture
+- Stable per-client player names with local profile persistence and optional `--player-name` override
+- Player-aware authoritative sessions with per-player position, rotation, and inventory state
 - Per-world save/load with named worlds and binary chunk persistence
-- Server-authoritative 9-slot hotbar inventory with starter stacks and HUD display
+- Server-authoritative 9-slot hotbar inventory with starter stacks, HUD display, and per-player persistence
 - Nine placeable hotbar block types including terrain, wood, and masonry-style blocks
 - Create, join, delete, and save worlds from the menu
 - Pre-game menu with reusable UI components and clickable buttons
@@ -36,6 +38,8 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `bun run dev` builds the native bridge and starts the app
 - `bun run typecheck` runs TypeScript checks
 - `bun test` runs the automated tests
+- Launch options: `--player-name=<name>` or `--player-name <name>` overrides the local player name for that run
+- `bun run dev` runs with `APP_ENV=development` and defaults a fresh local player profile to `Developer`
 
 ## Controls
 
@@ -75,6 +79,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - World generation starts after a world is created or joined.
 - Biomes, terrain, and trees are all derived deterministically from the world seed.
 - World state is worker/server-authoritative even in the current single-player setup.
+- Player identity is stored separately from world saves in `data/client/player-profile.json`.
 - The menu background is seeded and stable for a given run.
 - The play HUD is built from lightweight rectangle/text overlays rather than a retained widget framework.
 - The current implementation targets macOS first.

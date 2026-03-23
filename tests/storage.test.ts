@@ -5,6 +5,9 @@ import { join } from "node:path";
 import { BinaryWorldStorage } from "../src/server/world-storage.ts";
 import { CHUNK_VOLUME } from "../src/world/constants.ts";
 
+const PLAYER_A = "Alice";
+const PLAYER_B = "Bob Builder";
+
 const createTempStorage = async (): Promise<{
   rootDir: string;
   storage: BinaryWorldStorage;
@@ -43,7 +46,16 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
     expect(loaded?.blocks[0]).toBe(3);
     expect(loaded?.blocks[17]).toBe(2);
 
-    await storage.saveInventory("Alpha", {
+    await storage.savePlayer("Alpha", {
+      snapshot: {
+        name: PLAYER_A,
+        active: true,
+        state: {
+          position: [12.5, 70, -4.25],
+          yaw: 1.25,
+          pitch: -0.5,
+        },
+      },
       inventory: {
         selectedSlot: 2,
         slots: [
@@ -56,18 +68,42 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
       },
     });
 
-    const loadedInventory = await storage.loadInventory("Alpha");
-    expect(loadedInventory).not.toBeNull();
-    expect(loadedInventory?.inventory.selectedSlot).toBe(2);
-    expect(loadedInventory?.inventory.slots).toHaveLength(9);
-    expect(loadedInventory?.inventory.slots.find((slot) => slot.blockId === 3)?.count).toBe(5);
-    expect(loadedInventory?.inventory.slots.find((slot) => slot.blockId === 6)?.count).toBe(0);
+    await storage.savePlayer("Alpha", {
+      snapshot: {
+        name: PLAYER_B,
+        active: true,
+        state: {
+          position: [1, 2, 3],
+          yaw: 0.25,
+          pitch: 0.1,
+        },
+      },
+      inventory: {
+        selectedSlot: 0,
+        slots: [{ blockId: 4, count: 9 }],
+      },
+    });
+
+    const loadedPlayerA = await storage.loadPlayer("Alpha", PLAYER_A);
+    expect(loadedPlayerA).not.toBeNull();
+    expect(loadedPlayerA?.snapshot.name).toBe(PLAYER_A);
+    expect(loadedPlayerA?.snapshot.active).toBe(false);
+    expect(loadedPlayerA?.snapshot.state.position).toEqual([12.5, 70, -4.25]);
+    expect(loadedPlayerA?.inventory.selectedSlot).toBe(2);
+    expect(loadedPlayerA?.inventory.slots).toHaveLength(9);
+    expect(loadedPlayerA?.inventory.slots.find((slot) => slot.blockId === 3)?.count).toBe(5);
+    expect(loadedPlayerA?.inventory.slots.find((slot) => slot.blockId === 6)?.count).toBe(0);
+
+    const loadedPlayerB = await storage.loadPlayer("Alpha", PLAYER_B);
+    expect(loadedPlayerB).not.toBeNull();
+    expect(loadedPlayerB?.snapshot.state.position).toEqual([1, 2, 3]);
+    expect(loadedPlayerB?.inventory.slots.find((slot) => slot.blockId === 4)?.count).toBe(9);
 
     const deleted = await storage.deleteWorld("Alpha");
     expect(deleted).toBe(true);
     expect(await storage.listWorlds()).toEqual([]);
     expect(await storage.loadChunk("Alpha", { x: 0, y: 0, z: 0 })).toBeNull();
-    expect(await storage.loadInventory("Alpha")).toBeNull();
+    expect(await storage.loadPlayer("Alpha", PLAYER_A)).toBeNull();
   } finally {
     await rm(rootDir, { recursive: true, force: true });
   }

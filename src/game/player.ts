@@ -33,13 +33,35 @@ export class PlayerController {
   };
 
   public reset(position: [number, number, number] = [0, 10, 0]): void {
+    this.setState(
+      {
+        position,
+        yaw: -Math.PI / 2,
+        pitch: -0.25,
+      },
+      true,
+    );
+  }
+
+  public resetFromState(state: PlayerState): void {
+    this.setState(state, true);
+  }
+
+  public syncFromState(state: PlayerState): void {
+    this.setState(state, false);
+  }
+
+  private setState(state: PlayerState, resetMotion: boolean): void {
     this.state = {
-      position,
-      yaw: -Math.PI / 2,
-      pitch: -0.25,
+      position: [...state.position],
+      yaw: state.yaw,
+      pitch: state.pitch,
     };
-    this.verticalVelocity = 0;
-    this.grounded = false;
+
+    if (resetMotion) {
+      this.verticalVelocity = 0;
+      this.grounded = false;
+    }
   }
 
   public applyLook(input: InputState): void {

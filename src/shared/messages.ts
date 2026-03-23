@@ -1,4 +1,11 @@
-import type { BlockId, ChunkCoord, InventorySnapshot } from "../types.ts";
+import type {
+  BlockId,
+  ChunkCoord,
+  InventorySnapshot,
+  PlayerName,
+  PlayerSnapshot,
+  PlayerState,
+} from "../types.ts";
 
 export interface WorldSummary {
   name: string;
@@ -14,6 +21,7 @@ export interface CreateWorldRequest {
 
 export interface JoinWorldRequest {
   name: string;
+  playerName: PlayerName;
 }
 
 export interface DeleteWorldRequest {
@@ -41,6 +49,10 @@ export interface InventorySelectionRequest {
   slot: number;
 }
 
+export interface PlayerStateUpdateRequest {
+  state: PlayerState;
+}
+
 export interface SaveStatusPayload {
   worldName: string;
   savedChunks: number;
@@ -50,7 +62,9 @@ export interface SaveStatusPayload {
 
 export interface JoinedWorldPayload {
   world: WorldSummary;
-  spawnPosition: [number, number, number];
+  clientPlayerName: PlayerName;
+  clientPlayer: PlayerSnapshot;
+  players: PlayerSnapshot[];
   inventory: InventorySnapshot;
 }
 
@@ -75,13 +89,17 @@ export interface ClientResponseMap {
 export interface ClientEventMap {
   mutateBlock: BlockMutationRequest;
   selectInventorySlot: InventorySelectionRequest;
+  updatePlayerState: PlayerStateUpdateRequest;
 }
 
 export interface ServerEventMap {
   joinedWorld: JoinedWorldPayload;
   chunkDelivered: { chunk: ChunkPayload };
   chunkChanged: { chunk: ChunkPayload };
-  inventoryUpdated: { inventory: InventorySnapshot };
+  inventoryUpdated: { playerName: PlayerName; inventory: InventorySnapshot };
+  playerJoined: { player: PlayerSnapshot };
+  playerUpdated: { player: PlayerSnapshot };
+  playerLeft: { playerName: PlayerName };
   saveStatus: SaveStatusPayload;
   worldDeleted: { name: string };
   serverError: { message: string; requestId?: string };
@@ -147,13 +165,20 @@ const CLIENT_REQUEST_TYPES = new Set<keyof ClientRequestMap>([
   "deleteWorld",
 ]);
 
-const CLIENT_EVENT_TYPES = new Set<keyof ClientEventMap>(["mutateBlock", "selectInventorySlot"]);
+const CLIENT_EVENT_TYPES = new Set<keyof ClientEventMap>([
+  "mutateBlock",
+  "selectInventorySlot",
+  "updatePlayerState",
+]);
 
 const SERVER_EVENT_TYPES = new Set<keyof ServerEventMap>([
   "joinedWorld",
   "chunkDelivered",
   "chunkChanged",
   "inventoryUpdated",
+  "playerJoined",
+  "playerUpdated",
+  "playerLeft",
   "saveStatus",
   "worldDeleted",
   "serverError",

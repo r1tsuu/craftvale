@@ -48,6 +48,7 @@ It owns:
 - app mode (`menu` or `playing`)
 - menu state
 - current world/session metadata
+- the local player identity used for joins
 - transient HUD/status text
 - timing state for the fixed-step loop
 - input edge tracking such as previous mouse button state
@@ -81,8 +82,8 @@ The client/server boundary is strongly typed through `src/shared/messages.ts`.
 There are three main categories:
 
 - client requests: request/response operations such as `listWorlds`, `joinWorld`, `requestChunks`, and `saveWorld`
-- client events: one-way gameplay intents such as `mutateBlock` and `selectInventorySlot`
-- server events: one-way authoritative updates such as `chunkDelivered`, `chunkChanged`, `inventoryUpdated`, and `saveStatus`
+- client events: one-way gameplay intents such as `mutateBlock`, `selectInventorySlot`, and player-state updates
+- server events: one-way authoritative updates such as `chunkDelivered`, `chunkChanged`, `inventoryUpdated`, `playerUpdated`, and `saveStatus`
 
 `src/shared/event-bus.ts` wraps raw transport messages with typed handlers and request correlation.
 
@@ -103,7 +104,8 @@ Because the transport abstraction is explicit, the current worker-backed single-
 - loaded chunk cache
 - pending chunk requests
 - chunk waiters for async loading
-- replicated inventory snapshot
+- `clientPlayerName` plus replicated player snapshots
+- replicated local-player inventory snapshot
 
 This local world is used for:
 
@@ -118,7 +120,7 @@ This local world is used for:
 
 - authoritative chunks
 - dirty/save tracking
-- authoritative inventory snapshot
+- authoritative player registry keyed by player name
 - spawn computation
 - block mutation rules
 
@@ -126,7 +128,8 @@ The server is responsible for:
 
 - chunk generation on demand
 - validating and applying block mutations
-- awarding/deducting inventory items
+- loading, saving, and replicating per-player position/rotation state
+- awarding/deducting per-player inventory items
 - deciding which chunks must be resent after a mutation
 - persisting changed state
 
@@ -190,6 +193,7 @@ Gameplay updates currently include:
 - requesting nearby chunks
 - movement and collision
 - raycasting from the eye position
+- sending local player-state updates so the server can own the authoritative snapshot
 - breaking blocks through a server event
 - placing the selected hotbar block through a server event
 - selecting inventory slots with number keys `1..9`
@@ -198,13 +202,19 @@ The client never assumes a local placement/removal succeeded until the authorita
 
 ## Inventory
 
+Player identity is separate from world identity:
+
+- each client has a persisted player name stored in local client metadata
+- a launch can temporarily override that name with `--player-name`
+- the effective player name is sent explicitly when joining a world
+
 Inventory is modeled as a hotbar-oriented snapshot:
 
 - fixed slot list
 - selected slot index
 - per-slot block id and count
 
-The current default setup is a nine-slot hotbar with starter stacks for newly created worlds.
+The current default setup is a nine-slot hotbar with starter stacks for newly seen players.
 
 The client uses this replicated inventory for:
 
@@ -212,12 +222,12 @@ The client uses this replicated inventory for:
 - current placement selection
 - local feedback such as out-of-stock messages
 
-The server owns the real counts:
+The server owns the real counts and persists them per player name inside each world:
 
 - breaking collectible blocks increments counts
 - successful placement decrements counts
 - invalid placement does not consume inventory
-- inventory persists per world through storage
+- joining the same world with the same player name restores that player’s inventory and position/rotation
 
 Inventory normalization also acts as a compatibility layer for older persisted snapshots when the hotbar/block catalog grows.
 

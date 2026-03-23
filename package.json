@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build:native": "bun run scripts/build-native.ts",
-    "dev": "bun run build:native && bun run src/index.ts",
+    "dev": "bun run build:native && APP_ENV=development bun run src/index.ts",
     "start": "bun run src/index.ts",
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test"
