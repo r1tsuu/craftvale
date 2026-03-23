@@ -74,6 +74,14 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `plans` implementation plans for major feature work
 - `tests` coverage for client/server flow, storage, terrain, meshing, raycast, player, highlight, text, and UI
 
+## Commit Messages
+
+- Use commit subjects in the form `<type>: <summary>`.
+- Allowed commit types are `fix:`, `feat:`, `refactor:`, `test:`, and `docs:`.
+- Keep the subject short and action-oriented, for example `feat: add player-name profiles`.
+- Every commit should include a body that explains what changed and why.
+- Commits created through Codex should include `Co-authored-by: Codex <codex@openai.com>`.
+
 ## Notes
 
 - World generation starts after a world is created or joined.

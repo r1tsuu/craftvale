@@ -51,6 +51,11 @@ task touches a feature area with an existing implementation plan.
   cutout alpha discard, not blended translucency.
 - Inventory is per-world and server-authoritative. Keep place/break accounting
   on the server side.
+- Commit subjects should use `<type>: <summary>` with one of `fix:`, `feat:`,
+  `refactor:`, `test:`, or `docs:`, and every commit should include a body
+  describing what changed.
+- Commits created through Codex should include the trailer
+  `Co-authored-by: Codex <codex@openai.com>`.
 - Prefer updating `plans/000N-*.md` when a feature meaningfully changes scope or
   architecture.
 
