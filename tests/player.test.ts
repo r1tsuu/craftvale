@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { PlayerController } from "../src/game/player.ts";
-import type { InputState } from "../src/types.ts";
+import type { InputState, PlayerSnapshot } from "../src/types.ts";
 import { VoxelWorld } from "../src/world/world.ts";
 
 const createInput = (overrides: Partial<InputState> = {}): InputState => ({
@@ -46,6 +46,21 @@ const addFloor = (world: VoxelWorld): void => {
   }
 };
 
+const createSnapshot = (
+  player: PlayerController,
+  overrides: Partial<Pick<PlayerSnapshot, "gamemode" | "flying">> = {},
+): PlayerSnapshot => ({
+  name: "Alice",
+  active: true,
+  gamemode: overrides.gamemode ?? player.gamemode,
+  flying: overrides.flying ?? player.flying,
+  state: {
+    position: [...player.state.position],
+    yaw: player.state.yaw,
+    pitch: player.state.pitch,
+  },
+});
+
 test("gravity pulls the player onto the ground", () => {
   const world = createEmptyWorld();
   addFloor(world);
@@ -74,6 +89,22 @@ test("jump raises the player before gravity brings them down", () => {
 
   expect(jumpedHeight).toBeGreaterThan(1);
   expect(player.state.position[1]).toBeCloseTo(1, 3);
+});
+
+test("authoritative sync preserves upward momentum after a jump", () => {
+  const world = createEmptyWorld();
+  addFloor(world);
+  const player = new PlayerController();
+  player.state.position = [2.5, 1, 2.5];
+
+  player.update(createInput({ moveUp: true }), 1 / 60, world);
+  const heightAfterJump = player.state.position[1];
+  player.syncFromSnapshot(createSnapshot(player));
+
+  player.update(createInput(), 1 / 60, world);
+  const heightAfterSync = player.state.position[1];
+
+  expect(heightAfterSync).toBeGreaterThan(heightAfterJump);
 });
 
 test("horizontal movement collides with solid blocks", () => {
@@ -157,4 +188,33 @@ test("normal mode sync disables creative flight immediately", () => {
   expect(player.flying).toBe(false);
   expect(player.gamemode).toBe(0);
   expect(player.state.position[1]).toBeLessThan(3);
+});
+
+test("disabling flight preserves normal gravity acceleration across syncs", () => {
+  const world = createEmptyWorld();
+  addFloor(world);
+  const player = new PlayerController();
+  player.resetFromSnapshot({
+    name: "Alice",
+    active: true,
+    gamemode: 1,
+    flying: true,
+    state: {
+      position: [2.5, 6, 2.5],
+      yaw: -Math.PI / 2,
+      pitch: -0.25,
+    },
+  });
+
+  player.syncFromSnapshot(createSnapshot(player, { flying: false }));
+  const startingHeight = player.state.position[1];
+
+  player.update(createInput(), 1 / 60, world);
+  const afterFirstFall = player.state.position[1];
+  player.syncFromSnapshot(createSnapshot(player));
+
+  player.update(createInput(), 1 / 60, world);
+  const afterSecondFall = player.state.position[1];
+
+  expect(startingHeight - afterFirstFall).toBeLessThan(afterFirstFall - afterSecondFall);
 });

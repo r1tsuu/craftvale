@@ -255,9 +255,10 @@ export class PlayerController {
     flying: boolean,
     resetTimers: boolean,
   ): void {
+    const wasFlying = this.flying;
     this.gamemode = gamemode;
     this.flying = gamemode === 1 ? flying : false;
-    if (!this.flying) {
+    if (wasFlying && !this.flying) {
       this.verticalVelocity = 0;
     }
     if (resetTimers) {
