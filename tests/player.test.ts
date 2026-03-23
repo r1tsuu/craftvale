@@ -94,3 +94,67 @@ test("horizontal movement collides with solid blocks", () => {
 
   expect(player.state.position[0]).toBeLessThan(2.7);
 });
+
+test("creative mode toggles flight on double-space and allows vertical movement", () => {
+  const world = createEmptyWorld();
+  addFloor(world);
+  const player = new PlayerController();
+  player.resetFromSnapshot({
+    name: "Alice",
+    active: true,
+    gamemode: 1,
+    flying: false,
+    state: {
+      position: [2.5, 1, 2.5],
+      yaw: -Math.PI / 2,
+      pitch: -0.25,
+    },
+  });
+
+  player.update(createInput({ moveUp: true }), 1 / 60, world);
+  player.update(createInput({ moveUp: false }), 0.1, world);
+  player.update(createInput({ moveUp: true }), 1 / 60, world);
+  expect(player.flying).toBe(true);
+
+  const heightBeforeFlight = player.state.position[1];
+  player.update(createInput({ moveUp: true }), 1 / 10, world);
+  expect(player.state.position[1]).toBeGreaterThan(heightBeforeFlight);
+
+  const heightBeforeDescend = player.state.position[1];
+  player.update(createInput({ moveDown: true }), 1 / 10, world);
+  expect(player.state.position[1]).toBeLessThan(heightBeforeDescend);
+});
+
+test("normal mode sync disables creative flight immediately", () => {
+  const world = createEmptyWorld();
+  addFloor(world);
+  const player = new PlayerController();
+  player.resetFromSnapshot({
+    name: "Alice",
+    active: true,
+    gamemode: 1,
+    flying: true,
+    state: {
+      position: [2.5, 3, 2.5],
+      yaw: -Math.PI / 2,
+      pitch: -0.25,
+    },
+  });
+
+  player.syncFromSnapshot({
+    name: "Alice",
+    active: true,
+    gamemode: 0,
+    flying: false,
+    state: {
+      position: [2.5, 3, 2.5],
+      yaw: -Math.PI / 2,
+      pitch: -0.25,
+    },
+  });
+  player.update(createInput(), 1 / 60, world);
+
+  expect(player.flying).toBe(false);
+  expect(player.gamemode).toBe(0);
+  expect(player.state.position[1]).toBeLessThan(3);
+});

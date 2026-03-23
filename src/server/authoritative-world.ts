@@ -2,6 +2,7 @@ import type {
   BlockId,
   ChunkCoord,
   InventorySnapshot,
+  PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
   PlayerState,
@@ -46,6 +47,7 @@ interface BlockMutationResult {
 
 const DEFAULT_PLAYER_YAW = -Math.PI / 2;
 const DEFAULT_PLAYER_PITCH = -0.25;
+const DEFAULT_PLAYER_GAMEMODE: PlayerGamemode = 0;
 
 const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
 
@@ -111,15 +113,45 @@ export class AuthoritativeWorld {
     return this.clonePlayerSnapshot(entry.snapshot);
   }
 
-  public async updatePlayerState(playerName: PlayerName, state: PlayerState): Promise<PlayerSnapshot> {
+  public async updatePlayerState(
+    playerName: PlayerName,
+    state: PlayerState,
+    flying: boolean,
+  ): Promise<PlayerSnapshot> {
     const entry = await this.ensurePlayerLoaded(playerName);
     const nextState = this.clonePlayerState(state);
-    if (!playerStatesEqual(entry.snapshot.state, nextState)) {
+    const nextFlying = entry.snapshot.gamemode === 1 ? flying : false;
+    if (
+      !playerStatesEqual(entry.snapshot.state, nextState) ||
+      entry.snapshot.flying !== nextFlying
+    ) {
       entry.snapshot = {
         ...entry.snapshot,
         active: true,
         state: nextState,
+        flying: nextFlying,
       };
+      entry.saveDirty = true;
+      this.players.set(playerName, entry);
+    }
+
+    return this.clonePlayerSnapshot(entry.snapshot);
+  }
+
+  public async setPlayerGamemode(
+    playerName: PlayerName,
+    gamemode: PlayerGamemode,
+  ): Promise<PlayerSnapshot> {
+    const entry = await this.ensurePlayerLoaded(playerName);
+    if (entry.snapshot.gamemode !== gamemode || entry.snapshot.flying) {
+      entry.snapshot = {
+        ...entry.snapshot,
+        gamemode,
+        flying: gamemode === 1 ? entry.snapshot.flying : false,
+      };
+      if (gamemode === 0) {
+        entry.snapshot.flying = false;
+      }
       entry.saveDirty = true;
       this.players.set(playerName, entry);
     }
@@ -359,6 +391,8 @@ export class AuthoritativeWorld {
     return {
       name: playerName,
       active: false,
+      gamemode: DEFAULT_PLAYER_GAMEMODE,
+      flying: false,
       state: {
         position: [...this.spawnPosition],
         yaw: DEFAULT_PLAYER_YAW,
@@ -391,6 +425,8 @@ export class AuthoritativeWorld {
     return {
       name: snapshot.name,
       active: snapshot.active,
+      gamemode: snapshot.gamemode,
+      flying: snapshot.flying,
       state: this.clonePlayerState(snapshot.state),
     };
   }

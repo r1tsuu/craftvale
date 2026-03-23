@@ -60,6 +60,9 @@ const createHarness = async (): Promise<{
   client.eventBus.on("playerLeft", ({ playerName }) => {
     worldRuntime.removePlayer(playerName);
   });
+  client.eventBus.on("chatMessage", ({ entry }) => {
+    worldRuntime.appendChatMessage(entry);
+  });
 
   return {
     rootDir,
@@ -162,6 +165,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
           yaw: 0.5,
           pitch: -0.2,
         },
+        flying: false,
       },
     });
     await Bun.sleep(0);
@@ -232,6 +236,31 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     expect(
       harness.worldRuntime.inventory.slots.find((slot) => slot.blockId === targetBlockId)?.count,
     ).toBe(DEFAULT_INVENTORY_STACK_SIZE);
+
+    harness.client.eventBus.send({
+      type: "submitChat",
+      payload: {
+        text: "/gamemode 1",
+      },
+    });
+    await Bun.sleep(0);
+    expect(harness.worldRuntime.getClientPlayer()?.gamemode).toBe(1);
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toContain("creative");
+
+    harness.client.eventBus.send({
+      type: "submitChat",
+      payload: {
+        text: "hello world",
+      },
+    });
+    await Bun.sleep(0);
+    expect(harness.worldRuntime.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        kind: "player",
+        senderName: PLAYER_NAME,
+        text: "hello world",
+      }),
+    );
   } finally {
     await harness.serverRuntime.shutdown();
     harness.client.close();

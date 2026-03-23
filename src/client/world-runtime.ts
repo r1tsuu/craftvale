@@ -1,6 +1,8 @@
 import type {
+  ChatEntry,
   ChunkCoord,
   InventorySnapshot,
+  PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
   PlayerState,
@@ -18,6 +20,7 @@ export class ClientWorldRuntime {
   public inventory: InventorySnapshot = createDefaultInventory();
   public clientPlayerName: PlayerName | null = null;
   public readonly players = new Map<PlayerName, PlayerSnapshot>();
+  public chatMessages: ChatEntry[] = [];
   private readonly pendingChunkKeys = new Set<string>();
   private readonly chunkWaiters = new Set<{
     coords: ChunkCoord[];
@@ -31,6 +34,7 @@ export class ClientWorldRuntime {
     this.inventory = createDefaultInventory();
     this.clientPlayerName = null;
     this.players.clear();
+    this.chatMessages = [];
     this.pendingChunkKeys.clear();
     this.chunkWaiters.clear();
   }
@@ -71,7 +75,11 @@ export class ClientWorldRuntime {
     return this.players.get(this.clientPlayerName) ?? null;
   }
 
-  public createLocalPlayerSnapshot(state: PlayerState): PlayerSnapshot | null {
+  public createLocalPlayerSnapshot(
+    state: PlayerState,
+    gamemode: PlayerGamemode,
+    flying: boolean,
+  ): PlayerSnapshot | null {
     if (!this.clientPlayerName) {
       return null;
     }
@@ -79,12 +87,18 @@ export class ClientWorldRuntime {
     return {
       name: this.clientPlayerName,
       active: true,
+      gamemode,
+      flying,
       state: {
         position: [...state.position],
         yaw: state.yaw,
         pitch: state.pitch,
       },
     };
+  }
+
+  public appendChatMessage(entry: ChatEntry, maxMessages = 8): void {
+    this.chatMessages = [...this.chatMessages, this.cloneChatEntry(entry)].slice(-maxMessages);
   }
 
   public getChunkCoordsAroundPosition(
@@ -171,11 +185,22 @@ export class ClientWorldRuntime {
     return {
       name: player.name,
       active: player.active,
+      gamemode: player.gamemode,
+      flying: player.flying,
       state: {
         position: [...player.state.position],
         yaw: player.state.yaw,
         pitch: player.state.pitch,
       },
+    };
+  }
+
+  private cloneChatEntry(entry: ChatEntry): ChatEntry {
+    return {
+      kind: entry.kind,
+      text: entry.text,
+      senderName: entry.senderName,
+      receivedAt: entry.receivedAt,
     };
   }
 }

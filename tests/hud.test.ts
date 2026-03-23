@@ -3,7 +3,9 @@ import { buildPlayHud } from "../src/ui/hud.ts";
 import { createDefaultInventory, setSelectedInventorySlot } from "../src/world/inventory.ts";
 
 test("play HUD includes a centered crosshair", () => {
-  const hud = buildPlayHud(1280, 720, createDefaultInventory());
+  const hud = buildPlayHud(1280, 720, {
+    inventory: createDefaultInventory(),
+  });
   const panels = hud.filter((component) => component.kind === "panel");
 
   expect(panels).toEqual(
@@ -22,7 +24,9 @@ test("play HUD includes a centered crosshair", () => {
 
 test("play HUD still renders the hotbar and selected slot label", () => {
   const inventory = setSelectedInventorySlot(createDefaultInventory(), 4);
-  const hud = buildPlayHud(1280, 720, inventory);
+  const hud = buildPlayHud(1280, 720, {
+    inventory,
+  });
   const labels = hud.filter((component) => component.kind === "label");
 
   expect(hud.some((component) => component.id === "hotbar-backdrop")).toBe(true);
@@ -41,7 +45,10 @@ test("play HUD still renders the hotbar and selected slot label", () => {
 });
 
 test("play HUD renders the current biome above the hotbar", () => {
-  const hud = buildPlayHud(1280, 720, createDefaultInventory(), "FOREST");
+  const hud = buildPlayHud(1280, 720, {
+    inventory: createDefaultInventory(),
+    biomeName: "FOREST",
+  });
   const labels = hud.filter((component) => component.kind === "label");
 
   expect(hud).toEqual(
@@ -57,6 +64,50 @@ test("play HUD renders the current biome above the hotbar", () => {
       expect.objectContaining({
         id: "biome-badge-label",
         text: "BIOME: FOREST",
+      }),
+    ]),
+  );
+});
+
+test("play HUD renders chat and creative mode indicators", () => {
+  const hud = buildPlayHud(1280, 720, {
+    inventory: createDefaultInventory(),
+    gamemode: 1,
+    flying: true,
+    chatOpen: true,
+    chatDraft: "/gamemode 1",
+    chatMessages: [
+      {
+        kind: "system",
+        text: "Gamemode set to creative.",
+        receivedAt: 1,
+      },
+      {
+        kind: "player",
+        senderName: "Alice",
+        text: "hello",
+        receivedAt: 2,
+      },
+    ],
+  });
+
+  expect(hud).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "mode-badge-label",
+        text: "MODE: CREATIVE FLY",
+      }),
+      expect.objectContaining({
+        id: "chat-input-label",
+        text: "> /gamemode 1",
+      }),
+      expect.objectContaining({
+        id: "chat-feed-line-0",
+        text: "Gamemode set to creative.",
+      }),
+      expect.objectContaining({
+        id: "chat-feed-line-1",
+        text: "Alice: hello",
       }),
     ]),
   );

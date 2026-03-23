@@ -4,6 +4,7 @@ import type {
   BlockId,
   ChunkCoord,
   InventorySnapshot,
+  PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
 } from "../types.ts";
@@ -15,7 +16,7 @@ const CHUNK_MAGIC = "VCHK";
 const PLAYER_MAGIC = "VPLY";
 const REGISTRY_VERSION = 1;
 const CHUNK_VERSION = 1;
-const PLAYER_VERSION = 1;
+const PLAYER_VERSION = 2;
 
 export interface StoredWorldRecord extends WorldSummary {
   directoryName: string;
@@ -186,7 +187,7 @@ const decodeChunk = (bytes: Uint8Array): StoredChunkRecord => {
 
 const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
   const inventory = normalizeInventorySnapshot(record.inventory);
-  const bytes = new Uint8Array(56 + inventory.slots.length * 8);
+  const bytes = new Uint8Array(60 + inventory.slots.length * 8);
   const view = new DataView(bytes.buffer);
   bytes.set(textEncoder.encode(PLAYER_MAGIC), 0);
   view.setUint32(4, PLAYER_VERSION, true);
@@ -195,10 +196,11 @@ const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
   view.setFloat64(24, record.snapshot.state.position[2], true);
   view.setFloat64(32, record.snapshot.state.yaw, true);
   view.setFloat64(40, record.snapshot.state.pitch, true);
-  view.setUint32(48, inventory.selectedSlot >>> 0, true);
-  view.setUint32(52, inventory.slots.length, true);
+  view.setUint32(48, record.snapshot.gamemode, true);
+  view.setUint32(52, inventory.selectedSlot >>> 0, true);
+  view.setUint32(56, inventory.slots.length, true);
 
-  let offset = 56;
+  let offset = 60;
   for (const slot of inventory.slots) {
     view.setUint32(offset, slot.blockId >>> 0, true);
     view.setUint32(offset + 4, Math.max(0, Math.trunc(slot.count)) >>> 0, true);
@@ -220,14 +222,15 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
 
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const version = view.getUint32(4, true);
-  if (version !== PLAYER_VERSION) {
+  if (version !== 1 && version !== PLAYER_VERSION) {
     throw new Error(`Unsupported player file version ${version}.`);
   }
 
-  const selectedSlot = view.getUint32(48, true);
-  const slotCount = view.getUint32(52, true);
+  const gamemode: PlayerGamemode = version >= 2 ? (view.getUint32(48, true) === 1 ? 1 : 0) : 0;
+  const selectedSlot = version >= 2 ? view.getUint32(52, true) : view.getUint32(48, true);
+  const slotCount = version >= 2 ? view.getUint32(56, true) : view.getUint32(52, true);
   const slots: InventorySnapshot["slots"] = [];
-  let offset = 56;
+  let offset = version >= 2 ? 60 : 56;
   for (let index = 0; index < slotCount; index += 1) {
     slots.push({
       blockId: view.getUint32(offset, true) as BlockId,
@@ -240,6 +243,8 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
     snapshot: {
       name: playerName,
       active: false,
+      gamemode,
+      flying: false,
       state: {
         position: [
           view.getFloat64(8, true),

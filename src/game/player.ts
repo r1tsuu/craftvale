@@ -8,7 +8,7 @@ import {
   vec3,
   type Vec3,
 } from "../math/vec3.ts";
-import type { InputState, PlayerState } from "../types.ts";
+import type { InputState, PlayerGamemode, PlayerSnapshot, PlayerState } from "../types.ts";
 import { isSolidBlock } from "../world/blocks.ts";
 import { VoxelWorld } from "../world/world.ts";
 
@@ -21,10 +21,16 @@ const PLAYER_RADIUS = 0.32;
 const PLAYER_HEIGHT = 1.8;
 const PLAYER_EYE_HEIGHT = 1.62;
 const COLLISION_STEP = 0.2;
+const FLY_SPEED = 7;
+const DOUBLE_TAP_WINDOW_SECONDS = 0.32;
 
 export class PlayerController {
   private verticalVelocity = 0;
   private grounded = false;
+  private previousJumpDown = false;
+  private timeSinceJumpPress = Number.POSITIVE_INFINITY;
+  public gamemode: PlayerGamemode = 0;
+  public flying = false;
 
   public state: PlayerState = {
     position: [0, 10, 0],
@@ -41,14 +47,17 @@ export class PlayerController {
       },
       true,
     );
+    this.setMovementState(0, false, true);
   }
 
-  public resetFromState(state: PlayerState): void {
-    this.setState(state, true);
+  public resetFromSnapshot(snapshot: PlayerSnapshot): void {
+    this.setState(snapshot.state, true);
+    this.setMovementState(snapshot.gamemode, snapshot.flying, true);
   }
 
-  public syncFromState(state: PlayerState): void {
-    this.setState(state, false);
+  public syncFromSnapshot(snapshot: PlayerSnapshot): void {
+    this.setState(snapshot.state, false);
+    this.setMovementState(snapshot.gamemode, snapshot.flying, false);
   }
 
   private setState(state: PlayerState, resetMotion: boolean): void {
@@ -71,6 +80,25 @@ export class PlayerController {
   }
 
   public update(input: InputState, deltaSeconds: number, world: VoxelWorld): void {
+    this.timeSinceJumpPress += deltaSeconds;
+    const jumpPressed = input.moveUp && !this.previousJumpDown;
+    if (this.gamemode === 1 && jumpPressed) {
+      if (this.timeSinceJumpPress <= DOUBLE_TAP_WINDOW_SECONDS) {
+        this.flying = !this.flying;
+        this.verticalVelocity = 0;
+      }
+      this.timeSinceJumpPress = 0;
+    } else if (this.gamemode === 0) {
+      this.flying = false;
+      this.timeSinceJumpPress = Number.POSITIVE_INFINITY;
+    }
+
+    if (this.flying) {
+      this.updateFlying(input, deltaSeconds, world);
+      this.previousJumpDown = input.moveUp;
+      return;
+    }
+
     const forward = this.getWalkForwardVector();
     const right = normalizeVec3(crossVec3(forward, WORLD_UP));
     let movement = vec3();
@@ -106,6 +134,7 @@ export class PlayerController {
     }
 
     this.state.position = [position.x, position.y, position.z];
+    this.previousJumpDown = input.moveUp;
   }
 
   public getPositionVec3(): Vec3 {
@@ -143,6 +172,28 @@ export class PlayerController {
         Math.sin(this.state.yaw),
       ),
     );
+  }
+
+  private updateFlying(input: InputState, deltaSeconds: number, world: VoxelWorld): void {
+    const forward = this.getWalkForwardVector();
+    const right = normalizeVec3(crossVec3(forward, WORLD_UP));
+    let movement = vec3();
+
+    if (input.moveForward) movement = addVec3(movement, forward);
+    if (input.moveBackward) movement = addVec3(movement, scaleVec3(forward, -1));
+    if (input.moveRight) movement = addVec3(movement, right);
+    if (input.moveLeft) movement = addVec3(movement, scaleVec3(right, -1));
+    if (input.moveUp) movement = addVec3(movement, WORLD_UP);
+    if (input.moveDown) movement = addVec3(movement, scaleVec3(WORLD_UP, -1));
+
+    const normalized = lengthVec3(movement) > 0 ? normalizeVec3(movement) : movement;
+    let position = this.getPositionVec3();
+    position = this.moveAxis(world, position, "x", normalized.x * FLY_SPEED * deltaSeconds);
+    position = this.moveAxis(world, position, "z", normalized.z * FLY_SPEED * deltaSeconds);
+    position = this.moveAxis(world, position, "y", normalized.y * FLY_SPEED * deltaSeconds);
+    this.state.position = [position.x, position.y, position.z];
+    this.verticalVelocity = 0;
+    this.grounded = false;
   }
 
   private moveAxis(
@@ -197,5 +248,21 @@ export class PlayerController {
     }
 
     return false;
+  }
+
+  private setMovementState(
+    gamemode: PlayerGamemode,
+    flying: boolean,
+    resetTimers: boolean,
+  ): void {
+    this.gamemode = gamemode;
+    this.flying = gamemode === 1 ? flying : false;
+    if (!this.flying) {
+      this.verticalVelocity = 0;
+    }
+    if (resetTimers) {
+      this.previousJumpDown = false;
+      this.timeSinceJumpPress = Number.POSITIVE_INFINITY;
+    }
   }
 }

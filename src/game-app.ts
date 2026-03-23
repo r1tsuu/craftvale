@@ -45,6 +45,8 @@ export interface GameAppState {
   currentWorldName: string | null;
   currentWorldSeed: number | null;
   lastServerMessage: string;
+  chatOpen: boolean;
+  chatDraft: string;
 }
 
 export interface GameAppDependencies {
@@ -76,6 +78,8 @@ export class GameApp {
     currentWorldName: null,
     currentWorldSeed: null,
     lastServerMessage: "",
+    chatOpen: false,
+    chatDraft: "",
   };
 
   public constructor(private readonly deps: GameAppDependencies) {}
@@ -167,7 +171,10 @@ export class GameApp {
         void this.createWorld();
       }
     } else {
-      this.deps.player.applyLook(input);
+      this.handleChatInput(input);
+      if (!this.state.chatOpen) {
+        this.deps.player.applyLook(input);
+      }
 
       while (this.state.accumulator >= FIXED_TIMESTEP) {
         this.updateGame(input, FIXED_TIMESTEP);
@@ -196,8 +203,15 @@ export class GameApp {
       uiComponents = buildPlayHud(
         input.windowWidth,
         input.windowHeight,
-        this.deps.clientWorldRuntime.inventory,
-        biomeName,
+        {
+          inventory: this.deps.clientWorldRuntime.inventory,
+          biomeName,
+          chatMessages: this.deps.clientWorldRuntime.chatMessages,
+          chatDraft: this.state.chatDraft,
+          chatOpen: this.state.chatOpen,
+          gamemode: this.deps.clientWorldRuntime.getClientPlayer()?.gamemode ?? 0,
+          flying: this.deps.clientWorldRuntime.getClientPlayer()?.flying ?? false,
+        },
       );
     }
 
@@ -272,11 +286,14 @@ export class GameApp {
       this.deps.clientAdapter.eventBus.on("playerUpdated", ({ player }) => {
         this.deps.clientWorldRuntime.applyPlayer(player);
         if (player.name === this.deps.clientWorldRuntime.clientPlayerName) {
-          this.deps.player.syncFromState(player.state);
+          this.deps.player.syncFromSnapshot(player);
         }
       }),
       this.deps.clientAdapter.eventBus.on("playerLeft", ({ playerName }) => {
         this.deps.clientWorldRuntime.removePlayer(playerName);
+      }),
+      this.deps.clientAdapter.eventBus.on("chatMessage", ({ entry }) => {
+        this.deps.clientWorldRuntime.appendChatMessage(entry);
       }),
       this.deps.clientAdapter.eventBus.on("saveStatus", ({ worldName, savedChunks, success, error }) => {
         this.state.lastServerMessage = success
@@ -294,6 +311,8 @@ export class GameApp {
           this.state.currentWorldSeed = null;
           this.deps.clientWorldRuntime.reset();
           this.state.appMode = "menu";
+          this.state.chatOpen = false;
+          this.state.chatDraft = "";
           this.deps.nativeBridge.setCursorDisabled(false);
         }
 
@@ -409,7 +428,9 @@ export class GameApp {
       this.deps.clientWorldRuntime.applyJoinedWorld(joined);
       this.state.currentWorldName = joined.world.name;
       this.state.currentWorldSeed = joined.world.seed;
-      this.deps.player.resetFromState(joined.clientPlayer.state);
+      this.state.chatOpen = false;
+      this.state.chatDraft = "";
+      this.deps.player.resetFromSnapshot(joined.clientPlayer);
 
       const initialCoords = this.deps.clientWorldRuntime.getChunkCoordsAroundPosition(
         joined.clientPlayer.state.position,
@@ -525,6 +546,10 @@ export class GameApp {
     input: ReturnType<NativeBridge["pollInput"]>,
     deltaSeconds: number,
   ): void {
+    if (this.state.chatOpen) {
+      return;
+    }
+
     if (input.exit) {
       this.deps.nativeBridge.requestClose();
     }
@@ -543,7 +568,11 @@ export class GameApp {
       ACTIVE_CHUNK_RADIUS,
     );
     this.deps.player.update(input, deltaSeconds, this.deps.clientWorldRuntime.world);
-    const localPlayer = this.deps.clientWorldRuntime.createLocalPlayerSnapshot(this.deps.player.state);
+    const localPlayer = this.deps.clientWorldRuntime.createLocalPlayerSnapshot(
+      this.deps.player.state,
+      this.deps.player.gamemode,
+      this.deps.player.flying,
+    );
     if (localPlayer) {
       this.deps.clientWorldRuntime.applyPlayer(localPlayer);
       this.deps.clientAdapter.eventBus.send({
@@ -554,6 +583,7 @@ export class GameApp {
             yaw: this.deps.player.state.yaw,
             pitch: this.deps.player.state.pitch,
           },
+          flying: this.deps.player.flying,
         },
       });
     }
@@ -594,6 +624,54 @@ export class GameApp {
         },
       });
     }
+  }
+
+  private handleChatInput(input: ReturnType<NativeBridge["pollInput"]>): void {
+    if (this.state.chatOpen) {
+      if (input.exit) {
+        this.state.chatOpen = false;
+        this.state.chatDraft = "";
+        return;
+      }
+
+      if (input.backspacePressed && this.state.chatDraft.length > 0) {
+        this.state.chatDraft = this.state.chatDraft.slice(0, -1);
+      }
+
+      if (input.typedText.length > 0) {
+        this.state.chatDraft += input.typedText;
+      }
+
+      if (input.enterPressed) {
+        this.submitChatDraft();
+      }
+      return;
+    }
+
+    if (input.enterPressed) {
+      this.state.chatOpen = true;
+      this.state.chatDraft = "";
+      return;
+    }
+
+    if (input.typedText.startsWith("/")) {
+      this.state.chatOpen = true;
+      this.state.chatDraft = input.typedText;
+    }
+  }
+
+  private submitChatDraft(): void {
+    const text = this.state.chatDraft.trim();
+    this.state.chatOpen = false;
+    this.state.chatDraft = "";
+    if (!text) {
+      return;
+    }
+
+    this.deps.clientAdapter.eventBus.send({
+      type: "submitChat",
+      payload: { text },
+    });
   }
 
   private renderFrame(

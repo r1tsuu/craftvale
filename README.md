@@ -17,6 +17,9 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Server-authoritative block breaking and placing through a worker-backed client/server architecture
 - Stable per-client player names with local profile persistence and optional `--player-name` override
 - Player-aware authoritative sessions with per-player position, rotation, and inventory state
+- In-game chat with slash-command submission and system feedback
+- Server-authoritative `/gamemode 0` and `/gamemode 1` command handling
+- Creative-mode flight toggled by double-tapping `Space`
 - Per-world save/load with named worlds and binary chunk persistence
 - Server-authoritative 9-slot hotbar inventory with starter stacks, HUD display, and per-player persistence
 - Nine placeable hotbar block types including terrain, wood, and masonry-style blocks
@@ -54,9 +57,15 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `WASD` move
 - Mouse look
 - `Space` jump
+- Double-tap `Space` toggles creative flight after `/gamemode 1`
+- `Shift` descends while flying
 - Left click break block
 - Right click place the selected hotbar block
 - `1`-`9` select hotbar slots
+- `Enter` opens chat
+- Typing `/` opens command chat
+- `/gamemode 0` switches to normal mode
+- `/gamemode 1` switches to creative mode
 - `Esc` exits
 
 ## Project Layout
@@ -88,6 +97,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Biomes, terrain, and trees are all derived deterministically from the world seed.
 - World state is worker/server-authoritative even in the current single-player setup.
 - Player identity is stored separately from world saves in `data/client/player-profile.json`.
+- Player gamemode persists per player/world; chat history is session-only in this first pass.
 - The menu background is seeded and stable for a given run.
 - The play HUD is built from lightweight rectangle/text overlays rather than a retained widget framework.
 - The current implementation targets macOS first.

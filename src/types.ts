@@ -60,6 +60,7 @@ export interface InventorySnapshot {
 }
 
 export type PlayerName = string;
+export type PlayerGamemode = 0 | 1;
 
 export interface PlayerState {
   position: [number, number, number];
@@ -78,4 +79,13 @@ export interface PlayerSnapshot {
   name: PlayerName;
   state: PlayerState;
   active: boolean;
+  gamemode: PlayerGamemode;
+  flying: boolean;
+}
+
+export interface ChatEntry {
+  kind: "player" | "system";
+  text: string;
+  senderName?: PlayerName;
+  receivedAt: number;
 }

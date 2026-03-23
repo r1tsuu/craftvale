@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { type JoinedWorldPayload, type SaveStatusPayload } from "../shared/messages.ts";
-import type { PlayerName } from "../types.ts";
+import type { ChatEntry, PlayerGamemode, PlayerName } from "../types.ts";
 import { AuthoritativeWorld } from "./authoritative-world.ts";
 import { BinaryWorldStorage, type WorldStorage } from "./world-storage.ts";
 import type { IServerAdapter } from "./server-adapter.ts";
@@ -173,15 +173,42 @@ export class ServerRuntime {
       });
     });
 
-    this.adapter.eventBus.on("updatePlayerState", async ({ state }) => {
+    this.adapter.eventBus.on("updatePlayerState", async ({ state, flying }) => {
       if (!this.activeWorld || !this.currentPlayerName) {
         throw new Error("Join a world before updating player state.");
       }
 
-      const player = await this.activeWorld.updatePlayerState(this.currentPlayerName, state);
+      const player = await this.activeWorld.updatePlayerState(
+        this.currentPlayerName,
+        state,
+        flying,
+      );
       this.adapter.eventBus.send({
         type: "playerUpdated",
         payload: { player },
+      });
+    });
+
+    this.adapter.eventBus.on("submitChat", async ({ text }) => {
+      if (!this.activeWorld || !this.currentPlayerName) {
+        throw new Error("Join a world before chatting.");
+      }
+
+      const trimmed = text.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      if (trimmed.startsWith("/")) {
+        await this.handleCommand(trimmed.slice(1), this.currentPlayerName);
+        return;
+      }
+
+      this.emitChatMessage({
+        kind: "player",
+        senderName: this.currentPlayerName,
+        text: trimmed,
+        receivedAt: Date.now(),
       });
     });
   }
@@ -190,6 +217,69 @@ export class ServerRuntime {
     this.adapter.eventBus.send({
       type: "saveStatus",
       payload,
+    });
+  }
+
+  private emitChatMessage(entry: ChatEntry): void {
+    this.adapter.eventBus.send({
+      type: "chatMessage",
+      payload: { entry },
+    });
+  }
+
+  private async handleCommand(commandLine: string, playerName: PlayerName): Promise<void> {
+    const parts = commandLine
+      .split(/\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (parts.length === 0) {
+      this.emitSystemMessage("Command is empty.");
+      return;
+    }
+
+    const [commandName, ...args] = parts;
+    switch (commandName.toLowerCase()) {
+      case "gamemode":
+        await this.handleGamemodeCommand(playerName, args);
+        return;
+      default:
+        this.emitSystemMessage(`Unknown command: ${commandName}`);
+    }
+  }
+
+  private async handleGamemodeCommand(
+    playerName: PlayerName,
+    args: string[],
+  ): Promise<void> {
+    if (!this.activeWorld) {
+      return;
+    }
+
+    const [modeToken] = args;
+    if (modeToken !== "0" && modeToken !== "1") {
+      this.emitSystemMessage("Usage: /gamemode <0|1>");
+      return;
+    }
+
+    const gamemode = Number(modeToken) as PlayerGamemode;
+    const player = await this.activeWorld.setPlayerGamemode(playerName, gamemode);
+    this.adapter.eventBus.send({
+      type: "playerUpdated",
+      payload: { player },
+    });
+    this.emitSystemMessage(
+      gamemode === 1
+        ? "Gamemode set to creative."
+        : "Gamemode set to normal.",
+    );
+  }
+
+  private emitSystemMessage(text: string): void {
+    this.emitChatMessage({
+      kind: "system",
+      text,
+      receivedAt: Date.now(),
     });
   }
 

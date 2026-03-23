@@ -1,5 +1,6 @@
 import type {
   BlockId,
+  ChatEntry,
   ChunkCoord,
   InventorySnapshot,
   PlayerName,
@@ -51,6 +52,11 @@ export interface InventorySelectionRequest {
 
 export interface PlayerStateUpdateRequest {
   state: PlayerState;
+  flying: boolean;
+}
+
+export interface SubmitChatRequest {
+  text: string;
 }
 
 export interface SaveStatusPayload {
@@ -90,6 +96,7 @@ export interface ClientEventMap {
   mutateBlock: BlockMutationRequest;
   selectInventorySlot: InventorySelectionRequest;
   updatePlayerState: PlayerStateUpdateRequest;
+  submitChat: SubmitChatRequest;
 }
 
 export interface ServerEventMap {
@@ -100,6 +107,7 @@ export interface ServerEventMap {
   playerJoined: { player: PlayerSnapshot };
   playerUpdated: { player: PlayerSnapshot };
   playerLeft: { playerName: PlayerName };
+  chatMessage: { entry: ChatEntry };
   saveStatus: SaveStatusPayload;
   worldDeleted: { name: string };
   serverError: { message: string; requestId?: string };
@@ -169,6 +177,7 @@ const CLIENT_EVENT_TYPES = new Set<keyof ClientEventMap>([
   "mutateBlock",
   "selectInventorySlot",
   "updatePlayerState",
+  "submitChat",
 ]);
 
 const SERVER_EVENT_TYPES = new Set<keyof ServerEventMap>([
@@ -179,6 +188,7 @@ const SERVER_EVENT_TYPES = new Set<keyof ServerEventMap>([
   "playerJoined",
   "playerUpdated",
   "playerLeft",
+  "chatMessage",
   "saveStatus",
   "worldDeleted",
   "serverError",

@@ -19,12 +19,18 @@ test("authoritative world keeps per-player state separate and persists it by pla
     const joinedA = await world.joinPlayer(PLAYER_A);
     expect(joinedA.clientPlayer.name).toBe(PLAYER_A);
     expect(joinedA.players).toEqual([]);
+    expect(joinedA.clientPlayer.gamemode).toBe(0);
 
-    await world.updatePlayerState(PLAYER_A, {
-      position: [20, 80, -4],
-      yaw: 0.75,
-      pitch: -0.2,
-    });
+    await world.setPlayerGamemode(PLAYER_A, 1);
+    await world.updatePlayerState(
+      PLAYER_A,
+      {
+        position: [20, 80, -4],
+        yaw: 0.75,
+        pitch: -0.2,
+      },
+      true,
+    );
     const playerAInventory = await world.selectInventorySlot(PLAYER_A, 4);
     expect(playerAInventory.selectedSlot).toBe(4);
 
@@ -44,6 +50,8 @@ test("authoritative world keeps per-player state separate and persists it by pla
     const rejoinedA = await reloadedWorld.joinPlayer(PLAYER_A);
     expect(rejoinedA.clientPlayer.state.position).toEqual([20, 80, -4]);
     expect(rejoinedA.clientPlayer.state.yaw).toBe(0.75);
+    expect(rejoinedA.clientPlayer.gamemode).toBe(1);
+    expect(rejoinedA.clientPlayer.flying).toBe(false);
     expect(rejoinedA.inventory.selectedSlot).toBe(4);
 
     const rejoinedB = await reloadedWorld.joinPlayer(PLAYER_B);

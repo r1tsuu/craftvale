@@ -1,4 +1,4 @@
-import type { InventorySnapshot } from "../types.ts";
+import type { ChatEntry, InventorySnapshot, PlayerGamemode } from "../types.ts";
 import { Blocks } from "../world/blocks.ts";
 import { getSelectedInventorySlot } from "../world/inventory.ts";
 import {
@@ -191,13 +191,143 @@ const buildBiomeBadge = (
   ];
 };
 
+const buildModeBadge = (
+  windowWidth: number,
+  gamemode: PlayerGamemode,
+  flying: boolean,
+): UiResolvedComponent[] => {
+  const badgeWidth = 190;
+  const badgeHeight = 28;
+  const x = windowWidth - badgeWidth - 20;
+  const y = 20;
+  const creative = gamemode === 1;
+  const text = creative
+    ? flying ? "MODE: CREATIVE FLY" : "MODE: CREATIVE"
+    : "MODE: NORMAL";
+
+  return [
+    createPanel({
+      id: "mode-badge-frame",
+      kind: "panel",
+      rect: { x, y, width: badgeWidth, height: badgeHeight },
+      color: creative ? [0.28, 0.2, 0.08] : [0.11, 0.12, 0.14],
+    }),
+    createPanel({
+      id: "mode-badge-inner",
+      kind: "panel",
+      rect: { x: x + 3, y: y + 3, width: badgeWidth - 6, height: badgeHeight - 6 },
+      color: creative ? [0.78, 0.58, 0.16] : [0.25, 0.28, 0.31],
+    }),
+    createLabel({
+      id: "mode-badge-label",
+      kind: "label",
+      rect: { x, y, width: badgeWidth, height: badgeHeight },
+      text,
+      scale: 2,
+      color: creative ? [0.13, 0.09, 0.02] : [0.95, 0.97, 0.99],
+      centered: true,
+    }),
+  ];
+};
+
+const buildChatFeed = (
+  windowHeight: number,
+  chatMessages: readonly ChatEntry[],
+): UiResolvedComponent[] => {
+  if (chatMessages.length === 0) {
+    return [];
+  }
+
+  const visibleMessages = chatMessages.slice(-5);
+  const width = 420;
+  const lineHeight = 24;
+  const height = visibleMessages.length * lineHeight + 20;
+  const x = 20;
+  const y = windowHeight - 250 - height;
+  const components: UiResolvedComponent[] = [
+    createPanel({
+      id: "chat-feed-frame",
+      kind: "panel",
+      rect: { x, y, width, height },
+      color: [0.07, 0.08, 0.1],
+    }),
+  ];
+
+  visibleMessages.forEach((entry, index) => {
+    const text = entry.kind === "player"
+      ? `${entry.senderName ?? "Unknown"}: ${entry.text}`
+      : entry.text;
+    components.push(
+      createLabel({
+        id: `chat-feed-line-${index}`,
+        kind: "label",
+        rect: {
+          x: x + 12,
+          y: y + 10 + index * lineHeight,
+          width: width - 24,
+          height: lineHeight - 4,
+        },
+        text,
+        scale: 2,
+        color: entry.kind === "player" ? [0.94, 0.95, 0.98] : [0.99, 0.88, 0.55],
+      }),
+    );
+  });
+
+  return components;
+};
+
+const buildChatInput = (
+  windowHeight: number,
+  draft: string,
+): UiResolvedComponent[] => {
+  const width = 460;
+  const height = 34;
+  const x = 20;
+  const y = windowHeight - 250;
+  return [
+    createPanel({
+      id: "chat-input-frame",
+      kind: "panel",
+      rect: { x, y, width, height },
+      color: [0.07, 0.08, 0.1],
+    }),
+    createPanel({
+      id: "chat-input-inner",
+      kind: "panel",
+      rect: { x: x + 3, y: y + 3, width: width - 6, height: height - 6 },
+      color: [0.2, 0.22, 0.26],
+    }),
+    createLabel({
+      id: "chat-input-label",
+      kind: "label",
+      rect: { x: x + 10, y: y + 8, width: width - 20, height: 18 },
+      text: `> ${draft || "_"}`,
+      scale: 2,
+      color: [0.96, 0.97, 0.99],
+    }),
+  ];
+};
+
+export interface PlayHudState {
+  inventory: InventorySnapshot;
+  biomeName?: string | null;
+  chatMessages?: readonly ChatEntry[];
+  chatDraft?: string;
+  chatOpen?: boolean;
+  gamemode?: PlayerGamemode;
+  flying?: boolean;
+}
+
 export const buildPlayHud = (
   windowWidth: number,
   windowHeight: number,
-  inventory: InventorySnapshot,
-  biomeName: string | null = null,
+  state: PlayHudState,
 ): UiResolvedComponent[] => [
   ...buildCrosshair(windowWidth, windowHeight),
-  ...(biomeName ? buildBiomeBadge(windowWidth, windowHeight, biomeName) : []),
-  ...buildHotbar(windowWidth, windowHeight, inventory),
+  ...(state.biomeName ? buildBiomeBadge(windowWidth, windowHeight, state.biomeName) : []),
+  ...buildModeBadge(windowWidth, state.gamemode ?? 0, state.flying ?? false),
+  ...buildChatFeed(windowHeight, state.chatMessages ?? []),
+  ...(state.chatOpen ? buildChatInput(windowHeight, state.chatDraft ?? "") : []),
+  ...buildHotbar(windowWidth, windowHeight, state.inventory),
 ];

@@ -50,6 +50,7 @@ It owns:
 - current world/session metadata
 - the local player identity used for joins
 - transient HUD/status text
+- chat-open state and draft text
 - timing state for the fixed-step loop
 - input edge tracking such as previous mouse button state
 - lifecycle-managed event-bus subscriptions
@@ -82,8 +83,8 @@ The client/server boundary is strongly typed through `src/shared/messages.ts`.
 There are three main categories:
 
 - client requests: request/response operations such as `listWorlds`, `joinWorld`, `requestChunks`, and `saveWorld`
-- client events: one-way gameplay intents such as `mutateBlock`, `selectInventorySlot`, and player-state updates
-- server events: one-way authoritative updates such as `chunkDelivered`, `chunkChanged`, `inventoryUpdated`, `playerUpdated`, and `saveStatus`
+- client events: one-way gameplay intents such as `mutateBlock`, `selectInventorySlot`, chat submission, and player-state updates
+- server events: one-way authoritative updates such as `chunkDelivered`, `chunkChanged`, `inventoryUpdated`, `playerUpdated`, chat/system messages, and `saveStatus`
 
 `src/shared/event-bus.ts` wraps raw transport messages with typed handlers and request correlation.
 
@@ -106,6 +107,7 @@ Because the transport abstraction is explicit, the current worker-backed single-
 - chunk waiters for async loading
 - `clientPlayerName` plus replicated player snapshots
 - replicated local-player inventory snapshot
+- recent replicated chat/system messages
 
 This local world is used for:
 
@@ -123,12 +125,14 @@ This local world is used for:
 - authoritative player registry keyed by player name
 - spawn computation
 - block mutation rules
+- command parsing for chat-driven server gameplay commands
 
 The server is responsible for:
 
 - chunk generation on demand
 - validating and applying block mutations
 - loading, saving, and replicating per-player position/rotation state
+- loading, saving, and replicating per-player gamemode state
 - awarding/deducting per-player inventory items
 - deciding which chunks must be resent after a mutation
 - persisting changed state
@@ -184,6 +188,7 @@ The native bridge polls input every frame and returns a plain `InputState`.
 `PlayerController` owns:
 
 - FPS movement
+- creative flight toggling and flying movement
 - gravity/jump behavior
 - collision checks against the replicated world
 - camera/view-projection state
@@ -194,6 +199,7 @@ Gameplay updates currently include:
 - movement and collision
 - raycasting from the eye position
 - sending local player-state updates so the server can own the authoritative snapshot
+- opening chat, submitting chat lines, and routing slash commands through the server
 - breaking blocks through a server event
 - placing the selected hotbar block through a server event
 - selecting inventory slots with number keys `1..9`
@@ -228,6 +234,22 @@ The server owns the real counts and persists them per player name inside each wo
 - successful placement decrements counts
 - invalid placement does not consume inventory
 - joining the same world with the same player name restores that player’s inventory and position/rotation
+
+## Chat And Commands
+
+Chat is a client-visible session feature backed by server events:
+
+- the client opens chat from the gameplay loop and submits plain text
+- slash-prefixed lines are parsed on the server as commands
+- non-slash lines are replicated as normal player chat
+- command feedback is emitted as system chat messages
+
+The first command path is `/gamemode`:
+
+- `/gamemode 0` restores the normal grounded movement model
+- `/gamemode 1` enables creative-mode flight support
+- double-tapping `Space` toggles flying while in creative mode
+- `Shift` descends while flight is active
 
 Inventory normalization also acts as a compatibility layer for older persisted snapshots when the hotbar/block catalog grows.
 
