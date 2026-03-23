@@ -23,6 +23,7 @@ import {
 } from "./ui/components.ts";
 import { buildPlayHud } from "./ui/hud.ts";
 import { buildMainMenu } from "./ui/menu.ts";
+import { Biomes, getBiomeAt } from "./world/biomes.ts";
 import { Blocks } from "./world/blocks.ts";
 import { ACTIVE_CHUNK_RADIUS } from "./world/constants.ts";
 import { getSelectedInventorySlot } from "./world/inventory.ts";
@@ -41,6 +42,7 @@ export interface GameAppState {
   appMode: AppMode;
   menuState: MenuState;
   currentWorldName: string | null;
+  currentWorldSeed: number | null;
   lastServerMessage: string;
 }
 
@@ -70,6 +72,7 @@ export class GameApp {
     appMode: "menu",
     menuState: createMenuState(),
     currentWorldName: null,
+    currentWorldSeed: null,
     lastServerMessage: "",
   };
 
@@ -178,6 +181,7 @@ export class GameApp {
       const [x, y, z] = this.deps.player.state.position;
       const yawDegrees = (this.deps.player.state.yaw * 180) / Math.PI;
       const pitchDegrees = (this.deps.player.state.pitch * 180) / Math.PI;
+      const biomeName = this.getCurrentBiomeName(x, z);
 
       focusedBlock = focusHit?.hit ?? null;
       overlayText = this.buildOverlayText(
@@ -191,6 +195,7 @@ export class GameApp {
         input.windowWidth,
         input.windowHeight,
         this.deps.clientWorldRuntime.inventory,
+        biomeName,
       );
     }
 
@@ -268,6 +273,7 @@ export class GameApp {
       this.deps.clientAdapter.eventBus.on("worldDeleted", ({ name }) => {
         if (this.state.currentWorldName === name) {
           this.state.currentWorldName = null;
+          this.state.currentWorldSeed = null;
           this.deps.clientWorldRuntime.reset();
           this.state.appMode = "menu";
           this.deps.nativeBridge.setCursorDisabled(false);
@@ -329,6 +335,19 @@ export class GameApp {
     ];
   }
 
+  private getCurrentBiomeName(worldX: number, worldZ: number): string | null {
+    if (this.state.currentWorldSeed === null) {
+      return null;
+    }
+
+    const biomeId = getBiomeAt(
+      this.state.currentWorldSeed,
+      Math.floor(worldX),
+      Math.floor(worldZ),
+    );
+    return Biomes[biomeId].name.toUpperCase();
+  }
+
   private async syncMenuWorlds(statusText = "SELECT OR CREATE A WORLD"): Promise<void> {
     this.state.menuState = setMenuBusy(this.state.menuState, true, "LOADING WORLDS...");
 
@@ -368,6 +387,7 @@ export class GameApp {
       this.deps.clientWorldRuntime.reset();
       this.deps.clientWorldRuntime.applyInventory(joined.inventory);
       this.state.currentWorldName = joined.world.name;
+      this.state.currentWorldSeed = joined.world.seed;
       this.deps.player.reset(joined.spawnPosition);
 
       const initialCoords = this.deps.clientWorldRuntime.getChunkCoordsAroundPosition(

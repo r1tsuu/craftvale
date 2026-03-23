@@ -156,11 +156,48 @@ const buildHotbar = (
   return components;
 };
 
+const buildBiomeBadge = (
+  windowWidth: number,
+  windowHeight: number,
+  biomeName: string,
+): UiResolvedComponent[] => {
+  const badgeWidth = 200;
+  const badgeHeight = 30;
+  const x = Math.round((windowWidth - badgeWidth) / 2);
+  const y = windowHeight - 172;
+
+  return [
+    createPanel({
+      id: "biome-badge-frame",
+      kind: "panel",
+      rect: { x, y, width: badgeWidth, height: badgeHeight },
+      color: [0.12, 0.14, 0.11],
+    }),
+    createPanel({
+      id: "biome-badge-inner",
+      kind: "panel",
+      rect: { x: x + 3, y: y + 3, width: badgeWidth - 6, height: badgeHeight - 6 },
+      color: [0.33, 0.42, 0.24],
+    }),
+    createLabel({
+      id: "biome-badge-label",
+      kind: "label",
+      rect: { x, y, width: badgeWidth, height: badgeHeight },
+      text: `BIOME: ${biomeName}`,
+      scale: 2,
+      color: [0.95, 0.97, 0.9],
+      centered: true,
+    }),
+  ];
+};
+
 export const buildPlayHud = (
   windowWidth: number,
   windowHeight: number,
   inventory: InventorySnapshot,
+  biomeName: string | null = null,
 ): UiResolvedComponent[] => [
   ...buildCrosshair(windowWidth, windowHeight),
+  ...(biomeName ? buildBiomeBadge(windowWidth, windowHeight, biomeName) : []),
   ...buildHotbar(windowWidth, windowHeight, inventory),
 ];

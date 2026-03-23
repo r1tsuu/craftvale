@@ -39,3 +39,25 @@ test("play HUD still renders the hotbar and selected slot label", () => {
     ]),
   );
 });
+
+test("play HUD renders the current biome above the hotbar", () => {
+  const hud = buildPlayHud(1280, 720, createDefaultInventory(), "FOREST");
+  const labels = hud.filter((component) => component.kind === "label");
+
+  expect(hud).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "biome-badge-frame",
+        rect: { x: 540, y: 548, width: 200, height: 30 },
+      }),
+    ]),
+  );
+  expect(labels).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "biome-badge-label",
+        text: "BIOME: FOREST",
+      }),
+    ]),
+  );
+});
