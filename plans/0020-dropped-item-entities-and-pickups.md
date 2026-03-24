@@ -1,24 +1,29 @@
 # Dropped Item Entities And Pickup Flow
 
 ## Summary
-Add server-authoritative dropped item entities so broken collectible blocks spawn item stacks into the world instead of going straight into a player inventory. Players should pick those items up by moving near them, with the server deciding when pickup succeeds, how much inventory space is available, and when the dropped item entity should remain, shrink, or despawn. This plan should build on the player/entity refactor, but it can still be staged so the dropped-item flow lands after the player ECS foundation is in place.
+Add server-authoritative dropped item entities so broken collectible blocks spawn item stacks into the world instead of going straight into a player inventory. Players should pick those items up by moving near them, with the server deciding when pickup succeeds, how much inventory space is available, and when the dropped item entity should remain, shrink, or despawn. This plan should follow the architecture decision in plan `0019` so dropped items land either in a shared world-level entity model or in an explicitly separate parallel registry.
 
 ## Key Changes
 
-### Represent dropped items as entities
-- Add a dedicated dropped-item actor type to the new entity layer.
-- Recommended first-pass components:
-  - `TransformComponent` for world position
-  - `VelocityComponent` for drop toss and gravity
-  - `ItemStackComponent` for block/item id and count
-  - `PickupCooldownComponent` so items are not re-collected instantly on spawn
-  - `LifetimeComponent` if we want timed cleanup
-- Keep the item stack as component data on the dropped item entity rather than creating a second nested entity per stack.
+### Represent dropped items as world actors intentionally
+- Add a dedicated dropped-item actor type using whichever architecture `0019` chooses.
+- If we move to world-level entity ownership:
+  - dropped items should share the world entity id space
+  - shared component stores and spatial indexing should be reused where that keeps the code clean
+- If we keep the player-subsystem direction:
+  - dropped items can live in a separate parallel registry or manager
+  - the implementation should describe that clearly instead of implying one shared ECS already exists
+- Recommended first-pass dropped-item data:
+  - transform for world position
+  - velocity for drop toss and gravity
+  - item stack for block/item id and count
+  - pickup cooldown so items are not re-collected instantly on spawn
+  - optional lifetime if we want timed cleanup
 
 ### Change block break flow to spawn drops instead of direct inventory credit
 - Update authoritative block mutation rules so collectible block breaks:
   - remove the block from the world
-  - spawn one or more dropped item entities at or near the broken block position
+  - spawn one or more dropped item actors at or near the broken block position
   - do not immediately add the block to the player inventory
 - Preserve server validation:
   - breaking air still does nothing
@@ -29,13 +34,13 @@ Add server-authoritative dropped item entities so broken collectible blocks spaw
   - or creative can spawn drops too, but that should be an intentional rule
 
 ### Add a server-side pickup system
-- Introduce a pickup system that checks active players against nearby dropped item entities.
+- Introduce a pickup system that checks active players against nearby dropped item actors.
 - Pickup should remain authoritative:
   - client proximity alone does not grant items
   - the server evaluates pickup radius, cooldown, and inventory space
 - On successful pickup:
   - add as much of the stack as possible to the player inventory
-  - remove the dropped item entity if fully collected
+  - remove the dropped item actor if fully collected
   - otherwise leave a reduced remainder in the world
 - This gives us clean behavior for partial pickup when the inventory is nearly full.
 
@@ -44,12 +49,12 @@ Add server-authoritative dropped item entities so broken collectible blocks spaw
 - Dropped item pickup should call the same authoritative add-item logic the inventory plan already introduced.
 - This avoids inventing a second path for stack merge rules and makes overflow behavior consistent.
 
-### Keep spatial ownership chunk-based, but do not make chunks entities
+### Keep chunks as resources and use chunk-based spatial lookup
 - Strong recommendation:
   - index dropped items by chunk or nearby-cell buckets for lookup efficiency
   - do not convert terrain chunks themselves into entities
 - Useful pattern:
-  - dropped item entities live in the entity registry
+  - dropped item actors live in either the shared world registry or their own explicit manager
   - a spatial index maps chunk coordinates to nearby dropped item ids
   - chunk load/unload and replication can query that index
 - This keeps chunk systems fast and lets dropped items ride on the same world-coordinate model as blocks and players.
@@ -59,8 +64,8 @@ Add server-authoritative dropped item entities so broken collectible blocks spaw
 - Likely additions:
   - initial dropped item snapshot on join or chunk request for nearby space
   - server events for dropped item spawn/update/remove
-  - typed payloads carrying entity id, transform, and item stack data
-- The client runtime should store replicated dropped items separately from chunks and players, even if they later share generic entity DTO helpers.
+  - typed payloads carrying actor id, transform, and item stack data
+- The client runtime should store replicated dropped items separately from chunks and players unless we intentionally add a broader generic actor cache.
 
 ### Add simple dropped-item rendering
 - Render dropped items in a lightweight, readable way before chasing polished visuals.
@@ -68,10 +73,10 @@ Add server-authoritative dropped item entities so broken collectible blocks spaw
   - small block-like cube using the existing atlas
   - flat billboard/icon quad if easier
   - stack-count text only if visuals need to stay minimal for now
-- Keep the rendering path decoupled from chunk meshing so item entities can animate or move without rebuilding terrain meshes.
+- Keep the rendering path decoupled from chunk meshing so item actors can animate or move without rebuilding terrain meshes.
 
 ### Handle pickup feedback and edge cases
-- When the player picks up an item, the server should replicate the updated inventory and remove or shrink the dropped entity.
+- When the player picks up an item, the server should replicate the updated inventory and remove or shrink the dropped actor.
 - When inventory is full:
   - leave the dropped item in the world
   - optionally show a user-visible status message
@@ -94,10 +99,11 @@ Add server-authoritative dropped item entities so broken collectible blocks spaw
   - mob loot
   - chest spill/drop behavior
   - item magnets or pickup modifiers
-- The goal is a general world-item actor path, not a one-off hack for broken blocks only.
+- The goal is a general world-item actor path, whether that path is shared ECS-style or a clearly separate world-actor manager.
 
 ## Important Files
-- `plans/0019-dropped-item-entities-and-pickups.md`
+- `plans/0019-world-level-entity-ownership-or-player-subsystem.md`
+- `plans/0020-dropped-item-entities-and-pickups.md`
 - `src/types.ts`
 - `src/shared/messages.ts`
 - `src/client/world-runtime.ts`
@@ -105,6 +111,7 @@ Add server-authoritative dropped item entities so broken collectible blocks spaw
 - `src/render/renderer.ts`
 - `src/server/runtime.ts`
 - `src/server/authoritative-world.ts`
+- `src/server/player-system.ts`
 - `src/server/world-storage.ts`
 - `src/world/inventory.ts`
 - `src/world/blocks.ts`
@@ -114,13 +121,13 @@ Add server-authoritative dropped item entities so broken collectible blocks spaw
 
 ## Test Plan
 - Drop spawning tests:
-  - breaking a collectible block spawns a dropped item entity
+  - breaking a collectible block spawns a dropped item actor
   - breaking air or non-collectible blocks does not spawn drops
   - failed mutations do not create duplicate dropped items
 - Pickup tests:
   - a nearby player collects a dropped item when inventory space exists
-  - full pickup removes the item entity
-  - partial pickup leaves the correct remainder entity state
+  - full pickup removes the dropped actor
+  - partial pickup leaves the correct remainder actor state
   - full inventory leaves the dropped item on the ground
 - Replication tests:
   - client receives nearby dropped item state on join or after spawn
@@ -135,8 +142,8 @@ Add server-authoritative dropped item entities so broken collectible blocks spaw
   - save and reload with dropped items present and confirm they persist
 
 ## Assumptions And Defaults
-- Use the next plan filename in sequence: `0019-dropped-item-entities-and-pickups.md`.
-- This feature should follow the player entity-system refactor, not compete with it in the same implementation step.
-- Dropped items are server-authoritative entities.
+- Use the next plan filename in sequence: `0020-dropped-item-entities-and-pickups.md`.
+- This feature should follow the architecture decision in `0019`, not compete with it in the same implementation step.
+- Dropped items are server-authoritative world actors.
 - Chunks remain world resources plus spatial-index keys, not entities.
 - Player pickup uses the existing authoritative inventory rules instead of bypassing them.
