@@ -101,3 +101,22 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - The menu background is seeded and stable for a given run.
 - The play HUD is built from lightweight rectangle/text overlays rather than a retained widget framework.
 - The current implementation targets macOS first.
+
+## Possible Future Work
+
+- Survival systems such as health, fall damage, death/respawn, hunger, and healing
+- Dropped item entities and player pickups instead of direct inventory grants
+- Crafting flows including player crafting and a crafting table
+- Tool progression with mining tiers, faster harvesting, and block hardness
+- Furnace and smelting mechanics with fuel and ore processing
+- Cave generation plus underground resource progression such as coal, iron, gold, and diamond
+- Day/night cycle and stronger atmosphere changes across time of day
+- Hostile mobs to make nights and exploration feel more dangerous
+- Water and lava simulation for terrain interaction and building
+- Utility blocks such as chests, beds, torches, furnaces, and crafting tables
+- Movement and building polish such as sprinting, sneaking, swimming, ladders, slabs, stairs, and doors
+- Expanded biomes and world variety including rivers, oceans, beaches, deserts, snow regions, and larger forests
+- Dynamic lighting for sunlight and torch-lit spaces
+- Equipment systems including armor, durability, shields, and ranged combat
+- Richer inventory UX with a full inventory screen, chest UI, and stack management
+- Farming and food loops with crops, animals, cooking, and renewable resources
