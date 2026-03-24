@@ -8,9 +8,9 @@ import type {
 } from "./components.ts";
 
 interface ButtonPalette {
-  outer: readonly [number, number, number];
-  inner: readonly [number, number, number];
-  text: readonly [number, number, number];
+  outer: readonly [number, number, number, number?];
+  inner: readonly [number, number, number, number?];
+  text: readonly [number, number, number, number?];
 }
 
 const getButtonPalette = (
@@ -122,13 +122,14 @@ export class UiRenderer {
     text: string,
     rect: { x: number; y: number; width: number; height: number },
     scale: number,
-    color: readonly [number, number, number],
+    color: readonly [number, number, number, number?],
     centered = false,
   ): TextDrawCommand {
     const textWidth = measureTextWidth(text, scale);
     const textHeight = measureTextHeight(scale);
     const x = centered ? rect.x + Math.round((rect.width - textWidth) / 2) : rect.x;
     const y = rect.y + Math.round((rect.height - textHeight) / 2);
+    const alpha = color[3] ?? 1;
 
     return {
       text,
@@ -136,7 +137,7 @@ export class UiRenderer {
       y,
       scale,
       color,
-      shadowColor: [0.05, 0.06, 0.08],
+      shadowColor: [0.05, 0.06, 0.08, Math.min(0.9, alpha * 0.85)],
       shadowOffset: { x: 1, y: 1 },
     };
   }

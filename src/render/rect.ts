@@ -6,7 +6,7 @@ export interface RectDrawCommand {
   y: number;
   width: number;
   height: number;
-  color: readonly [number, number, number];
+  color: readonly [number, number, number, number?];
 }
 
 const compileShader = (nativeBridge: NativeBridge, type: number, source: string): number => {
@@ -27,13 +27,13 @@ const pushRect = (
   rect: RectDrawCommand,
 ): void => {
   const { x, y, width, height, color } = rect;
-  const [red, green, blue] = color;
+  const [red, green, blue, alpha = 1] = color;
 
   vertices.push(
-    x, y, red, green, blue,
-    x + width, y, red, green, blue,
-    x + width, y + height, red, green, blue,
-    x, y + height, red, green, blue,
+    x, y, red, green, blue, alpha,
+    x + width, y, red, green, blue, alpha,
+    x + width, y + height, red, green, blue, alpha,
+    x, y + height, red, green, blue, alpha,
   );
 
   indices.push(
@@ -86,13 +86,13 @@ export class RectOverlayRenderer {
     nativeBridge.gl.bindBuffer(GL.ARRAY_BUFFER, this.vbo);
     nativeBridge.gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, this.ebo);
 
-    const stride = 5 * Float32Array.BYTES_PER_ELEMENT;
+    const stride = 6 * Float32Array.BYTES_PER_ELEMENT;
     nativeBridge.gl.enableVertexAttribArray(0);
     nativeBridge.gl.vertexAttribPointer(0, 2, GL.FLOAT, false, stride, 0);
     nativeBridge.gl.enableVertexAttribArray(1);
     nativeBridge.gl.vertexAttribPointer(
       1,
-      3,
+      4,
       GL.FLOAT,
       false,
       stride,
@@ -120,6 +120,8 @@ export class RectOverlayRenderer {
 
     this.nativeBridge.gl.disable(GL.DEPTH_TEST);
     this.nativeBridge.gl.disable(GL.CULL_FACE);
+    this.nativeBridge.gl.enable(GL.BLEND);
+    this.nativeBridge.gl.blendFunc(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA);
     this.nativeBridge.gl.useProgram(this.program);
     this.nativeBridge.gl.uniformMatrix4fv(this.projectionLocation, projection);
     this.nativeBridge.gl.bindVertexArray(this.vao);
@@ -129,6 +131,7 @@ export class RectOverlayRenderer {
     this.nativeBridge.gl.bufferData(GL.ELEMENT_ARRAY_BUFFER, indexData, GL.DYNAMIC_DRAW);
     this.nativeBridge.gl.drawElements(GL.TRIANGLES, indexData.length, GL.UNSIGNED_INT, 0);
     this.nativeBridge.gl.bindVertexArray(0);
+    this.nativeBridge.gl.disable(GL.BLEND);
     this.nativeBridge.gl.enable(GL.CULL_FACE);
     this.nativeBridge.gl.enable(GL.DEPTH_TEST);
   }

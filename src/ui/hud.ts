@@ -1,4 +1,5 @@
 import type { ChatEntry, InventorySnapshot, PlayerGamemode } from "../types.ts";
+import { measureTextWidth } from "../render/text-mesh.ts";
 import { Blocks } from "../world/blocks.ts";
 import { getSelectedInventorySlot } from "../world/inventory.ts";
 import {
@@ -6,6 +7,76 @@ import {
   createPanel,
   type UiResolvedComponent,
 } from "./components.ts";
+
+const HOTBAR_SAFE_TOP_OFFSET = 126;
+const CHAT_MARGIN_LEFT = 14;
+const CHAT_GAP_ABOVE_HOTBAR = 12;
+const CHAT_FEED_TO_INPUT_GAP = 6;
+const CHAT_WIDTH = 460;
+const CHAT_LINE_HEIGHT = 22;
+const CHAT_LINE_GAP = 4;
+const CHAT_TEXT_SCALE = 2;
+const CHAT_OPEN_MAX_LINES = 8;
+const CHAT_CLOSED_MAX_LINES = 5;
+const CHAT_PASSIVE_LIFETIME_MS = 9000;
+const CHAT_FADE_DURATION_MS = 3000;
+const CHAT_INPUT_HEIGHT = 36;
+const CHAT_INPUT_FRAME_ALPHA = 0.6;
+const CHAT_INPUT_INNER_ALPHA = 0.82;
+const CHAT_OPEN_LINE_ALPHA = 0.68;
+const CHAT_CLOSED_LINE_ALPHA = 0.4;
+
+interface VisibleChatLine {
+  entry: ChatEntry;
+  opacity: number;
+}
+
+const withAlpha = (
+  color: readonly [number, number, number],
+  alpha: number,
+): readonly [number, number, number, number] => [color[0], color[1], color[2], alpha];
+
+const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
+
+const getChatLineText = (entry: ChatEntry): string =>
+  entry.kind === "player"
+    ? `${entry.senderName ?? "Unknown"}: ${entry.text}`
+    : entry.text;
+
+const getVisibleChatLines = (
+  chatMessages: readonly ChatEntry[],
+  chatOpen: boolean,
+  nowMs: number,
+): VisibleChatLine[] => {
+  if (chatMessages.length === 0) {
+    return [];
+  }
+
+  if (chatOpen) {
+    return chatMessages.slice(-CHAT_OPEN_MAX_LINES).map((entry) => ({
+      entry,
+      opacity: 1,
+    }));
+  }
+
+  return chatMessages
+    .map((entry) => {
+      const ageMs = Math.max(0, nowMs - entry.receivedAt);
+      if (ageMs > CHAT_PASSIVE_LIFETIME_MS + CHAT_FADE_DURATION_MS) {
+        return null;
+      }
+
+      const fadeProgress = ageMs <= CHAT_PASSIVE_LIFETIME_MS
+        ? 0
+        : (ageMs - CHAT_PASSIVE_LIFETIME_MS) / CHAT_FADE_DURATION_MS;
+      return {
+        entry,
+        opacity: clamp01(1 - fadeProgress),
+      };
+    })
+    .filter((line): line is VisibleChatLine => line !== null)
+    .slice(-CHAT_CLOSED_MAX_LINES);
+};
 
 const buildCrosshair = (windowWidth: number, windowHeight: number): UiResolvedComponent[] => {
   const centerX = Math.round(windowWidth / 2);
@@ -231,45 +302,60 @@ const buildModeBadge = (
 };
 
 const buildChatFeed = (
+  windowWidth: number,
   windowHeight: number,
   chatMessages: readonly ChatEntry[],
+  chatOpen: boolean,
+  nowMs: number,
 ): UiResolvedComponent[] => {
-  if (chatMessages.length === 0) {
+  const visibleLines = getVisibleChatLines(chatMessages, chatOpen, nowMs);
+  if (visibleLines.length === 0) {
     return [];
   }
 
-  const visibleMessages = chatMessages.slice(-5);
-  const width = 420;
-  const lineHeight = 24;
-  const height = visibleMessages.length * lineHeight + 20;
-  const x = 20;
-  const y = windowHeight - 250 - height;
-  const components: UiResolvedComponent[] = [
-    createPanel({
-      id: "chat-feed-frame",
-      kind: "panel",
-      rect: { x, y, width, height },
-      color: [0.07, 0.08, 0.1],
-    }),
-  ];
+  const lineWidth = Math.min(CHAT_WIDTH, windowWidth - CHAT_MARGIN_LEFT * 2);
+  const totalHeight = visibleLines.length * CHAT_LINE_HEIGHT +
+    (visibleLines.length - 1) * CHAT_LINE_GAP;
+  const hotbarTop = windowHeight - HOTBAR_SAFE_TOP_OFFSET;
+  const feedBottom = chatOpen
+    ? hotbarTop - CHAT_GAP_ABOVE_HOTBAR - CHAT_INPUT_HEIGHT - CHAT_FEED_TO_INPUT_GAP
+    : hotbarTop - CHAT_GAP_ABOVE_HOTBAR;
+  const x = CHAT_MARGIN_LEFT;
+  const startY = feedBottom - totalHeight;
+  const components: UiResolvedComponent[] = [];
 
-  visibleMessages.forEach((entry, index) => {
-    const text = entry.kind === "player"
-      ? `${entry.senderName ?? "Unknown"}: ${entry.text}`
-      : entry.text;
+  visibleLines.forEach(({ entry, opacity }, index) => {
+    const text = getChatLineText(entry);
+    const y = startY + index * (CHAT_LINE_HEIGHT + CHAT_LINE_GAP);
+    const backgroundAlpha = (chatOpen ? CHAT_OPEN_LINE_ALPHA : CHAT_CLOSED_LINE_ALPHA) * opacity;
+    const textAlpha = (chatOpen ? 1 : 0.94) * opacity;
+
     components.push(
+      createPanel({
+        id: `chat-feed-line-bg-${index}`,
+        kind: "panel",
+        rect: {
+          x,
+          y,
+          width: lineWidth,
+          height: CHAT_LINE_HEIGHT,
+        },
+        color: [0.03, 0.04, 0.05, backgroundAlpha],
+      }),
       createLabel({
         id: `chat-feed-line-${index}`,
         kind: "label",
         rect: {
-          x: x + 12,
-          y: y + 10 + index * lineHeight,
-          width: width - 24,
-          height: lineHeight - 4,
+          x: x + 8,
+          y,
+          width: Math.min(lineWidth - 16, measureTextWidth(text, CHAT_TEXT_SCALE)),
+          height: CHAT_LINE_HEIGHT,
         },
         text,
-        scale: 2,
-        color: entry.kind === "player" ? [0.94, 0.95, 0.98] : [0.99, 0.88, 0.55],
+        scale: CHAT_TEXT_SCALE,
+        color: entry.kind === "player"
+          ? [0.94, 0.95, 0.98, textAlpha]
+          : [0.99, 0.88, 0.55, textAlpha],
       }),
     );
   });
@@ -278,33 +364,34 @@ const buildChatFeed = (
 };
 
 const buildChatInput = (
+  windowWidth: number,
   windowHeight: number,
   draft: string,
 ): UiResolvedComponent[] => {
-  const width = 460;
-  const height = 34;
-  const x = 20;
-  const y = windowHeight - 250;
+  const width = Math.min(CHAT_WIDTH, windowWidth - CHAT_MARGIN_LEFT * 2);
+  const height = CHAT_INPUT_HEIGHT;
+  const x = CHAT_MARGIN_LEFT;
+  const y = windowHeight - HOTBAR_SAFE_TOP_OFFSET - CHAT_GAP_ABOVE_HOTBAR - height;
   return [
     createPanel({
       id: "chat-input-frame",
       kind: "panel",
       rect: { x, y, width, height },
-      color: [0.07, 0.08, 0.1],
+      color: [0.05, 0.06, 0.07, CHAT_INPUT_FRAME_ALPHA],
     }),
     createPanel({
       id: "chat-input-inner",
       kind: "panel",
       rect: { x: x + 3, y: y + 3, width: width - 6, height: height - 6 },
-      color: [0.2, 0.22, 0.26],
+      color: [0.1, 0.11, 0.13, CHAT_INPUT_INNER_ALPHA],
     }),
     createLabel({
       id: "chat-input-label",
       kind: "label",
-      rect: { x: x + 10, y: y + 8, width: width - 20, height: 18 },
+      rect: { x: x + 10, y, width: width - 20, height },
       text: `> ${draft || "_"}`,
-      scale: 2,
-      color: [0.96, 0.97, 0.99],
+      scale: CHAT_TEXT_SCALE,
+      color: [0.96, 0.97, 0.99, 1],
     }),
   ];
 };
@@ -313,6 +400,7 @@ export interface PlayHudState {
   inventory: InventorySnapshot;
   biomeName?: string | null;
   chatMessages?: readonly ChatEntry[];
+  chatNowMs?: number;
   chatDraft?: string;
   chatOpen?: boolean;
   gamemode?: PlayerGamemode;
@@ -327,7 +415,13 @@ export const buildPlayHud = (
   ...buildCrosshair(windowWidth, windowHeight),
   ...(state.biomeName ? buildBiomeBadge(windowWidth, windowHeight, state.biomeName) : []),
   ...buildModeBadge(windowWidth, state.gamemode ?? 0, state.flying ?? false),
-  ...buildChatFeed(windowHeight, state.chatMessages ?? []),
-  ...(state.chatOpen ? buildChatInput(windowHeight, state.chatDraft ?? "") : []),
+  ...buildChatFeed(
+    windowWidth,
+    windowHeight,
+    state.chatMessages ?? [],
+    state.chatOpen ?? false,
+    state.chatNowMs ?? Date.now(),
+  ),
+  ...(state.chatOpen ? buildChatInput(windowWidth, windowHeight, state.chatDraft ?? "") : []),
   ...buildHotbar(windowWidth, windowHeight, state.inventory),
 ];

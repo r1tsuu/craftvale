@@ -19,14 +19,14 @@ interface UiBaseComponent {
 
 export interface UiPanel extends UiBaseComponent {
   kind: "panel";
-  color: readonly [number, number, number];
+  color: readonly [number, number, number, number?];
 }
 
 export interface UiLabel extends UiBaseComponent {
   kind: "label";
   text: string;
   scale: number;
-  color: readonly [number, number, number];
+  color: readonly [number, number, number, number?];
   centered?: boolean;
 }
 

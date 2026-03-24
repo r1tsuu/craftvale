@@ -97,7 +97,7 @@ export class ClientWorldRuntime {
     };
   }
 
-  public appendChatMessage(entry: ChatEntry, maxMessages = 8): void {
+  public appendChatMessage(entry: ChatEntry, maxMessages = 24): void {
     this.chatMessages = [...this.chatMessages, this.cloneChatEntry(entry)].slice(-maxMessages);
   }
 

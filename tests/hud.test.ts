@@ -75,18 +75,19 @@ test("play HUD renders chat and creative mode indicators", () => {
     gamemode: 1,
     flying: true,
     chatOpen: true,
+    chatNowMs: 10_000,
     chatDraft: "/gamemode 1",
     chatMessages: [
       {
         kind: "system",
         text: "Gamemode set to creative.",
-        receivedAt: 1,
+        receivedAt: 1_000,
       },
       {
         kind: "player",
         senderName: "Alice",
         text: "hello",
-        receivedAt: 2,
+        receivedAt: 2_000,
       },
     ],
   });
@@ -102,12 +103,100 @@ test("play HUD renders chat and creative mode indicators", () => {
         text: "> /gamemode 1",
       }),
       expect.objectContaining({
+        id: "chat-feed-line-bg-0",
+        rect: { x: 14, y: 492, width: 460, height: 22 },
+        color: [0.03, 0.04, 0.05, 0.68],
+      }),
+      expect.objectContaining({
         id: "chat-feed-line-0",
         text: "Gamemode set to creative.",
       }),
       expect.objectContaining({
         id: "chat-feed-line-1",
         text: "Alice: hello",
+      }),
+    ]),
+  );
+});
+
+test("play HUD uses bottom-left passive chat layout with fading opacity", () => {
+  const hud = buildPlayHud(1280, 720, {
+    inventory: createDefaultInventory(),
+    chatOpen: false,
+    chatNowMs: 11_000,
+    chatMessages: [
+      {
+        kind: "player",
+        senderName: "Alice",
+        text: "fresh",
+        receivedAt: 10_500,
+      },
+      {
+        kind: "system",
+        text: "older",
+        receivedAt: 500,
+      },
+    ],
+  });
+
+  expect(hud).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "chat-feed-line-bg-0",
+        rect: { x: 14, y: 534, width: 460, height: 22 },
+        color: [0.03, 0.04, 0.05, 0.4],
+      }),
+      expect.objectContaining({
+        id: "chat-feed-line-bg-1",
+        rect: { x: 14, y: 560, width: 460, height: 22 },
+        color: [0.03, 0.04, 0.05, 0.2],
+      }),
+      expect.objectContaining({
+        id: "chat-feed-line-0",
+        text: "Alice: fresh",
+      }),
+      expect.objectContaining({
+        id: "chat-feed-line-1",
+        text: "older",
+      }),
+    ]),
+  );
+});
+
+test("play HUD hides expired passive chat messages but keeps them while chat is open", () => {
+  const closedHud = buildPlayHud(1280, 720, {
+    inventory: createDefaultInventory(),
+    chatOpen: false,
+    chatNowMs: 20_000,
+    chatMessages: [
+      {
+        kind: "system",
+        text: "expired line",
+        receivedAt: 1_000,
+      },
+    ],
+  });
+
+  const openHud = buildPlayHud(1280, 720, {
+    inventory: createDefaultInventory(),
+    chatOpen: true,
+    chatNowMs: 20_000,
+    chatDraft: "",
+    chatMessages: [
+      {
+        kind: "system",
+        text: "expired line",
+        receivedAt: 1_000,
+      },
+    ],
+  });
+
+  expect(closedHud.some((component) => component.id === "chat-feed-line-0")).toBe(false);
+  expect(openHud).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "chat-feed-line-0",
+        text: "expired line",
       }),
     ]),
   );

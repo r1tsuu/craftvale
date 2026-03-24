@@ -360,14 +360,14 @@ const pushQuad = (
   y: number,
   width: number,
   height: number,
-  color: readonly [number, number, number],
+  color: readonly [number, number, number, number?],
 ): void => {
-  const [red, green, blue] = color;
+  const [red, green, blue, alpha = 1] = color;
   vertices.push(
-    x, y, red, green, blue,
-    x + width, y, red, green, blue,
-    x + width, y + height, red, green, blue,
-    x, y + height, red, green, blue,
+    x, y, red, green, blue, alpha,
+    x + width, y, red, green, blue, alpha,
+    x + width, y + height, red, green, blue, alpha,
+    x, y + height, red, green, blue, alpha,
   );
   indices.push(
     baseIndex,
@@ -384,7 +384,7 @@ export const buildTextMesh = (
   x: number,
   y: number,
   scale: number,
-  color: readonly [number, number, number],
+  color: readonly [number, number, number, number?],
 ): { vertexData: Float32Array; indexData: Uint32Array; indexCount: number } => {
   const vertices: number[] = [];
   const indices: number[] = [];

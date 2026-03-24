@@ -246,6 +246,10 @@ void bridge_gl_disable(unsigned int capability) {
   glDisable(capability);
 }
 
+void bridge_gl_blend_func(unsigned int source, unsigned int destination) {
+  glBlendFunc(source, destination);
+}
+
 void bridge_gl_cull_face(unsigned int mode) {
   glCullFace(mode);
 }

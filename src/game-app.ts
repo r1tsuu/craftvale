@@ -207,6 +207,7 @@ export class GameApp {
           inventory: this.deps.clientWorldRuntime.inventory,
           biomeName,
           chatMessages: this.deps.clientWorldRuntime.chatMessages,
+          chatNowMs: Date.now(),
           chatDraft: this.state.chatDraft,
           chatOpen: this.state.chatOpen,
           gamemode: this.deps.clientWorldRuntime.getClientPlayer()?.gamemode ?? 0,
