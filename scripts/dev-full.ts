@@ -1,3 +1,5 @@
+import { ensurePortAvailable } from "../src/server/port-availability.ts";
+
 const SERVER_PORT = 3210;
 const SERVER_NAME = "Local Server";
 const SERVER_ADDRESS = `127.0.0.1:${SERVER_PORT}`;
@@ -69,6 +71,8 @@ const waitForServerReady = async (
 
   throw new Error(`Timed out waiting for dedicated server readiness at ${url}.`);
 };
+
+await ensurePortAvailable(SERVER_PORT);
 
 const server = Bun.spawn(
   ["bun", "run", "src/server/standalone-entry.ts", `--port=${SERVER_PORT}`],
