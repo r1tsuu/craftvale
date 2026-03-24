@@ -30,6 +30,12 @@ export interface UiLabel extends UiBaseComponent {
   centered?: boolean;
 }
 
+export interface UiHotspot extends UiBaseComponent {
+  kind: "hotspot";
+  action: string;
+  disabled?: boolean;
+}
+
 export type UiButtonVariant = "primary" | "secondary" | "danger";
 
 export interface UiButton extends UiBaseComponent {
@@ -41,13 +47,17 @@ export interface UiButton extends UiBaseComponent {
   disabled?: boolean;
 }
 
-export type UiComponent = UiPanel | UiLabel | UiButton;
+export type UiComponent = UiPanel | UiLabel | UiButton | UiHotspot;
 
 export interface UiResolvedButton extends UiButton {
   hovered: boolean;
 }
 
-export type UiResolvedComponent = UiPanel | UiLabel | UiResolvedButton;
+export interface UiResolvedHotspot extends UiHotspot {
+  hovered: boolean;
+}
+
+export type UiResolvedComponent = UiPanel | UiLabel | UiResolvedButton | UiResolvedHotspot;
 
 export interface UiEvaluationResult {
   components: UiResolvedComponent[];
@@ -57,6 +67,7 @@ export interface UiEvaluationResult {
 export const createPanel = (panel: UiPanel): UiPanel => panel;
 export const createLabel = (label: UiLabel): UiLabel => label;
 export const createButton = (button: UiButton): UiButton => button;
+export const createHotspot = (hotspot: UiHotspot): UiHotspot => hotspot;
 
 export const containsPoint = (rect: UiRect, x: number, y: number): boolean =>
   x >= rect.x &&
@@ -72,7 +83,7 @@ export const evaluateUi = (
   const actions: string[] = [];
 
   for (const component of components) {
-    if (component.kind !== "button") {
+    if (component.kind === "panel" || component.kind === "label") {
       resolved.push(component);
       continue;
     }

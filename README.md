@@ -21,13 +21,14 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Server-authoritative `/gamemode 0` and `/gamemode 1` command handling
 - Creative-mode flight toggled by double-tapping `Space`
 - Per-world save/load with named worlds and binary chunk persistence
-- Server-authoritative 9-slot hotbar inventory with starter stacks, HUD display, and per-player persistence
+- Server-authoritative full inventory with a 9-slot hotbar, main storage grid, stack movement, and per-player persistence
 - Nine placeable hotbar block types including terrain, wood, and masonry-style blocks
 - Create, join, delete, and save worlds from the menu
 - Pre-game menu with reusable UI components and clickable buttons
 - Seeded Minecraft-like menu background
 - On-screen HUD text for FPS, position, rotation, world name, and status
 - Bottom-center hotbar strip with slot highlight, counts, and selected-item label
+- `E`-opened inventory screen with clickable slot movement and a carried cursor stack
 
 ## Requirements
 
@@ -62,6 +63,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Left click break block
 - Right click place the selected hotbar block
 - `1`-`9` select hotbar slots
+- `E` opens and closes the inventory
 - `Enter` opens chat
 - Typing `/` opens command chat
 - `/gamemode 0` switches to normal mode
@@ -118,5 +120,5 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Expanded biomes and world variety including rivers, oceans, beaches, deserts, snow regions, and larger forests
 - Dynamic lighting for sunlight and torch-lit spaces
 - Equipment systems including armor, durability, shields, and ranged combat
-- Richer inventory UX with a full inventory screen, chest UI, and stack management
+- Richer inventory UX such as chest UI, shift-click transfer, and advanced stack shortcuts
 - Farming and food loops with crops, animals, cooking, and renewable resources

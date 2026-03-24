@@ -2,6 +2,7 @@ import type {
   BlockId,
   ChatEntry,
   ChunkCoord,
+  InventorySection,
   InventorySnapshot,
   PlayerName,
   PlayerSnapshot,
@@ -50,6 +51,11 @@ export interface InventorySelectionRequest {
   slot: number;
 }
 
+export interface InventoryInteractionRequest {
+  section: InventorySection;
+  slot: number;
+}
+
 export interface PlayerStateUpdateRequest {
   state: PlayerState;
   flying: boolean;
@@ -95,6 +101,7 @@ export interface ClientResponseMap {
 export interface ClientEventMap {
   mutateBlock: BlockMutationRequest;
   selectInventorySlot: InventorySelectionRequest;
+  interactInventorySlot: InventoryInteractionRequest;
   updatePlayerState: PlayerStateUpdateRequest;
   submitChat: SubmitChatRequest;
 }
@@ -176,6 +183,7 @@ const CLIENT_REQUEST_TYPES = new Set<keyof ClientRequestMap>([
 const CLIENT_EVENT_TYPES = new Set<keyof ClientEventMap>([
   "mutateBlock",
   "selectInventorySlot",
+  "interactInventorySlot",
   "updatePlayerState",
   "submitChat",
 ]);

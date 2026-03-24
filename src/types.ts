@@ -22,6 +22,7 @@ export interface InputState {
   backspacePressed: boolean;
   enterPressed: boolean;
   tabPressed: boolean;
+  inventoryToggle: boolean;
   hotbarSelection: number | null;
   windowWidth: number;
   windowHeight: number;
@@ -54,9 +55,13 @@ export interface InventorySlot {
   count: number;
 }
 
+export type InventorySection = "hotbar" | "main";
+
 export interface InventorySnapshot {
-  slots: InventorySlot[];
+  hotbar: InventorySlot[];
+  main: InventorySlot[];
   selectedSlot: number;
+  cursor: InventorySlot | null;
 }
 
 export type PlayerName = string;

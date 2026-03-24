@@ -47,6 +47,7 @@ export interface GameAppState {
   lastServerMessage: string;
   chatOpen: boolean;
   chatDraft: string;
+  inventoryOpen: boolean;
 }
 
 export interface GameAppDependencies {
@@ -80,6 +81,7 @@ export class GameApp {
     lastServerMessage: "",
     chatOpen: false,
     chatDraft: "",
+    inventoryOpen: false,
   };
 
   public constructor(private readonly deps: GameAppDependencies) {}
@@ -171,8 +173,8 @@ export class GameApp {
         void this.createWorld();
       }
     } else {
-      this.handleChatInput(input);
-      if (!this.state.chatOpen) {
+      this.handlePlayOverlayInput(input);
+      if (!this.state.chatOpen && !this.state.inventoryOpen) {
         this.deps.player.applyLook(input);
       }
 
@@ -200,11 +202,14 @@ export class GameApp {
         yawDegrees,
         pitchDegrees,
       );
-      uiComponents = buildPlayHud(
+      const playHud = buildPlayHud(
         input.windowWidth,
         input.windowHeight,
         {
           inventory: this.deps.clientWorldRuntime.inventory,
+          inventoryOpen: this.state.inventoryOpen,
+          cursorX: input.cursorX,
+          cursorY: input.cursorY,
           biomeName,
           chatMessages: this.deps.clientWorldRuntime.chatMessages,
           chatNowMs: Date.now(),
@@ -214,6 +219,16 @@ export class GameApp {
           flying: this.deps.clientWorldRuntime.getClientPlayer()?.flying ?? false,
         },
       );
+      const evaluation = evaluateUi(playHud, {
+        x: input.cursorX,
+        y: input.cursorY,
+        primaryDown: input.breakBlock,
+        primaryPressed,
+      });
+      uiComponents = evaluation.components;
+      for (const action of evaluation.actions) {
+        this.handlePlayHudAction(action);
+      }
     }
 
     this.renderFrame(
@@ -314,6 +329,7 @@ export class GameApp {
           this.state.appMode = "menu";
           this.state.chatOpen = false;
           this.state.chatDraft = "";
+          this.state.inventoryOpen = false;
           this.deps.nativeBridge.setCursorDisabled(false);
         }
 
@@ -431,6 +447,7 @@ export class GameApp {
       this.state.currentWorldSeed = joined.world.seed;
       this.state.chatOpen = false;
       this.state.chatDraft = "";
+      this.state.inventoryOpen = false;
       this.deps.player.resetFromSnapshot(joined.clientPlayer);
 
       const initialCoords = this.deps.clientWorldRuntime.getChunkCoordsAroundPosition(
@@ -547,7 +564,7 @@ export class GameApp {
     input: ReturnType<NativeBridge["pollInput"]>,
     deltaSeconds: number,
   ): void {
-    if (this.state.chatOpen) {
+    if (this.state.chatOpen || this.state.inventoryOpen) {
       return;
     }
 
@@ -627,7 +644,14 @@ export class GameApp {
     }
   }
 
-  private handleChatInput(input: ReturnType<NativeBridge["pollInput"]>): void {
+  private handlePlayOverlayInput(input: ReturnType<NativeBridge["pollInput"]>): void {
+    if (this.state.inventoryOpen) {
+      if (input.inventoryToggle || input.exit) {
+        this.setInventoryOpen(false);
+      }
+      return;
+    }
+
     if (this.state.chatOpen) {
       if (input.exit) {
         this.state.chatOpen = false;
@@ -649,6 +673,11 @@ export class GameApp {
       return;
     }
 
+    if (input.inventoryToggle) {
+      this.setInventoryOpen(true);
+      return;
+    }
+
     if (input.enterPressed) {
       this.state.chatOpen = true;
       this.state.chatDraft = "";
@@ -659,6 +688,35 @@ export class GameApp {
       this.state.chatOpen = true;
       this.state.chatDraft = input.typedText;
     }
+  }
+
+  private handlePlayHudAction(action: string): void {
+    if (!action.startsWith("inventory-slot:")) {
+      return;
+    }
+
+    const [, section, slotText] = action.split(":");
+    if ((section !== "hotbar" && section !== "main") || !slotText) {
+      return;
+    }
+
+    const slot = Number(slotText);
+    if (!Number.isInteger(slot)) {
+      return;
+    }
+
+    this.deps.clientAdapter.eventBus.send({
+      type: "interactInventorySlot",
+      payload: {
+        section,
+        slot,
+      },
+    });
+  }
+
+  private setInventoryOpen(open: boolean): void {
+    this.state.inventoryOpen = open;
+    this.deps.nativeBridge.setCursorDisabled(!open);
   }
 
   private submitChatDraft(): void {

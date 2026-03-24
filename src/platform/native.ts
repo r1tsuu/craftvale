@@ -134,6 +134,7 @@ const library = dlopen(libraryPath, {
 });
 
 const GLFW_KEY_W = 87;
+const GLFW_KEY_E = 69;
 const GLFW_KEY_A = 65;
 const GLFW_KEY_S = 83;
 const GLFW_KEY_D = 68;
@@ -296,6 +297,9 @@ export class NativeBridge {
       ),
       tabPressed: Boolean(
         library.symbols.bridge_consume_key_press(GLFW_KEY_TAB),
+      ),
+      inventoryToggle: Boolean(
+        library.symbols.bridge_consume_key_press(GLFW_KEY_E),
       ),
       hotbarSelection,
       windowWidth,

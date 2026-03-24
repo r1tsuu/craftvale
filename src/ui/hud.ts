@@ -1,11 +1,17 @@
-import type { ChatEntry, InventorySnapshot, PlayerGamemode } from "../types.ts";
+import type {
+  ChatEntry,
+  InventorySlot,
+  InventorySnapshot,
+  PlayerGamemode,
+} from "../types.ts";
 import { measureTextWidth } from "../render/text-mesh.ts";
 import { Blocks } from "../world/blocks.ts";
 import { getSelectedInventorySlot } from "../world/inventory.ts";
 import {
+  createHotspot,
   createLabel,
   createPanel,
-  type UiResolvedComponent,
+  type UiComponent,
 } from "./components.ts";
 
 const HOTBAR_SAFE_TOP_OFFSET = 126;
@@ -25,16 +31,18 @@ const CHAT_INPUT_FRAME_ALPHA = 0.6;
 const CHAT_INPUT_INNER_ALPHA = 0.82;
 const CHAT_OPEN_LINE_ALPHA = 0.68;
 const CHAT_CLOSED_LINE_ALPHA = 0.4;
+const INVENTORY_PANEL_WIDTH = 642;
+const INVENTORY_PANEL_HEIGHT = 396;
+const INVENTORY_SLOT_SIZE = 54;
+const INVENTORY_SLOT_GAP = 8;
 
 interface VisibleChatLine {
   entry: ChatEntry;
   opacity: number;
 }
 
-const withAlpha = (
-  color: readonly [number, number, number],
-  alpha: number,
-): readonly [number, number, number, number] => [color[0], color[1], color[2], alpha];
+const isEmptyInventorySlot = (slot: InventorySlot | null | undefined): boolean =>
+  !slot || slot.blockId === 0 || slot.count <= 0;
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 
@@ -78,7 +86,10 @@ const getVisibleChatLines = (
     .slice(-CHAT_CLOSED_MAX_LINES);
 };
 
-const buildCrosshair = (windowWidth: number, windowHeight: number): UiResolvedComponent[] => {
+const getSlotDisplayName = (slot: InventorySlot): string =>
+  isEmptyInventorySlot(slot) ? "EMPTY" : Blocks[slot.blockId].name.toUpperCase();
+
+const buildCrosshair = (windowWidth: number, windowHeight: number): UiComponent[] => {
   const centerX = Math.round(windowWidth / 2);
   const centerY = Math.round(windowHeight / 2);
   const innerColor: readonly [number, number, number] = [0.96, 0.96, 0.96];
@@ -112,20 +123,115 @@ const buildCrosshair = (windowWidth: number, windowHeight: number): UiResolvedCo
   ];
 };
 
+const buildInventorySlotVisual = (
+  idPrefix: string,
+  rect: { x: number; y: number; width: number; height: number },
+  slot: InventorySlot,
+  options: {
+    keyText?: string;
+    selected?: boolean;
+    interactive?: boolean;
+    action?: string;
+  } = {},
+): UiComponent[] => {
+  const components: UiComponent[] = [];
+  const selected = options.selected ?? false;
+  components.push(
+    createPanel({
+      id: `${idPrefix}-frame`,
+      kind: "panel",
+      rect,
+      color: selected ? [0.91, 0.85, 0.37] : [0.18, 0.19, 0.2],
+    }),
+    createPanel({
+      id: `${idPrefix}-inner`,
+      kind: "panel",
+      rect: {
+        x: rect.x + 4,
+        y: rect.y + 4,
+        width: rect.width - 8,
+        height: rect.height - 8,
+      },
+      color: selected ? [0.28, 0.24, 0.12] : [0.28, 0.3, 0.33],
+    }),
+  );
+
+  if (!isEmptyInventorySlot(slot)) {
+    components.push(
+      createPanel({
+        id: `${idPrefix}-swatch`,
+        kind: "panel",
+        rect: {
+          x: rect.x + 14,
+          y: rect.y + 18,
+          width: rect.width - 28,
+          height: rect.height - 28,
+        },
+        color: Blocks[slot.blockId].color,
+      }),
+      createLabel({
+        id: `${idPrefix}-count`,
+        kind: "label",
+        rect: {
+          x: rect.x + 4,
+          y: rect.y + rect.height - 18,
+          width: rect.width - 8,
+          height: 12,
+        },
+        text: `${slot.count}`,
+        scale: 1,
+        color: [0.97, 0.97, 0.97],
+        centered: true,
+      }),
+    );
+  }
+
+  if (options.keyText) {
+    components.push(
+      createLabel({
+        id: `${idPrefix}-key`,
+        kind: "label",
+        rect: {
+          x: rect.x + 6,
+          y: rect.y + 5,
+          width: 12,
+          height: 12,
+        },
+        text: options.keyText,
+        scale: 1,
+        color: selected ? [0.15, 0.14, 0.08] : [0.96, 0.96, 0.96],
+      }),
+    );
+  }
+
+  if (options.interactive && options.action) {
+    components.push(
+      createHotspot({
+        id: `${idPrefix}-hotspot`,
+        kind: "hotspot",
+        rect,
+        action: options.action,
+      }),
+    );
+  }
+
+  return components;
+};
+
 const buildHotbar = (
   windowWidth: number,
   windowHeight: number,
   inventory: InventorySnapshot,
-): UiResolvedComponent[] => {
+): UiComponent[] => {
   const selectedSlotIndex = inventory.selectedSlot;
   const selectedSlot = getSelectedInventorySlot(inventory);
   const slotWidth = 68;
   const slotHeight = 68;
   const slotGap = 8;
-  const totalWidth = inventory.slots.length * slotWidth + (inventory.slots.length - 1) * slotGap;
+  const totalWidth = inventory.hotbar.length * slotWidth + (inventory.hotbar.length - 1) * slotGap;
   const startX = Math.round((windowWidth - totalWidth) / 2);
   const startY = windowHeight - 96;
-  const components: UiResolvedComponent[] = [];
+  const components: UiComponent[] = [];
 
   components.push(
     createPanel({
@@ -148,79 +254,30 @@ const buildHotbar = (
         width: totalWidth + 32,
         height: 18,
       },
-      text: `${selectedSlotIndex + 1}. ${Blocks[selectedSlot.blockId].name.toUpperCase()}  x${selectedSlot.count}`,
+      text: `${selectedSlotIndex + 1}. ${getSlotDisplayName(selectedSlot)}${isEmptyInventorySlot(selectedSlot) ? "" : `  x${selectedSlot.count}`}`,
       scale: 2,
       color: [0.99, 0.95, 0.78],
       centered: true,
     }),
   );
 
-  inventory.slots.forEach((slot, index) => {
+  inventory.hotbar.forEach((slot, index) => {
     const slotX = startX + index * (slotWidth + slotGap);
-    const selected = index === selectedSlotIndex;
-    const block = Blocks[slot.blockId];
-
     components.push(
-      createPanel({
-        id: `hotbar-slot-frame-${index}`,
-        kind: "panel",
-        rect: {
+      ...buildInventorySlotVisual(
+        `hotbar-slot-${index}`,
+        {
           x: slotX,
           y: startY,
           width: slotWidth,
           height: slotHeight,
         },
-        color: selected ? [0.91, 0.85, 0.37] : [0.18, 0.19, 0.2],
-      }),
-      createPanel({
-        id: `hotbar-slot-inner-${index}`,
-        kind: "panel",
-        rect: {
-          x: slotX + 4,
-          y: startY + 4,
-          width: slotWidth - 8,
-          height: slotHeight - 8,
+        slot,
+        {
+          keyText: String(index + 1),
+          selected: index === selectedSlotIndex,
         },
-        color: selected ? [0.28, 0.24, 0.12] : [0.3, 0.32, 0.34],
-      }),
-      createPanel({
-        id: `hotbar-slot-swatch-${index}`,
-        kind: "panel",
-        rect: {
-          x: slotX + 18,
-          y: startY + 20,
-          width: 32,
-          height: 24,
-        },
-        color: block.color,
-      }),
-      createLabel({
-        id: `hotbar-slot-key-${index}`,
-        kind: "label",
-        rect: {
-          x: slotX + 6,
-          y: startY + 5,
-          width: 12,
-          height: 12,
-        },
-        text: String(index + 1),
-        scale: 1,
-        color: selected ? [0.15, 0.14, 0.08] : [0.96, 0.96, 0.96],
-      }),
-      createLabel({
-        id: `hotbar-slot-count-${index}`,
-        kind: "label",
-        rect: {
-          x: slotX + 6,
-          y: startY + 48,
-          width: slotWidth - 12,
-          height: 12,
-        },
-        text: `${slot.count}`,
-        scale: 1,
-        color: slot.count > 0 ? [0.97, 0.97, 0.97] : [0.84, 0.5, 0.5],
-        centered: true,
-      }),
+      ),
     );
   });
 
@@ -231,7 +288,7 @@ const buildBiomeBadge = (
   windowWidth: number,
   windowHeight: number,
   biomeName: string,
-): UiResolvedComponent[] => {
+): UiComponent[] => {
   const badgeWidth = 200;
   const badgeHeight = 30;
   const x = Math.round((windowWidth - badgeWidth) / 2);
@@ -266,7 +323,7 @@ const buildModeBadge = (
   windowWidth: number,
   gamemode: PlayerGamemode,
   flying: boolean,
-): UiResolvedComponent[] => {
+): UiComponent[] => {
   const badgeWidth = 190;
   const badgeHeight = 28;
   const x = windowWidth - badgeWidth - 20;
@@ -307,7 +364,7 @@ const buildChatFeed = (
   chatMessages: readonly ChatEntry[],
   chatOpen: boolean,
   nowMs: number,
-): UiResolvedComponent[] => {
+): UiComponent[] => {
   const visibleLines = getVisibleChatLines(chatMessages, chatOpen, nowMs);
   if (visibleLines.length === 0) {
     return [];
@@ -322,7 +379,7 @@ const buildChatFeed = (
     : hotbarTop - CHAT_GAP_ABOVE_HOTBAR;
   const x = CHAT_MARGIN_LEFT;
   const startY = feedBottom - totalHeight;
-  const components: UiResolvedComponent[] = [];
+  const components: UiComponent[] = [];
 
   visibleLines.forEach(({ entry, opacity }, index) => {
     const text = getChatLineText(entry);
@@ -367,7 +424,7 @@ const buildChatInput = (
   windowWidth: number,
   windowHeight: number,
   draft: string,
-): UiResolvedComponent[] => {
+): UiComponent[] => {
   const width = Math.min(CHAT_WIDTH, windowWidth - CHAT_MARGIN_LEFT * 2);
   const height = CHAT_INPUT_HEIGHT;
   const x = CHAT_MARGIN_LEFT;
@@ -396,8 +453,115 @@ const buildChatInput = (
   ];
 };
 
+const buildInventoryOverlay = (
+  windowWidth: number,
+  windowHeight: number,
+  inventory: InventorySnapshot,
+  cursorX: number,
+  cursorY: number,
+): UiComponent[] => {
+  const x = Math.round((windowWidth - INVENTORY_PANEL_WIDTH) / 2);
+  const y = Math.round((windowHeight - INVENTORY_PANEL_HEIGHT) / 2);
+  const components: UiComponent[] = [
+    createPanel({
+      id: "inventory-backdrop",
+      kind: "panel",
+      rect: { x, y, width: INVENTORY_PANEL_WIDTH, height: INVENTORY_PANEL_HEIGHT },
+      color: [0.05, 0.06, 0.08, 0.92],
+    }),
+    createPanel({
+      id: "inventory-inner",
+      kind: "panel",
+      rect: { x: x + 6, y: y + 6, width: INVENTORY_PANEL_WIDTH - 12, height: INVENTORY_PANEL_HEIGHT - 12 },
+      color: [0.14, 0.16, 0.18, 0.96],
+    }),
+    createLabel({
+      id: "inventory-title",
+      kind: "label",
+      rect: { x: x + 24, y: y + 18, width: 220, height: 22 },
+      text: "INVENTORY",
+      scale: 3,
+      color: [0.96, 0.97, 0.99],
+    }),
+    createLabel({
+      id: "inventory-help",
+      kind: "label",
+      rect: { x: x + INVENTORY_PANEL_WIDTH - 180, y: y + 22, width: 150, height: 18 },
+      text: "E TO CLOSE",
+      scale: 2,
+      color: [0.86, 0.88, 0.9],
+      centered: true,
+    }),
+  ];
+
+  const gridStartX = x + 36;
+  const mainStartY = y + 74;
+  for (let index = 0; index < inventory.main.length; index += 1) {
+    const col = index % 9;
+    const row = Math.floor(index / 9);
+    components.push(
+      ...buildInventorySlotVisual(
+        `inventory-main-slot-${index}`,
+        {
+          x: gridStartX + col * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP),
+          y: mainStartY + row * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP),
+          width: INVENTORY_SLOT_SIZE,
+          height: INVENTORY_SLOT_SIZE,
+        },
+        inventory.main[index]!,
+        {
+          interactive: true,
+          action: `inventory-slot:main:${index}`,
+        },
+      ),
+    );
+  }
+
+  const hotbarStartY = y + INVENTORY_PANEL_HEIGHT - 86;
+  for (let index = 0; index < inventory.hotbar.length; index += 1) {
+    components.push(
+      ...buildInventorySlotVisual(
+        `inventory-hotbar-slot-${index}`,
+        {
+          x: gridStartX + index * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP),
+          y: hotbarStartY,
+          width: INVENTORY_SLOT_SIZE,
+          height: INVENTORY_SLOT_SIZE,
+        },
+        inventory.hotbar[index]!,
+        {
+          interactive: true,
+          action: `inventory-slot:hotbar:${index}`,
+          selected: inventory.selectedSlot === index,
+          keyText: String(index + 1),
+        },
+      ),
+    );
+  }
+
+  if (!isEmptyInventorySlot(inventory.cursor)) {
+    components.push(
+      ...buildInventorySlotVisual(
+        "inventory-cursor-slot",
+        {
+          x: Math.round(cursorX - INVENTORY_SLOT_SIZE / 2),
+          y: Math.round(cursorY - INVENTORY_SLOT_SIZE / 2),
+          width: INVENTORY_SLOT_SIZE,
+          height: INVENTORY_SLOT_SIZE,
+        },
+        inventory.cursor!,
+      ),
+    );
+  }
+
+  return components;
+};
+
 export interface PlayHudState {
   inventory: InventorySnapshot;
+  inventoryOpen?: boolean;
+  cursorX?: number;
+  cursorY?: number;
   biomeName?: string | null;
   chatMessages?: readonly ChatEntry[];
   chatNowMs?: number;
@@ -411,17 +575,27 @@ export const buildPlayHud = (
   windowWidth: number,
   windowHeight: number,
   state: PlayHudState,
-): UiResolvedComponent[] => [
-  ...buildCrosshair(windowWidth, windowHeight),
-  ...(state.biomeName ? buildBiomeBadge(windowWidth, windowHeight, state.biomeName) : []),
+): UiComponent[] => [
+  ...(state.inventoryOpen ? [] : buildCrosshair(windowWidth, windowHeight)),
+  ...(state.biomeName && !state.inventoryOpen ? buildBiomeBadge(windowWidth, windowHeight, state.biomeName) : []),
   ...buildModeBadge(windowWidth, state.gamemode ?? 0, state.flying ?? false),
-  ...buildChatFeed(
-    windowWidth,
-    windowHeight,
-    state.chatMessages ?? [],
-    state.chatOpen ?? false,
-    state.chatNowMs ?? Date.now(),
-  ),
-  ...(state.chatOpen ? buildChatInput(windowWidth, windowHeight, state.chatDraft ?? "") : []),
-  ...buildHotbar(windowWidth, windowHeight, state.inventory),
+  ...(!state.inventoryOpen
+    ? buildChatFeed(
+      windowWidth,
+      windowHeight,
+      state.chatMessages ?? [],
+      state.chatOpen ?? false,
+      state.chatNowMs ?? Date.now(),
+    )
+    : []),
+  ...(!state.inventoryOpen && state.chatOpen ? buildChatInput(windowWidth, windowHeight, state.chatDraft ?? "") : []),
+  ...(state.inventoryOpen
+    ? buildInventoryOverlay(
+      windowWidth,
+      windowHeight,
+      state.inventory,
+      state.cursorX ?? 0,
+      state.cursorY ?? 0,
+    )
+    : buildHotbar(windowWidth, windowHeight, state.inventory)),
 ];

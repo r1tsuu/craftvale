@@ -37,7 +37,7 @@ test("play HUD still renders the hotbar and selected slot label", () => {
         text: "5. LEAVES  x64",
       }),
       expect.objectContaining({
-        id: "hotbar-slot-key-8",
+        id: "hotbar-slot-8-key",
         text: "9",
       }),
     ]),
@@ -197,6 +197,44 @@ test("play HUD hides expired passive chat messages but keeps them while chat is 
       expect.objectContaining({
         id: "chat-feed-line-0",
         text: "expired line",
+      }),
+    ]),
+  );
+});
+
+test("play HUD renders the full inventory overlay when inventory is open", () => {
+  const inventory = createDefaultInventory();
+  inventory.main[0] = { blockId: 4, count: 12 };
+  inventory.cursor = { blockId: 9, count: 8 };
+  const hud = buildPlayHud(1280, 720, {
+    inventory,
+    inventoryOpen: true,
+    cursorX: 700,
+    cursorY: 420,
+  });
+
+  expect(hud.some((component) => component.id === "crosshair-horizontal")).toBe(false);
+  expect(hud).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "inventory-backdrop",
+        rect: { x: 319, y: 162, width: 642, height: 396 },
+      }),
+      expect.objectContaining({
+        id: "inventory-title",
+        text: "INVENTORY",
+      }),
+      expect.objectContaining({
+        id: "inventory-main-slot-0-count",
+        text: "12",
+      }),
+      expect.objectContaining({
+        id: "inventory-hotbar-slot-0-key",
+        text: "1",
+      }),
+      expect.objectContaining({
+        id: "inventory-cursor-slot-count",
+        text: "8",
       }),
     ]),
   );

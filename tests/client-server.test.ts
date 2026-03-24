@@ -143,8 +143,13 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     expect(harness.worldRuntime.getClientPlayer()?.name).toBe(PLAYER_NAME);
     expect(harness.worldRuntime.inventory.selectedSlot).toBe(0);
     expect(
-      harness.worldRuntime.inventory.slots.every(
+      harness.worldRuntime.inventory.hotbar.every(
         (slot) => slot.count === DEFAULT_INVENTORY_STACK_SIZE,
+      ),
+    ).toBe(true);
+    expect(
+      harness.worldRuntime.inventory.main.every(
+        (slot) => slot.blockId === 0 && slot.count === 0,
       ),
     ).toBe(true);
 
@@ -188,10 +193,10 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
 
     expect(changedChunkReceived).toBe(true);
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(0);
-    const collectedSlot = harness.worldRuntime.inventory.slots.find((slot) => slot.blockId === targetBlockId);
-    expect(collectedSlot?.count).toBe(DEFAULT_INVENTORY_STACK_SIZE + 1);
+    const collectedSlot = harness.worldRuntime.inventory.main.find((slot) => slot.blockId === targetBlockId);
+    expect(collectedSlot?.count).toBe(1);
 
-    const collectedSlotIndex = harness.worldRuntime.inventory.slots.findIndex(
+    const collectedSlotIndex = harness.worldRuntime.inventory.hotbar.findIndex(
       (slot) => slot.blockId === targetBlockId,
     );
     harness.client.eventBus.send({
@@ -202,6 +207,46 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     });
     await Bun.sleep(0);
     expect(harness.worldRuntime.inventory.selectedSlot).toBe(collectedSlotIndex);
+
+    harness.client.eventBus.send({
+      type: "interactInventorySlot",
+      payload: {
+        section: "hotbar",
+        slot: 8,
+      },
+    });
+    await Bun.sleep(0);
+    expect(harness.worldRuntime.inventory.cursor).toEqual({ blockId: 9, count: 64 });
+
+    harness.client.eventBus.send({
+      type: "interactInventorySlot",
+      payload: {
+        section: "main",
+        slot: 1,
+      },
+    });
+    await Bun.sleep(0);
+    expect(harness.worldRuntime.inventory.cursor).toBeNull();
+    expect(harness.worldRuntime.inventory.main[1]).toEqual({ blockId: 9, count: 64 });
+
+    harness.client.eventBus.send({
+      type: "interactInventorySlot",
+      payload: {
+        section: "main",
+        slot: 1,
+      },
+    });
+    await Bun.sleep(0);
+    harness.client.eventBus.send({
+      type: "interactInventorySlot",
+      payload: {
+        section: "hotbar",
+        slot: 8,
+      },
+    });
+    await Bun.sleep(0);
+    expect(harness.worldRuntime.inventory.hotbar[8]).toEqual({ blockId: 9, count: 64 });
+    expect(harness.worldRuntime.inventory.cursor).toBeNull();
 
     harness.client.eventBus.send({
       type: "selectInventorySlot",
@@ -234,8 +279,11 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
 
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(targetBlockId);
     expect(
-      harness.worldRuntime.inventory.slots.find((slot) => slot.blockId === targetBlockId)?.count,
-    ).toBe(DEFAULT_INVENTORY_STACK_SIZE);
+      harness.worldRuntime.inventory.hotbar.find((slot) => slot.blockId === targetBlockId)?.count,
+    ).toBe(DEFAULT_INVENTORY_STACK_SIZE - 1);
+    expect(
+      harness.worldRuntime.inventory.main.find((slot) => slot.blockId === targetBlockId)?.count,
+    ).toBe(1);
 
     harness.client.eventBus.send({
       type: "submitChat",

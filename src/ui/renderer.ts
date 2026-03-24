@@ -94,6 +94,10 @@ export class UiRenderer {
         continue;
       }
 
+      if (component.kind === "hotspot") {
+        continue;
+      }
+
       const palette = getButtonPalette(
         component.variant ?? "primary",
         component.hovered,

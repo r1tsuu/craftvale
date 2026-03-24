@@ -16,7 +16,7 @@ const CHUNK_MAGIC = "VCHK";
 const PLAYER_MAGIC = "VPLY";
 const REGISTRY_VERSION = 1;
 const CHUNK_VERSION = 1;
-const PLAYER_VERSION = 2;
+const PLAYER_VERSION = 3;
 
 export interface StoredWorldRecord extends WorldSummary {
   directoryName: string;
@@ -187,7 +187,7 @@ const decodeChunk = (bytes: Uint8Array): StoredChunkRecord => {
 
 const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
   const inventory = normalizeInventorySnapshot(record.inventory);
-  const bytes = new Uint8Array(60 + inventory.slots.length * 8);
+  const bytes = new Uint8Array(72 + (inventory.hotbar.length + inventory.main.length) * 8);
   const view = new DataView(bytes.buffer);
   bytes.set(textEncoder.encode(PLAYER_MAGIC), 0);
   view.setUint32(4, PLAYER_VERSION, true);
@@ -198,10 +198,13 @@ const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
   view.setFloat64(40, record.snapshot.state.pitch, true);
   view.setUint32(48, record.snapshot.gamemode, true);
   view.setUint32(52, inventory.selectedSlot >>> 0, true);
-  view.setUint32(56, inventory.slots.length, true);
+  view.setUint32(56, inventory.hotbar.length, true);
+  view.setUint32(60, inventory.main.length, true);
+  view.setUint32(64, inventory.cursor?.blockId ?? 0, true);
+  view.setUint32(68, inventory.cursor?.count ?? 0, true);
 
-  let offset = 60;
-  for (const slot of inventory.slots) {
+  let offset = 72;
+  for (const slot of [...inventory.hotbar, ...inventory.main]) {
     view.setUint32(offset, slot.blockId >>> 0, true);
     view.setUint32(offset + 4, Math.max(0, Math.trunc(slot.count)) >>> 0, true);
     offset += 8;
@@ -211,7 +214,7 @@ const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
 };
 
 const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRecord => {
-  if (bytes.byteLength < 56) {
+  if (bytes.byteLength < 72) {
     throw new Error("Player file is truncated.");
   }
 
@@ -222,22 +225,47 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
 
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const version = view.getUint32(4, true);
-  if (version !== 1 && version !== PLAYER_VERSION) {
+  if (version !== PLAYER_VERSION) {
     throw new Error(`Unsupported player file version ${version}.`);
   }
 
-  const gamemode: PlayerGamemode = version >= 2 ? (view.getUint32(48, true) === 1 ? 1 : 0) : 0;
-  const selectedSlot = version >= 2 ? view.getUint32(52, true) : view.getUint32(48, true);
-  const slotCount = version >= 2 ? view.getUint32(56, true) : view.getUint32(52, true);
-  const slots: InventorySnapshot["slots"] = [];
-  let offset = version >= 2 ? 60 : 56;
-  for (let index = 0; index < slotCount; index += 1) {
-    slots.push({
+  const gamemode: PlayerGamemode = view.getUint32(48, true) === 1 ? 1 : 0;
+  const selectedSlot = view.getUint32(52, true);
+  const hotbarCount = view.getUint32(56, true);
+  const mainCount = view.getUint32(60, true);
+  const cursorBlockId = view.getUint32(64, true) as BlockId;
+  const cursorCount = view.getUint32(68, true);
+  const hotbar: InventorySnapshot["hotbar"] = [];
+  const main: InventorySnapshot["main"] = [];
+  let offset = 72;
+
+  for (let index = 0; index < hotbarCount; index += 1) {
+    hotbar.push({
       blockId: view.getUint32(offset, true) as BlockId,
       count: view.getUint32(offset + 4, true),
     });
     offset += 8;
   }
+
+  for (let index = 0; index < mainCount; index += 1) {
+    main.push({
+      blockId: view.getUint32(offset, true) as BlockId,
+      count: view.getUint32(offset + 4, true),
+    });
+    offset += 8;
+  }
+
+  const inventory = normalizeInventorySnapshot({
+    hotbar,
+    main,
+    selectedSlot,
+    cursor: cursorCount > 0
+      ? {
+          blockId: cursorBlockId,
+          count: cursorCount,
+        }
+      : null,
+  });
 
   return {
     snapshot: {
@@ -255,10 +283,7 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
         pitch: view.getFloat64(40, true),
       },
     },
-    inventory: normalizeInventorySnapshot({
-      slots,
-      selectedSlot,
-    }),
+    inventory,
   };
 };
 

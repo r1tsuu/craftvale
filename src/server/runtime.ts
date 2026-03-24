@@ -173,6 +173,25 @@ export class ServerRuntime {
       });
     });
 
+    this.adapter.eventBus.on("interactInventorySlot", async ({ section, slot }) => {
+      if (!this.activeWorld || !this.currentPlayerName) {
+        throw new Error("Join a world before interacting with inventory.");
+      }
+
+      const inventory = await this.activeWorld.interactInventorySlot(
+        this.currentPlayerName,
+        section,
+        slot,
+      );
+      this.adapter.eventBus.send({
+        type: "inventoryUpdated",
+        payload: {
+          playerName: this.currentPlayerName,
+          inventory,
+        },
+      });
+    });
+
     this.adapter.eventBus.on("updatePlayerState", async ({ state, flying }) => {
       if (!this.activeWorld || !this.currentPlayerName) {
         throw new Error("Join a world before updating player state.");

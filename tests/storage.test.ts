@@ -59,14 +59,16 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
         },
       },
       inventory: {
-        selectedSlot: 2,
-        slots: [
+        hotbar: [
           { blockId: 1, count: 3 },
           { blockId: 2, count: 4 },
           { blockId: 3, count: 5 },
           { blockId: 4, count: 6 },
           { blockId: 5, count: 7 },
         ],
+        main: [{ blockId: 6, count: 9 }],
+        selectedSlot: 2,
+        cursor: { blockId: 7, count: 2 },
       },
     });
 
@@ -83,8 +85,10 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
         },
       },
       inventory: {
+        hotbar: [{ blockId: 4, count: 9 }],
+        main: [],
         selectedSlot: 0,
-        slots: [{ blockId: 4, count: 9 }],
+        cursor: null,
       },
     });
 
@@ -96,15 +100,17 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
     expect(loadedPlayerA?.snapshot.flying).toBe(false);
     expect(loadedPlayerA?.snapshot.state.position).toEqual([12.5, 70, -4.25]);
     expect(loadedPlayerA?.inventory.selectedSlot).toBe(2);
-    expect(loadedPlayerA?.inventory.slots).toHaveLength(9);
-    expect(loadedPlayerA?.inventory.slots.find((slot) => slot.blockId === 3)?.count).toBe(5);
-    expect(loadedPlayerA?.inventory.slots.find((slot) => slot.blockId === 6)?.count).toBe(0);
+    expect(loadedPlayerA?.inventory.hotbar).toHaveLength(9);
+    expect(loadedPlayerA?.inventory.main).toHaveLength(27);
+    expect(loadedPlayerA?.inventory.hotbar.find((slot) => slot.blockId === 3)?.count).toBe(5);
+    expect(loadedPlayerA?.inventory.main.find((slot) => slot.blockId === 6)?.count).toBe(9);
+    expect(loadedPlayerA?.inventory.cursor).toEqual({ blockId: 7, count: 2 });
 
     const loadedPlayerB = await storage.loadPlayer("Alpha", PLAYER_B);
     expect(loadedPlayerB).not.toBeNull();
     expect(loadedPlayerB?.snapshot.gamemode).toBe(0);
     expect(loadedPlayerB?.snapshot.state.position).toEqual([1, 2, 3]);
-    expect(loadedPlayerB?.inventory.slots.find((slot) => slot.blockId === 4)?.count).toBe(9);
+    expect(loadedPlayerB?.inventory.hotbar.find((slot) => slot.blockId === 4)?.count).toBe(9);
 
     const deleted = await storage.deleteWorld("Alpha");
     expect(deleted).toBe(true);

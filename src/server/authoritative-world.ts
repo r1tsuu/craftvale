@@ -15,11 +15,12 @@ import { Chunk } from "../world/chunk.ts";
 import { isCollectibleBlock, isPlaceableBlock } from "../world/blocks.ts";
 import { CHUNK_SIZE, WORLD_LAYER_CHUNKS_Y } from "../world/constants.ts";
 import {
-  adjustInventoryCount,
+  addInventoryItem,
   createDefaultInventory,
-  getInventoryCount,
-  getSelectedInventoryBlockId,
+  getSelectedInventorySlot,
+  interactInventorySlot,
   normalizeInventorySnapshot,
+  removeFromSelectedInventorySlot,
   setSelectedInventorySlot,
 } from "../world/inventory.ts";
 import { createGeneratedChunk, getTerrainHeight } from "../world/terrain.ts";
@@ -180,6 +181,23 @@ export class AuthoritativeWorld {
     return this.cloneInventory(entry.inventory);
   }
 
+  public async interactInventorySlot(
+    playerName: PlayerName,
+    section: "hotbar" | "main",
+    slot: number,
+  ): Promise<InventorySnapshot> {
+    const entry = await this.ensurePlayerLoaded(playerName);
+    const next = interactInventorySlot(entry.inventory, section, slot);
+    if (JSON.stringify(next) !== JSON.stringify(entry.inventory)) {
+      entry.inventory = next;
+      entry.saveDirty = true;
+      this.players.set(playerName, entry);
+      return this.cloneInventory(next);
+    }
+
+    return this.cloneInventory(entry.inventory);
+  }
+
   public async applyBlockMutation(
     playerName: PlayerName,
     worldX: number,
@@ -211,7 +229,15 @@ export class AuthoritativeWorld {
         };
       }
       if (isCollectibleBlock(current)) {
-        nextInventory = adjustInventoryCount(nextInventory, current, 1);
+        const added = addInventoryItem(nextInventory, current, 1);
+        if (added.added <= 0) {
+          return {
+            changedChunks: [],
+            inventory: this.cloneInventory(nextInventory),
+            inventoryChanged: false,
+          };
+        }
+        nextInventory = added.inventory;
         inventoryChanged = true;
       }
     } else {
@@ -223,7 +249,8 @@ export class AuthoritativeWorld {
         };
       }
 
-      if (getSelectedInventoryBlockId(nextInventory) !== blockId) {
+      const selectedSlot = getSelectedInventorySlot(nextInventory);
+      if (selectedSlot.blockId !== blockId || selectedSlot.count <= 0) {
         return {
           changedChunks: [],
           inventory: this.cloneInventory(nextInventory),
@@ -231,15 +258,7 @@ export class AuthoritativeWorld {
         };
       }
 
-      if (getInventoryCount(nextInventory, blockId) <= 0) {
-        return {
-          changedChunks: [],
-          inventory: this.cloneInventory(nextInventory),
-          inventoryChanged: false,
-        };
-      }
-
-      nextInventory = adjustInventoryCount(nextInventory, blockId, -1);
+      nextInventory = removeFromSelectedInventorySlot(nextInventory, 1);
       inventoryChanged = true;
     }
 
