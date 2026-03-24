@@ -9,7 +9,7 @@ import {
   WorldSessionController,
   type WorldSessionPeer,
 } from "./world-session-controller.ts";
-import { BinaryWorldStorage, type WorldStorage } from "./world-storage.ts";
+import { DedicatedWorldStorage, type WorldStorage } from "./world-storage.ts";
 import type { TransportPort } from "../shared/transport.ts";
 
 const projectRoot = import.meta.dir.endsWith("/src/server")
@@ -57,8 +57,11 @@ export const loadOrCreateDedicatedWorld = async (
 ): Promise<AuthoritativeWorld> => {
   const worldName = options.worldName?.trim() || DEFAULT_DEDICATED_WORLD_NAME;
   const seed = options.seed ?? ((Date.now() ^ 0x9e3779b9) >>> 0);
+  const existingWorldSummary = (await storage.listWorlds())[0] ?? null;
   const storedWorld =
-    (await storage.getWorld(worldName)) ?? (await storage.createWorld(worldName, seed));
+    (existingWorldSummary
+      ? await storage.getWorld(existingWorldSummary.name)
+      : await storage.createWorld(worldName, seed)) ?? await storage.createWorld(worldName, seed);
   return new AuthoritativeWorld(storedWorld, storage);
 };
 
@@ -200,7 +203,9 @@ export class DedicatedServer implements DedicatedServerSessionHost {
     seed?: number;
     storageRoot?: string;
   } = {}): Promise<DedicatedServer> {
-    const storage = new BinaryWorldStorage(options.storageRoot ?? DEFAULT_DEDICATED_STORAGE_ROOT);
+    const storage = new DedicatedWorldStorage(
+      options.storageRoot ?? DEFAULT_DEDICATED_STORAGE_ROOT,
+    );
     const world = await loadOrCreateDedicatedWorld(storage, options);
 
     let instance: DedicatedServer | null = null;

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PortClientAdapter } from "../src/client/client-adapter.ts";
@@ -12,7 +12,10 @@ import { PortServerAdapter } from "../src/server/server-adapter.ts";
 import type { ClientToServerMessage, ServerToClientMessage } from "../src/shared/messages.ts";
 import { createInMemoryTransportPair } from "../src/shared/transport.ts";
 import { WorldSessionController, type WorldSessionPeer } from "../src/server/world-session-controller.ts";
-import { BinaryWorldStorage } from "../src/server/world-storage.ts";
+import {
+  DedicatedWorldStorage,
+  DEDICATED_WORLD_DIRECTORY_NAME,
+} from "../src/server/world-storage.ts";
 
 const registerRuntimeHandlers = (
   client: PortClientAdapter,
@@ -129,7 +132,7 @@ const createDedicatedSessionHarness = (
 
 test("dedicated multiplayer sessions share one generated world and only support joinServer", async () => {
   const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-dedicated-"));
-  const storage = new BinaryWorldStorage(rootDir);
+  const storage = new DedicatedWorldStorage(rootDir);
 
   try {
     const world = await loadOrCreateDedicatedWorld(storage, {
@@ -140,6 +143,10 @@ test("dedicated multiplayer sessions share one generated world and only support 
     expect(worlds).toHaveLength(1);
     expect(worlds[0]?.name).toBe("Server World");
     expect(worlds[0]?.seed).toBe(77);
+    const dedicatedWorldDir = await stat(join(rootDir, DEDICATED_WORLD_DIRECTORY_NAME));
+    expect(dedicatedWorldDir.isDirectory()).toBe(true);
+    await expect(stat(join(rootDir, "worlds"))).rejects.toBeDefined();
+    await expect(stat(join(rootDir, "registry.bin"))).rejects.toBeDefined();
 
     const sessions = new Set<WorldSessionPeer>();
 

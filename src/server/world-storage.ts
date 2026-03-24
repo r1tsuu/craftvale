@@ -55,6 +55,8 @@ export interface WorldStorage {
   touchWorld(worldName: string, updatedAt?: number): Promise<StoredWorldRecord>;
 }
 
+export const DEDICATED_WORLD_DIRECTORY_NAME = "world";
+
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
@@ -640,6 +642,261 @@ export class BinaryWorldStorage implements WorldStorage {
 
   private droppedItemsPath(directoryName: string): string {
     return join(this.worldDirectory(directoryName), droppedItemsFilename());
+  }
+
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.operationChain.then(operation, operation);
+    this.operationChain = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+}
+
+export class DedicatedWorldStorage implements WorldStorage {
+  private readonly worldRoot: string;
+  private readonly metadataPath: string;
+  private readonly playersRoot: string;
+  private operationChain: Promise<void> = Promise.resolve();
+
+  public constructor(private readonly rootDir: string) {
+    this.worldRoot = join(rootDir, DEDICATED_WORLD_DIRECTORY_NAME);
+    this.metadataPath = join(this.worldRoot, "metadata.bin");
+    this.playersRoot = join(this.worldRoot, "players");
+  }
+
+  public async listWorlds(): Promise<WorldSummary[]> {
+    return this.enqueue(async () => {
+      const world = await this.readWorldMetadata();
+      if (!world) {
+        return [];
+      }
+
+      const { directoryName: _directoryName, ...summary } = world;
+      return [summary];
+    });
+  }
+
+  public async getWorld(name: string): Promise<StoredWorldRecord | null> {
+    return this.enqueue(async () => {
+      const world = await this.readWorldMetadata();
+      if (!world || world.name !== name) {
+        return null;
+      }
+
+      return world;
+    });
+  }
+
+  public async createWorld(name: string, seed: number): Promise<StoredWorldRecord> {
+    return this.enqueue(async () => {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        throw new Error("World name is required.");
+      }
+
+      const existing = await this.readWorldMetadata();
+      if (existing) {
+        throw new Error(`World "${existing.name}" already exists.`);
+      }
+
+      const now = Date.now();
+      const world: StoredWorldRecord = {
+        name: trimmedName,
+        directoryName: DEDICATED_WORLD_DIRECTORY_NAME,
+        seed: seed >>> 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await this.ensureDirectories();
+      await this.writeWorldMetadata(world);
+      return world;
+    });
+  }
+
+  public async deleteWorld(name: string): Promise<boolean> {
+    return this.enqueue(async () => {
+      const world = await this.readWorldMetadata();
+      if (!world || world.name !== name) {
+        return false;
+      }
+
+      await rm(this.worldRoot, { recursive: true, force: true });
+      return true;
+    });
+  }
+
+  public async loadChunk(worldName: string, coord: ChunkCoord): Promise<StoredChunkRecord | null> {
+    return this.enqueue(async () => {
+      const world = await this.getStoredWorld(worldName);
+      if (!world) {
+        return null;
+      }
+
+      try {
+        const bytes = new Uint8Array(await readFile(this.chunkPath(coord)));
+        return decodeChunk(bytes);
+      } catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+          return null;
+        }
+        throw error;
+      }
+    });
+  }
+
+  public async saveChunk(worldName: string, chunk: StoredChunkRecord): Promise<void> {
+    return this.enqueue(async () => {
+      await this.requireWorld(worldName);
+      await this.ensureDirectories();
+      await writeFile(this.chunkPath(chunk.coord), encodeChunk(chunk));
+    });
+  }
+
+  public async deleteChunk(worldName: string, coord: ChunkCoord): Promise<void> {
+    return this.enqueue(async () => {
+      const world = await this.getStoredWorld(worldName);
+      if (!world) {
+        return;
+      }
+
+      await rm(this.chunkPath(coord), { force: true });
+    });
+  }
+
+  public async loadPlayer(worldName: string, playerName: PlayerName): Promise<StoredPlayerRecord | null> {
+    return this.enqueue(async () => {
+      const world = await this.getStoredWorld(worldName);
+      if (!world) {
+        return null;
+      }
+
+      try {
+        const bytes = new Uint8Array(await readFile(this.playerPath(playerName)));
+        return decodePlayer(bytes, playerName);
+      } catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+          return null;
+        }
+        throw error;
+      }
+    });
+  }
+
+  public async savePlayer(worldName: string, player: StoredPlayerRecord): Promise<void> {
+    return this.enqueue(async () => {
+      await this.requireWorld(worldName);
+      await this.ensureDirectories();
+      await writeFile(this.playerPath(player.snapshot.name), encodePlayer(player));
+    });
+  }
+
+  public async loadDroppedItems(worldName: string): Promise<DroppedItemSnapshot[]> {
+    return this.enqueue(async () => {
+      const world = await this.getStoredWorld(worldName);
+      if (!world) {
+        return [];
+      }
+
+      try {
+        const bytes = new Uint8Array(await readFile(this.droppedItemsPath()));
+        return decodeDroppedItems(bytes);
+      } catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+          return [];
+        }
+        throw error;
+      }
+    });
+  }
+
+  public async saveDroppedItems(
+    worldName: string,
+    items: readonly DroppedItemSnapshot[],
+  ): Promise<void> {
+    return this.enqueue(async () => {
+      await this.requireWorld(worldName);
+      await this.ensureDirectories();
+      const path = this.droppedItemsPath();
+
+      if (items.length === 0) {
+        await rm(path, { force: true });
+        return;
+      }
+
+      await writeFile(path, encodeDroppedItems(items));
+    });
+  }
+
+  public async touchWorld(worldName: string, updatedAt = Date.now()): Promise<StoredWorldRecord> {
+    return this.enqueue(async () => {
+      const world = await this.requireWorld(worldName);
+      const updatedWorld: StoredWorldRecord = {
+        ...world,
+        updatedAt,
+      };
+      await this.writeWorldMetadata(updatedWorld);
+      return updatedWorld;
+    });
+  }
+
+  private async getStoredWorld(worldName: string): Promise<StoredWorldRecord | null> {
+    const world = await this.readWorldMetadata();
+    if (!world || world.name !== worldName) {
+      return null;
+    }
+
+    return world;
+  }
+
+  private async requireWorld(worldName: string): Promise<StoredWorldRecord> {
+    const world = await this.getStoredWorld(worldName);
+    if (!world) {
+      throw new Error(`Unknown world "${worldName}".`);
+    }
+
+    return world;
+  }
+
+  private async ensureDirectories(): Promise<void> {
+    await mkdir(this.worldRoot, { recursive: true });
+    await mkdir(this.playersRoot, { recursive: true });
+  }
+
+  private async readWorldMetadata(): Promise<StoredWorldRecord | null> {
+    try {
+      const bytes = new Uint8Array(await readFile(this.metadataPath));
+      const [world] = decodeRegistry(bytes);
+      return world ?? null;
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  private async writeWorldMetadata(world: StoredWorldRecord): Promise<void> {
+    await this.ensureDirectories();
+    const normalizedWorld: StoredWorldRecord = {
+      ...world,
+      directoryName: DEDICATED_WORLD_DIRECTORY_NAME,
+    };
+    await writeFile(this.metadataPath, encodeRegistry([normalizedWorld]));
+  }
+
+  private chunkPath(coord: ChunkCoord): string {
+    return join(this.worldRoot, chunkFilename(coord));
+  }
+
+  private playerPath(playerName: PlayerName): string {
+    return join(this.playersRoot, playerFilename(playerName));
+  }
+
+  private droppedItemsPath(): string {
+    return join(this.worldRoot, droppedItemsFilename());
   }
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {

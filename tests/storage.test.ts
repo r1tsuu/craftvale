@@ -1,8 +1,12 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BinaryWorldStorage } from "../src/server/world-storage.ts";
+import {
+  BinaryWorldStorage,
+  DedicatedWorldStorage,
+  DEDICATED_WORLD_DIRECTORY_NAME,
+} from "../src/server/world-storage.ts";
 import { CHUNK_VOLUME } from "../src/world/constants.ts";
 
 const PLAYER_A = "Alice";
@@ -145,6 +149,31 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
     expect(await storage.loadChunk("Alpha", { x: 0, y: 0, z: 0 })).toBeNull();
     expect(await storage.loadPlayer("Alpha", PLAYER_A)).toBeNull();
     expect(await storage.loadDroppedItems("Alpha")).toEqual([]);
+  } finally {
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("dedicated world storage uses one fixed world directory", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-dedicated-storage-"));
+  const storage = new DedicatedWorldStorage(rootDir);
+
+  try {
+    const created = await storage.createWorld("Server World", 77);
+    expect(created.directoryName).toBe(DEDICATED_WORLD_DIRECTORY_NAME);
+
+    const worlds = await storage.listWorlds();
+    expect(worlds).toEqual([
+      expect.objectContaining({
+        name: "Server World",
+        seed: 77,
+      }),
+    ]);
+
+    const worldDir = await stat(join(rootDir, DEDICATED_WORLD_DIRECTORY_NAME));
+    expect(worldDir.isDirectory()).toBe(true);
+    await expect(stat(join(rootDir, "worlds"))).rejects.toBeDefined();
+    await expect(stat(join(rootDir, "registry.bin"))).rejects.toBeDefined();
   } finally {
     await rm(rootDir, { recursive: true, force: true });
   }
