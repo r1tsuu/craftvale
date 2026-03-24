@@ -33,19 +33,33 @@ export class WorkerServerHost {
 
   private initialize(world: StoredWorldRecord, storageRoot?: string): void {
     if (this.adapter || this.runtime) {
+      this.logInfo(`ignoring duplicate init for world "${world.name}"`);
       return;
     }
 
+    this.logInfo(
+      `booting local singleplayer worker for world "${world.name}" (seed ${world.seed})`,
+    );
     const adapter = new WorkerServerAdapter(this.scope);
     const storage = new BinaryWorldStorage(storageRoot ?? DEFAULT_WORLD_STORAGE_ROOT);
     this.adapter = adapter;
     this.runtime = new ServerRuntime(
       {
         eventBus: adapter.eventBus,
-        close: () => this.scope.close(),
+        close: () => {
+          this.logInfo(`closing worker for world "${world.name}"`);
+          this.scope.close();
+        },
       },
       new AuthoritativeWorld(world, storage),
+      {
+        logInfo: (message) => this.logInfo(message),
+      },
     );
+  }
+
+  private logInfo(message: string): void {
+    console.log(`[worker] ${message}`);
   }
 }
 

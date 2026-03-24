@@ -18,6 +18,9 @@ export class ServerRuntime {
   public constructor(
     private readonly adapter: Pick<IServerAdapter, "eventBus" | "close">,
     private readonly world: AuthoritativeWorld,
+    private readonly options: {
+      logInfo?: (message: string) => void;
+    } = {},
   ) {
     const host: WorldSessionHost = {
       contextLabel: "world",
@@ -44,6 +47,7 @@ export class ServerRuntime {
   }
 
   public async shutdown(): Promise<void> {
+    this.options.logInfo?.(`shutting down world "${this.world.summary.name}"`);
     await this.session.disconnect();
     await this.world.save();
     this.session.dispose();
@@ -52,9 +56,16 @@ export class ServerRuntime {
 
   private registerHandlers(): void {
     this.adapter.eventBus.on("joinWorld", async ({ playerName }) => {
-      return this.session.join(playerName, {
+      this.options.logInfo?.(
+        `join requested for "${playerName}" in world "${this.world.summary.name}"`,
+      );
+      const payload = await this.session.join(playerName, {
         emitLoadingProgress: true,
       });
+      this.options.logInfo?.(
+        `player joined local world "${payload.world.name}": ${playerName}`,
+      );
+      return payload;
     });
   }
 }
