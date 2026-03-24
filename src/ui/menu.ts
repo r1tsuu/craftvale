@@ -775,33 +775,41 @@ const buildCreateWorldMenu = (
   ];
 };
 
-const buildSettingsMenu = (
-  width: number,
-  height: number,
-  viewModel: MainMenuViewModel,
-  seed: number,
-): UiComponent[] => {
-  const panelWidth = 860;
-  const panelHeight = 620;
-  const shell = buildMenuShell(
-    width,
-    height,
-    "SETTINGS",
-    "Adjust camera, controls, and lightweight graphics options",
-    seed,
-    panelWidth,
-    panelHeight,
-  );
-  const contentX = shell.panelX + 72;
+export interface SettingsPanelViewModel {
+  settings: ClientSettings;
+  statusText: string;
+  busy: boolean;
+}
+
+interface SettingsPanelOptions {
+  panelX: number;
+  panelY: number;
+  panelWidth: number;
+  panelHeight: number;
+  viewModel: SettingsPanelViewModel;
+  backAction: string;
+  idPrefix?: string;
+}
+
+const buildSettingsPanelContents = ({
+  panelX,
+  panelY,
+  panelWidth,
+  panelHeight,
+  viewModel,
+  backAction,
+  idPrefix = "settings",
+}: SettingsPanelOptions): UiComponent[] => {
+  const contentX = panelX + 72;
   const sliderWidth = 540;
   const valueLabelWidth = 150;
   const rowHeight = 58;
   const sliderX = contentX + 178;
-  const valueX = shell.panelX + panelWidth - valueLabelWidth - 72;
+  const valueX = panelX + panelWidth - valueLabelWidth - 72;
 
   const sliderRows = [
     {
-      id: "settings-fov",
+      id: `${idPrefix}-fov`,
       title: "FOV",
       value: viewModel.settings.fovDegrees,
       text: formatFovSetting(viewModel.settings.fovDegrees),
@@ -809,10 +817,10 @@ const buildSettingsMenu = (
       max: CLIENT_SETTINGS_LIMITS.fovDegrees.max,
       step: CLIENT_SETTINGS_LIMITS.fovDegrees.step,
       action: "set-setting:fovDegrees",
-      y: shell.panelY + 176,
+      y: panelY + 176,
     },
     {
-      id: "settings-sensitivity",
+      id: `${idPrefix}-sensitivity`,
       title: "SENSITIVITY",
       value: viewModel.settings.mouseSensitivity,
       text: formatSensitivitySetting(viewModel.settings.mouseSensitivity),
@@ -820,10 +828,10 @@ const buildSettingsMenu = (
       max: CLIENT_SETTINGS_LIMITS.mouseSensitivity.max,
       step: CLIENT_SETTINGS_LIMITS.mouseSensitivity.step,
       action: "set-setting:mouseSensitivity",
-      y: shell.panelY + 246,
+      y: panelY + 246,
     },
     {
-      id: "settings-render-distance",
+      id: `${idPrefix}-render-distance`,
       title: "RENDER DISTANCE",
       value: viewModel.settings.renderDistance,
       text: formatRenderDistanceSetting(viewModel.settings.renderDistance),
@@ -831,7 +839,7 @@ const buildSettingsMenu = (
       max: CLIENT_SETTINGS_LIMITS.renderDistance.max,
       step: CLIENT_SETTINGS_LIMITS.renderDistance.step,
       action: "set-setting:renderDistance",
-      y: shell.panelY + 316,
+      y: panelY + 316,
     },
   ] as const;
 
@@ -883,13 +891,12 @@ const buildSettingsMenu = (
   ]);
 
   return [
-    ...shell.components,
     createLabel({
-      id: "settings-gameplay-title",
+      id: `${idPrefix}-gameplay-title`,
       kind: "label",
       rect: {
         x: contentX,
-        y: shell.panelY + 130,
+        y: panelY + 130,
         width: panelWidth - 144,
         height: 24,
       },
@@ -900,11 +907,11 @@ const buildSettingsMenu = (
     }),
     ...sliderComponents,
     createLabel({
-      id: "settings-graphics-title",
+      id: `${idPrefix}-graphics-title`,
       kind: "label",
       rect: {
         x: contentX,
-        y: shell.panelY + 392,
+        y: panelY + 392,
         width: panelWidth - 144,
         height: 24,
       },
@@ -914,11 +921,11 @@ const buildSettingsMenu = (
       centered: false,
     }),
     createButton({
-      id: "settings-debug-toggle",
+      id: `${idPrefix}-debug-toggle`,
       kind: "button",
       rect: {
         x: contentX,
-        y: shell.panelY + 430,
+        y: panelY + 430,
         width: 336,
         height: rowHeight,
       },
@@ -929,11 +936,11 @@ const buildSettingsMenu = (
       disabled: viewModel.busy,
     }),
     createButton({
-      id: "settings-crosshair-toggle",
+      id: `${idPrefix}-crosshair-toggle`,
       kind: "button",
       rect: {
         x: contentX + 356,
-        y: shell.panelY + 430,
+        y: panelY + 430,
         width: 336,
         height: rowHeight,
       },
@@ -944,11 +951,11 @@ const buildSettingsMenu = (
       disabled: viewModel.busy,
     }),
     createButton({
-      id: "settings-reset",
+      id: `${idPrefix}-reset`,
       kind: "button",
       rect: {
         x: contentX,
-        y: shell.panelY + 512,
+        y: panelY + 512,
         width: 244,
         height: 50,
       },
@@ -959,26 +966,26 @@ const buildSettingsMenu = (
       disabled: viewModel.busy,
     }),
     createButton({
-      id: "settings-back",
+      id: `${idPrefix}-back`,
       kind: "button",
       rect: {
-        x: shell.panelX + panelWidth - 244 - 72,
-        y: shell.panelY + 512,
+        x: panelX + panelWidth - 244 - 72,
+        y: panelY + 512,
         width: 244,
         height: 50,
       },
       text: "BACK",
-      action: "back-to-play",
+      action: backAction,
       scale: 3,
       variant: "primary",
       disabled: viewModel.busy,
     }),
     createLabel({
-      id: "settings-status",
+      id: `${idPrefix}-status`,
       kind: "label",
       rect: {
-        x: shell.panelX + 72,
-        y: shell.panelY + 576,
+        x: panelX + 72,
+        y: panelY + panelHeight - 44,
         width: panelWidth - 144,
         height: 22,
       },
@@ -986,6 +993,127 @@ const buildSettingsMenu = (
       scale: 2,
       color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
       centered: true,
+    }),
+  ];
+};
+
+const buildSettingsMenu = (
+  width: number,
+  height: number,
+  viewModel: MainMenuViewModel,
+  seed: number,
+): UiComponent[] => {
+  const panelWidth = 860;
+  const panelHeight = 620;
+  const shell = buildMenuShell(
+    width,
+    height,
+    "SETTINGS",
+    "Adjust camera, controls, and lightweight graphics options",
+    seed,
+    panelWidth,
+    panelHeight,
+  );
+
+  return [
+    ...shell.components,
+    ...buildSettingsPanelContents({
+      panelX: shell.panelX,
+      panelY: shell.panelY,
+      panelWidth,
+      panelHeight,
+      viewModel,
+      backAction: "back-to-play",
+    }),
+  ];
+};
+
+export const buildPauseSettingsOverlay = (
+  width: number,
+  height: number,
+  viewModel: SettingsPanelViewModel,
+): UiComponent[] => {
+  const panelWidth = 860;
+  const panelHeight = 620;
+  const panelX = Math.round((width - panelWidth) / 2);
+  const panelY = Math.round((height - panelHeight) / 2);
+
+  return [
+    createPanel({
+      id: "pause-settings-dim",
+      kind: "panel",
+      rect: { x: 0, y: 0, width, height },
+      color: [0.03, 0.04, 0.05, 0.62],
+    }),
+    createPanel({
+      id: "pause-settings-shadow",
+      kind: "panel",
+      rect: {
+        x: panelX - 10,
+        y: panelY - 10,
+        width: panelWidth + 20,
+        height: panelHeight + 20,
+      },
+      color: [0.07, 0.08, 0.1, 0.84],
+    }),
+    createPanel({
+      id: "pause-settings-frame",
+      kind: "panel",
+      rect: {
+        x: panelX - 4,
+        y: panelY - 4,
+        width: panelWidth + 8,
+        height: panelHeight + 8,
+      },
+      color: [0.22, 0.23, 0.24, 0.96],
+    }),
+    createPanel({
+      id: "pause-settings-panel",
+      kind: "panel",
+      rect: {
+        x: panelX,
+        y: panelY,
+        width: panelWidth,
+        height: panelHeight,
+      },
+      color: [0.16, 0.18, 0.2, 0.97],
+    }),
+    createLabel({
+      id: "pause-settings-title",
+      kind: "label",
+      rect: {
+        x: panelX + 30,
+        y: panelY + 26,
+        width: panelWidth - 60,
+        height: 58,
+      },
+      text: "SETTINGS",
+      scale: 5,
+      color: [0.98, 0.98, 0.98],
+      centered: true,
+    }),
+    createLabel({
+      id: "pause-settings-subtitle",
+      kind: "label",
+      rect: {
+        x: panelX + 30,
+        y: panelY + 86,
+        width: panelWidth - 60,
+        height: 30,
+      },
+      text: "Adjust settings without leaving your world",
+      scale: 2,
+      color: [0.82, 0.86, 0.89],
+      centered: true,
+    }),
+    ...buildSettingsPanelContents({
+      panelX,
+      panelY,
+      panelWidth,
+      panelHeight,
+      viewModel,
+      backAction: "back-to-pause",
+      idPrefix: "pause-settings",
     }),
   ];
 };

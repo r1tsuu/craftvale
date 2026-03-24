@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { buildPlayHud } from "../src/ui/hud.ts";
-import { createDefaultInventory, setSelectedInventorySlot } from "../src/world/inventory.ts";
+import {
+  createDefaultInventory,
+  setSelectedInventorySlot,
+} from "../src/world/inventory.ts";
 
 test("play HUD includes a centered crosshair", () => {
   const hud = buildPlayHud(1280, 720, {
@@ -28,8 +31,12 @@ test("play HUD can hide the crosshair from settings", () => {
     showCrosshair: false,
   });
 
-  expect(hud.some((component) => component.id === "crosshair-horizontal")).toBe(false);
-  expect(hud.some((component) => component.id === "crosshair-vertical")).toBe(false);
+  expect(hud.some((component) => component.id === "crosshair-horizontal")).toBe(
+    false,
+  );
+  expect(hud.some((component) => component.id === "crosshair-vertical")).toBe(
+    false,
+  );
 });
 
 test("play HUD still renders the hotbar and selected slot label", () => {
@@ -39,7 +46,9 @@ test("play HUD still renders the hotbar and selected slot label", () => {
   });
   const labels = hud.filter((component) => component.kind === "label");
 
-  expect(hud.some((component) => component.id === "hotbar-backdrop")).toBe(true);
+  expect(hud.some((component) => component.id === "hotbar-backdrop")).toBe(
+    true,
+  );
   expect(labels).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
@@ -201,7 +210,9 @@ test("play HUD hides expired passive chat messages but keeps them while chat is 
     ],
   });
 
-  expect(closedHud.some((component) => component.id === "chat-feed-line-0")).toBe(false);
+  expect(
+    closedHud.some((component) => component.id === "chat-feed-line-0"),
+  ).toBe(false);
   expect(openHud).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
@@ -223,7 +234,9 @@ test("play HUD renders the full inventory overlay when inventory is open", () =>
     cursorY: 420,
   });
 
-  expect(hud.some((component) => component.id === "crosshair-horizontal")).toBe(false);
+  expect(hud.some((component) => component.id === "crosshair-horizontal")).toBe(
+    false,
+  );
   expect(hud).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
@@ -245,6 +258,82 @@ test("play HUD renders the full inventory overlay when inventory is open", () =>
       expect.objectContaining({
         id: "inventory-cursor-slot-count",
         text: "8",
+      }),
+    ]),
+  );
+});
+
+test("play HUD renders a pause menu overlay over gameplay", () => {
+  const hud = buildPlayHud(1280, 720, {
+    inventory: createDefaultInventory(),
+    pauseScreen: "menu",
+  });
+
+  expect(hud.some((component) => component.id === "hotbar-backdrop")).toBe(
+    false,
+  );
+  expect(hud.some((component) => component.id === "crosshair-horizontal")).toBe(
+    false,
+  );
+  expect(hud).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "pause-title",
+        text: "GAME PAUSED",
+      }),
+      expect.objectContaining({
+        id: "pause-resume-button",
+        action: "pause-back-to-game",
+      }),
+      expect.objectContaining({
+        id: "pause-settings-button",
+        action: "pause-open-settings",
+      }),
+      expect.objectContaining({
+        id: "pause-exit-button",
+        action: "pause-exit-to-menu",
+      }),
+    ]),
+  );
+});
+
+test("play HUD reuses the settings panel from pause context", () => {
+  const hud = buildPlayHud(1280, 720, {
+    inventory: createDefaultInventory(),
+    pauseScreen: "settings",
+    pauseSettings: {
+      settings: {
+        fovDegrees: 75,
+        mouseSensitivity: 120,
+        renderDistance: 4,
+        showDebugOverlay: false,
+        showCrosshair: true,
+      },
+      statusText: "PAUSED",
+      busy: false,
+    },
+  });
+
+  expect(hud.some((component) => component.id === "pause-settings-panel")).toBe(
+    true,
+  );
+  expect(hud).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "pause-settings-title",
+        text: "SETTINGS",
+      }),
+      expect.objectContaining({
+        id: "pause-settings-fov-value",
+        text: "75",
+      }),
+      expect.objectContaining({
+        id: "pause-settings-crosshair-toggle",
+        text: "CROSSHAIR: ON",
+      }),
+      expect.objectContaining({
+        id: "pause-settings-back",
+        action: "back-to-pause",
       }),
     ]),
   );

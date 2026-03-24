@@ -18,16 +18,19 @@ import {
 } from "./client/menu-state.ts";
 import { ClientWorldRuntime } from "./client/world-runtime.ts";
 import { WorkerClientAdapter } from "./client/worker-client-adapter.ts";
+import {
+  isGameplaySuppressed,
+  resolvePlayEscapeAction,
+  shouldLockCursor,
+  type PauseScreen,
+} from "./game/play-overlay.ts";
 import { PlayerController } from "./game/player.ts";
 import { NativeBridge } from "./platform/native.ts";
 import { VoxelRenderer } from "./render/renderer.ts";
 import type { TextDrawCommand } from "./render/text.ts";
 import { type ClientEventBus } from "./shared/event-bus.ts";
 import type { ClientSettings, PlayerName } from "./types.ts";
-import {
-  evaluateUi,
-  type UiResolvedComponent,
-} from "./ui/components.ts";
+import { evaluateUi, type UiResolvedComponent } from "./ui/components.ts";
 import { buildPlayHud } from "./ui/hud.ts";
 import { buildMainMenu } from "./ui/menu.ts";
 import { Biomes, getBiomeAt } from "./world/biomes.ts";
@@ -53,6 +56,7 @@ export interface GameAppState {
   chatOpen: boolean;
   chatDraft: string;
   inventoryOpen: boolean;
+  pauseScreen: PauseScreen;
   clientSettings: ClientSettings;
 }
 
@@ -95,8 +99,11 @@ export class GameApp {
       chatOpen: false,
       chatDraft: "",
       inventoryOpen: false,
+      pauseScreen: "closed",
       clientSettings: cloneClientSettings(
-        normalizeClientSettings(deps.clientSettings ?? createDefaultClientSettings()),
+        normalizeClientSettings(
+          deps.clientSettings ?? createDefaultClientSettings(),
+        ),
       ),
     };
     this.applyClientSettings(this.state.clientSettings);
@@ -151,7 +158,8 @@ export class GameApp {
 
     if (deltaTime > 0) {
       const instantaneousFps = 1 / deltaTime;
-      this.state.smoothedFps = this.state.smoothedFps * 0.9 + instantaneousFps * 0.1;
+      this.state.smoothedFps =
+        this.state.smoothedFps * 0.9 + instantaneousFps * 0.1;
     }
 
     let focusedBlock: Vec3 | null = null;
@@ -159,10 +167,6 @@ export class GameApp {
     let uiComponents: UiResolvedComponent[] = [];
 
     if (this.state.appMode === "menu") {
-      if (input.exit) {
-        this.deps.nativeBridge.requestClose();
-      }
-
       this.state.menuState = applyMenuTyping(this.state.menuState, input);
       const menu = buildMainMenu(
         input.windowWidth,
@@ -198,7 +202,11 @@ export class GameApp {
       }
     } else {
       this.handlePlayOverlayInput(input);
-      if (!this.state.chatOpen && !this.state.inventoryOpen) {
+      if (
+        !this.state.chatOpen &&
+        !this.state.inventoryOpen &&
+        this.state.pauseScreen === "closed"
+      ) {
         this.deps.player.applyLook(input);
       }
 
@@ -220,32 +228,33 @@ export class GameApp {
 
       focusedBlock = focusHit?.hit ?? null;
       overlayText = this.state.clientSettings.showDebugOverlay
-        ? this.buildOverlayText(
-          x,
-          y,
-          z,
-          yawDegrees,
-          pitchDegrees,
-        )
+        ? this.buildOverlayText(x, y, z, yawDegrees, pitchDegrees)
         : [];
-      const playHud = buildPlayHud(
-        input.windowWidth,
-        input.windowHeight,
-        {
-          inventory: this.deps.clientWorldRuntime.inventory,
-          inventoryOpen: this.state.inventoryOpen,
-          cursorX: input.cursorX,
-          cursorY: input.cursorY,
-          showCrosshair: this.state.clientSettings.showCrosshair,
-          biomeName,
-          chatMessages: this.deps.clientWorldRuntime.chatMessages,
-          chatNowMs: Date.now(),
-          chatDraft: this.state.chatDraft,
-          chatOpen: this.state.chatOpen,
-          gamemode: this.deps.clientWorldRuntime.getClientPlayer()?.gamemode ?? 0,
-          flying: this.deps.clientWorldRuntime.getClientPlayer()?.flying ?? false,
-        },
-      );
+      const playHud = buildPlayHud(input.windowWidth, input.windowHeight, {
+        inventory: this.deps.clientWorldRuntime.inventory,
+        inventoryOpen: this.state.inventoryOpen,
+        cursorX: input.cursorX,
+        cursorY: input.cursorY,
+        showCrosshair: this.state.clientSettings.showCrosshair,
+        pauseScreen: this.state.pauseScreen,
+        pauseSettings:
+          this.state.pauseScreen === "settings"
+            ? {
+                settings: this.state.clientSettings,
+                statusText:
+                  this.state.lastServerMessage ||
+                  "ADJUST SETTINGS AND GO BACK TO RESUME",
+                busy: false,
+              }
+            : undefined,
+        biomeName,
+        chatMessages: this.deps.clientWorldRuntime.chatMessages,
+        chatNowMs: Date.now(),
+        chatDraft: this.state.chatDraft,
+        chatOpen: this.state.chatOpen,
+        gamemode: this.deps.clientWorldRuntime.getClientPlayer()?.gamemode ?? 0,
+        flying: this.deps.clientWorldRuntime.getClientPlayer()?.flying ?? false,
+      });
       const evaluation = evaluateUi(playHud, {
         x: input.cursorX,
         y: input.cursorY,
@@ -253,8 +262,11 @@ export class GameApp {
         primaryPressed,
       });
       uiComponents = evaluation.components;
+      for (const change of evaluation.sliderChanges) {
+        this.handleMenuSliderChange(change.action, change.value);
+      }
       for (const action of evaluation.actions) {
-        this.handlePlayHudAction(action);
+        await this.handlePlayHudAction(action);
       }
     }
 
@@ -275,26 +287,15 @@ export class GameApp {
   private async handleMenuAction(action: string): Promise<void> {
     this.state.menuState = applyMenuAction(this.state.menuState, action);
 
-    if (action === "toggle-setting:showDebugOverlay") {
-      this.updateClientSettings({
-        showDebugOverlay: !this.state.clientSettings.showDebugOverlay,
-      });
+    if (this.handleSharedSettingsAction(action)) {
       return;
     }
 
-    if (action === "toggle-setting:showCrosshair") {
-      this.updateClientSettings({
-        showCrosshair: !this.state.clientSettings.showCrosshair,
-      });
-      return;
-    }
-
-    if (action === "reset-settings") {
-      this.updateClientSettings(createDefaultClientSettings());
-      return;
-    }
-
-    if (action === "open-worlds" && !this.state.menuState.busy && this.state.menuState.worlds.length === 0) {
+    if (
+      action === "open-worlds" &&
+      !this.state.menuState.busy &&
+      this.state.menuState.worlds.length === 0
+    ) {
       await this.syncMenuWorlds();
       return;
     }
@@ -304,7 +305,11 @@ export class GameApp {
       return;
     }
 
-    if (action === "join-world" && !this.state.menuState.busy && this.state.menuState.selectedWorldName) {
+    if (
+      action === "join-world" &&
+      !this.state.menuState.busy &&
+      this.state.menuState.selectedWorldName
+    ) {
       await this.joinWorld(this.state.menuState.selectedWorldName);
       return;
     }
@@ -340,6 +345,29 @@ export class GameApp {
     }
   }
 
+  private handleSharedSettingsAction(action: string): boolean {
+    if (action === "toggle-setting:showDebugOverlay") {
+      this.updateClientSettings({
+        showDebugOverlay: !this.state.clientSettings.showDebugOverlay,
+      });
+      return true;
+    }
+
+    if (action === "toggle-setting:showCrosshair") {
+      this.updateClientSettings({
+        showCrosshair: !this.state.clientSettings.showCrosshair,
+      });
+      return true;
+    }
+
+    if (action === "reset-settings") {
+      this.updateClientSettings(createDefaultClientSettings());
+      return true;
+    }
+
+    return false;
+  }
+
   private registerEventHandlers(): void {
     this.unsubscribers.push(
       this.deps.clientAdapter.eventBus.on("chunkDelivered", ({ chunk }) => {
@@ -348,16 +376,19 @@ export class GameApp {
       this.deps.clientAdapter.eventBus.on("chunkChanged", ({ chunk }) => {
         this.deps.clientWorldRuntime.applyChunk(chunk);
       }),
-      this.deps.clientAdapter.eventBus.on("inventoryUpdated", ({ playerName, inventory }) => {
-        if (playerName !== this.deps.clientWorldRuntime.clientPlayerName) {
-          return;
-        }
+      this.deps.clientAdapter.eventBus.on(
+        "inventoryUpdated",
+        ({ playerName, inventory }) => {
+          if (playerName !== this.deps.clientWorldRuntime.clientPlayerName) {
+            return;
+          }
 
-        this.deps.clientWorldRuntime.applyInventory(inventory);
-        if (this.state.lastServerMessage.startsWith("OUT OF ")) {
-          this.state.lastServerMessage = "";
-        }
-      }),
+          this.deps.clientWorldRuntime.applyInventory(inventory);
+          if (this.state.lastServerMessage.startsWith("OUT OF ")) {
+            this.state.lastServerMessage = "";
+          }
+        },
+      ),
       this.deps.clientAdapter.eventBus.on("playerJoined", ({ player }) => {
         this.deps.clientWorldRuntime.applyPlayer(player);
       }),
@@ -373,15 +404,24 @@ export class GameApp {
       this.deps.clientAdapter.eventBus.on("chatMessage", ({ entry }) => {
         this.deps.clientWorldRuntime.appendChatMessage(entry);
       }),
-      this.deps.clientAdapter.eventBus.on("saveStatus", ({ worldName, savedChunks, success, error }) => {
-        this.state.lastServerMessage = success
-          ? `SAVED ${worldName} (${savedChunks} CHUNKS)`
-          : `SAVE FAILED: ${error ?? "UNKNOWN ERROR"}`;
-        this.state.menuState = setMenuStatus(this.state.menuState, this.state.lastServerMessage);
-      }),
+      this.deps.clientAdapter.eventBus.on(
+        "saveStatus",
+        ({ worldName, savedChunks, success, error }) => {
+          this.state.lastServerMessage = success
+            ? `SAVED ${worldName} (${savedChunks} CHUNKS)`
+            : `SAVE FAILED: ${error ?? "UNKNOWN ERROR"}`;
+          this.state.menuState = setMenuStatus(
+            this.state.menuState,
+            this.state.lastServerMessage,
+          );
+        },
+      ),
       this.deps.clientAdapter.eventBus.on("serverError", ({ message }) => {
         this.state.lastServerMessage = `SERVER ERROR: ${message}`;
-        this.state.menuState = setMenuStatus(this.state.menuState, this.state.lastServerMessage);
+        this.state.menuState = setMenuStatus(
+          this.state.menuState,
+          this.state.lastServerMessage,
+        );
       }),
       this.deps.clientAdapter.eventBus.on("worldDeleted", ({ name }) => {
         if (this.state.currentWorldName === name) {
@@ -392,7 +432,8 @@ export class GameApp {
           this.state.chatOpen = false;
           this.state.chatDraft = "";
           this.state.inventoryOpen = false;
-          this.deps.nativeBridge.setCursorDisabled(false);
+          this.state.pauseScreen = "closed";
+          this.syncCursorMode();
         }
 
         void this.syncMenuWorlds(`DELETED ${name}`);
@@ -464,8 +505,14 @@ export class GameApp {
     return Biomes[biomeId].name.toUpperCase();
   }
 
-  private async syncMenuWorlds(statusText = "SELECT OR CREATE A WORLD"): Promise<void> {
-    this.state.menuState = setMenuBusy(this.state.menuState, true, "LOADING WORLDS...");
+  private async syncMenuWorlds(
+    statusText = "SELECT OR CREATE A WORLD",
+  ): Promise<void> {
+    this.state.menuState = setMenuBusy(
+      this.state.menuState,
+      true,
+      "LOADING WORLDS...",
+    );
 
     try {
       const response = await this.deps.clientAdapter.eventBus.send({
@@ -492,7 +539,11 @@ export class GameApp {
   }
 
   private async joinWorld(worldName: string): Promise<void> {
-    this.state.menuState = setMenuBusy(this.state.menuState, true, `JOINING ${worldName}...`);
+    this.state.menuState = setMenuBusy(
+      this.state.menuState,
+      true,
+      `JOINING ${worldName}...`,
+    );
 
     try {
       const joined = await this.deps.clientAdapter.eventBus.send({
@@ -510,17 +561,19 @@ export class GameApp {
       this.state.chatOpen = false;
       this.state.chatDraft = "";
       this.state.inventoryOpen = false;
+      this.state.pauseScreen = "closed";
       this.deps.player.resetFromSnapshot(joined.clientPlayer);
 
-      const initialCoords = this.deps.clientWorldRuntime.getChunkCoordsAroundPosition(
-        joined.clientPlayer.state.position,
-        this.state.clientSettings.renderDistance,
-      );
+      const initialCoords =
+        this.deps.clientWorldRuntime.getChunkCoordsAroundPosition(
+          joined.clientPlayer.state.position,
+          this.state.clientSettings.renderDistance,
+        );
       await this.deps.clientWorldRuntime.requestMissingChunks(initialCoords);
       await this.deps.clientWorldRuntime.waitForChunks(initialCoords);
 
       this.state.appMode = "playing";
-      this.deps.nativeBridge.setCursorDisabled(true);
+      this.syncCursorMode();
       this.state.accumulator = 0;
       this.state.lastServerMessage = "";
       this.state.menuState = setMenuBusy(
@@ -539,9 +592,15 @@ export class GameApp {
   }
 
   private async createWorld(): Promise<void> {
-    const worldName = this.state.menuState.createWorldName.trim() || suggestWorldName(this.state.menuState.worlds);
+    const worldName =
+      this.state.menuState.createWorldName.trim() ||
+      suggestWorldName(this.state.menuState.worlds);
 
-    this.state.menuState = setMenuBusy(this.state.menuState, true, "CREATING WORLD...");
+    this.state.menuState = setMenuBusy(
+      this.state.menuState,
+      true,
+      "CREATING WORLD...",
+    );
 
     try {
       const seed = parseSeedInput(this.state.menuState.createSeedText);
@@ -553,8 +612,8 @@ export class GameApp {
         },
       });
 
-      const worlds = [...this.state.menuState.worlds, response.world].sort((left, right) =>
-        left.name.localeCompare(right.name),
+      const worlds = [...this.state.menuState.worlds, response.world].sort(
+        (left, right) => left.name.localeCompare(right.name),
       );
       this.state.menuState = setMenuWorlds(
         {
@@ -582,12 +641,19 @@ export class GameApp {
 
   private async deleteWorld(): Promise<void> {
     if (!this.state.menuState.selectedWorldName) {
-      this.state.menuState = setMenuStatus(this.state.menuState, "SELECT A WORLD TO DELETE");
+      this.state.menuState = setMenuStatus(
+        this.state.menuState,
+        "SELECT A WORLD TO DELETE",
+      );
       return;
     }
 
     const worldName = this.state.menuState.selectedWorldName;
-    this.state.menuState = setMenuBusy(this.state.menuState, true, `DELETING ${worldName}...`);
+    this.state.menuState = setMenuBusy(
+      this.state.menuState,
+      true,
+      `DELETING ${worldName}...`,
+    );
 
     try {
       await this.deps.clientAdapter.eventBus.send({
@@ -617,8 +683,7 @@ export class GameApp {
         payload: {},
       });
     } catch (error) {
-      this.state.lastServerMessage =
-        `SAVE FAILED: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.lastServerMessage = `SAVE FAILED: ${error instanceof Error ? error.message : String(error)}`;
     }
   }
 
@@ -626,12 +691,8 @@ export class GameApp {
     input: ReturnType<NativeBridge["pollInput"]>,
     deltaSeconds: number,
   ): void {
-    if (this.state.chatOpen || this.state.inventoryOpen) {
+    if (isGameplaySuppressed(this.state)) {
       return;
-    }
-
-    if (input.exit) {
-      this.deps.nativeBridge.requestClose();
     }
 
     if (input.hotbarSelection !== null) {
@@ -647,7 +708,11 @@ export class GameApp {
       this.deps.player.state.position,
       this.state.clientSettings.renderDistance,
     );
-    this.deps.player.update(input, deltaSeconds, this.deps.clientWorldRuntime.world);
+    this.deps.player.update(
+      input,
+      deltaSeconds,
+      this.deps.clientWorldRuntime.world,
+    );
     const localPlayer = this.deps.clientWorldRuntime.createLocalPlayerSnapshot(
       this.deps.player.state,
       this.deps.player.gamemode,
@@ -688,7 +753,9 @@ export class GameApp {
     }
 
     if (hit && input.placeBlock && !this.state.previousSecondaryDown) {
-      const selectedSlot = getSelectedInventorySlot(this.deps.clientWorldRuntime.inventory);
+      const selectedSlot = getSelectedInventorySlot(
+        this.deps.clientWorldRuntime.inventory,
+      );
       if (selectedSlot.count <= 0) {
         this.state.lastServerMessage = `OUT OF ${Blocks[selectedSlot.blockId].name.toUpperCase()}`;
         return;
@@ -706,21 +773,29 @@ export class GameApp {
     }
   }
 
-  private handlePlayOverlayInput(input: ReturnType<NativeBridge["pollInput"]>): void {
+  private handlePlayOverlayInput(
+    input: ReturnType<NativeBridge["pollInput"]>,
+  ): void {
+    if (input.exit) {
+      this.handlePlayEscape();
+      return;
+    }
+
+    if (
+      this.state.pauseScreen === "settings" ||
+      this.state.pauseScreen === "menu"
+    ) {
+      return;
+    }
+
     if (this.state.inventoryOpen) {
-      if (input.inventoryToggle || input.exit) {
+      if (input.inventoryToggle) {
         this.setInventoryOpen(false);
       }
       return;
     }
 
     if (this.state.chatOpen) {
-      if (input.exit) {
-        this.state.chatOpen = false;
-        this.state.chatDraft = "";
-        return;
-      }
-
       if (input.backspacePressed && this.state.chatDraft.length > 0) {
         this.state.chatDraft = this.state.chatDraft.slice(0, -1);
       }
@@ -752,7 +827,31 @@ export class GameApp {
     }
   }
 
-  private handlePlayHudAction(action: string): void {
+  private async handlePlayHudAction(action: string): Promise<void> {
+    if (this.handleSharedSettingsAction(action)) {
+      return;
+    }
+
+    if (action === "pause-back-to-game") {
+      this.setPauseScreen("closed");
+      return;
+    }
+
+    if (action === "pause-open-settings") {
+      this.setPauseScreen("settings");
+      return;
+    }
+
+    if (action === "pause-exit-to-menu") {
+      await this.exitToMainMenu("RETURNED TO MENU");
+      return;
+    }
+
+    if (action === "back-to-pause") {
+      this.setPauseScreen("menu");
+      return;
+    }
+
     if (!action.startsWith("inventory-slot:")) {
       return;
     }
@@ -778,7 +877,73 @@ export class GameApp {
 
   private setInventoryOpen(open: boolean): void {
     this.state.inventoryOpen = open;
-    this.deps.nativeBridge.setCursorDisabled(!open);
+    this.syncCursorMode();
+  }
+
+  private setPauseScreen(pauseScreen: PauseScreen): void {
+    this.state.pauseScreen = pauseScreen;
+    this.syncCursorMode();
+  }
+
+  private handlePlayEscape(): void {
+    const action = resolvePlayEscapeAction({
+      chatOpen: this.state.chatOpen,
+      inventoryOpen: this.state.inventoryOpen,
+      pauseScreen: this.state.pauseScreen,
+    });
+
+    if (action === "close-inventory") {
+      this.setInventoryOpen(false);
+      return;
+    }
+
+    if (action === "close-chat") {
+      this.state.chatOpen = false;
+      this.state.chatDraft = "";
+      return;
+    }
+
+    if (action === "back-to-pause-menu") {
+      this.setPauseScreen("menu");
+      return;
+    }
+
+    if (action === "resume-game") {
+      this.setPauseScreen("closed");
+      return;
+    }
+
+    this.setPauseScreen("menu");
+  }
+
+  private async exitToMainMenu(statusText: string): Promise<void> {
+    await this.saveCurrentWorld();
+    this.state.appMode = "menu";
+    this.state.currentWorldName = null;
+    this.state.currentWorldSeed = null;
+    this.state.lastServerMessage = statusText;
+    this.state.chatOpen = false;
+    this.state.chatDraft = "";
+    this.state.inventoryOpen = false;
+    this.state.pauseScreen = "closed";
+    this.deps.clientWorldRuntime.reset();
+    this.state.menuState = {
+      ...this.state.menuState,
+      activeScreen: "play",
+      focusedField: null,
+      busy: false,
+      statusText,
+    };
+    this.syncCursorMode();
+  }
+
+  private syncCursorMode(): void {
+    this.deps.nativeBridge.setCursorDisabled(
+      shouldLockCursor(this.state.appMode, {
+        inventoryOpen: this.state.inventoryOpen,
+        pauseScreen: this.state.pauseScreen,
+      }),
+    );
   }
 
   private submitChatDraft(): void {
@@ -799,15 +964,22 @@ export class GameApp {
     this.deps.player.applyClientSettings(settings);
   }
 
-  private areClientSettingsEqual(left: ClientSettings, right: ClientSettings): boolean {
-    return left.fovDegrees === right.fovDegrees
-      && left.mouseSensitivity === right.mouseSensitivity
-      && left.renderDistance === right.renderDistance
-      && left.showDebugOverlay === right.showDebugOverlay
-      && left.showCrosshair === right.showCrosshair;
+  private areClientSettingsEqual(
+    left: ClientSettings,
+    right: ClientSettings,
+  ): boolean {
+    return (
+      left.fovDegrees === right.fovDegrees &&
+      left.mouseSensitivity === right.mouseSensitivity &&
+      left.renderDistance === right.renderDistance &&
+      left.showDebugOverlay === right.showDebugOverlay &&
+      left.showCrosshair === right.showCrosshair
+    );
   }
 
-  private updateClientSettings(partial: Partial<ClientSettings> | ClientSettings): void {
+  private updateClientSettings(
+    partial: Partial<ClientSettings> | ClientSettings,
+  ): void {
     const nextSettings = normalizeClientSettings({
       ...this.state.clientSettings,
       ...partial,
@@ -830,10 +1002,11 @@ export class GameApp {
     const snapshot = cloneClientSettings(this.state.clientSettings);
     this.settingsSaveTimer = setTimeout(() => {
       this.settingsSaveTimer = null;
-      this.settingsSavePromise = this.persistClientSettings(snapshot)
-        .finally(() => {
+      this.settingsSavePromise = this.persistClientSettings(snapshot).finally(
+        () => {
           this.settingsSavePromise = null;
-        });
+        },
+      );
     }, 120);
   }
 
@@ -841,7 +1014,9 @@ export class GameApp {
     if (this.settingsSaveTimer !== null) {
       clearTimeout(this.settingsSaveTimer);
       this.settingsSaveTimer = null;
-      this.settingsSavePromise = this.persistClientSettings(this.state.clientSettings);
+      this.settingsSavePromise = this.persistClientSettings(
+        this.state.clientSettings,
+      );
     }
 
     await this.settingsSavePromise;
