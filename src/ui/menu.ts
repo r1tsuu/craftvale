@@ -6,7 +6,7 @@ import {
   formatSensitivitySetting,
 } from "../client/client-settings.ts";
 import type { WorldSummary } from "../shared/messages.ts";
-import type { ClientSettings } from "../types.ts";
+import type { ClientSettings, SavedServerRecord } from "../types.ts";
 import {
   createButton,
   createLabel,
@@ -19,8 +19,12 @@ export interface MainMenuViewModel {
   activeScreen: MenuScreen;
   worlds: readonly WorldSummary[];
   selectedWorldName: string | null;
+  servers: readonly SavedServerRecord[];
+  selectedServerId: string | null;
   createWorldName: string;
   createSeedText: string;
+  addServerName: string;
+  addServerAddress: string;
   focusedField: MenuFocusField;
   statusText: string;
   busy: boolean;
@@ -295,7 +299,7 @@ const buildPlayMenu = (
     width,
     height,
     "MINECRAFT CLONE",
-    "A worker-backed voxel sandbox",
+    "Local worlds and dedicated multiplayer",
     seed,
     panelWidth,
     panelHeight,
@@ -315,24 +319,39 @@ const buildPlayMenu = (
         width: panelWidth - 140,
         height: 34,
       },
-      text: "SELECT PLAY TO OPEN YOUR WORLDS",
+      text: "CHOOSE SINGLEPLAYER OR MULTIPLAYER",
       scale: 2,
       color: [0.9, 0.92, 0.95],
       centered: true,
     }),
     createButton({
-      id: "play-button",
+      id: "singleplayer-button",
       kind: "button",
       rect: {
         x: buttonX,
-        y: shell.panelY + 192,
+        y: shell.panelY + 168,
         width: buttonWidth,
         height: buttonHeight,
       },
-      text: "PLAY",
+      text: "SINGLEPLAYER",
       action: "open-worlds",
       scale: 3,
       variant: "primary",
+      disabled: viewModel.busy,
+    }),
+    createButton({
+      id: "multiplayer-button",
+      kind: "button",
+      rect: {
+        x: buttonX,
+        y: shell.panelY + 242,
+        width: buttonWidth,
+        height: buttonHeight,
+      },
+      text: "MULTIPLAYER",
+      action: "open-multiplayer",
+      scale: 3,
+      variant: "secondary",
       disabled: viewModel.busy,
     }),
     createButton({
@@ -340,7 +359,7 @@ const buildPlayMenu = (
       kind: "button",
       rect: {
         x: buttonX,
-        y: shell.panelY + 266,
+        y: shell.panelY + 316,
         width: buttonWidth,
         height: buttonHeight,
       },
@@ -355,7 +374,7 @@ const buildPlayMenu = (
       kind: "button",
       rect: {
         x: buttonX,
-        y: shell.panelY + 340,
+        y: shell.panelY + 390,
         width: buttonWidth,
         height: buttonHeight,
       },
@@ -369,7 +388,7 @@ const buildPlayMenu = (
       kind: "label",
       rect: {
         x: shell.panelX + 36,
-        y: shell.panelY + 408,
+        y: shell.panelY + 432,
         width: panelWidth - 72,
         height: 24,
       },
@@ -453,7 +472,7 @@ const buildWorldsMenu = (
   const shell = buildMenuShell(
     width,
     height,
-    "SELECT WORLD",
+    "SINGLEPLAYER WORLDS",
     "Click a world to focus it, or create a new one",
     seed,
     panelWidth,
@@ -651,6 +670,264 @@ const buildWorldsMenu = (
   ];
 };
 
+const buildServerList = (
+  viewModel: MainMenuViewModel,
+  listX: number,
+  listY: number,
+  listWidth: number,
+): UiComponent[] => {
+  const visibleServers = viewModel.servers.slice(0, 6);
+
+  if (visibleServers.length === 0) {
+    return [
+      createLabel({
+        id: "server-empty",
+        kind: "label",
+        rect: {
+          x: listX + 30,
+          y: listY + 92,
+          width: listWidth - 60,
+          height: 40,
+        },
+        text: "NO SAVED SERVERS",
+        scale: 3,
+        color: [0.82, 0.88, 0.92],
+        centered: true,
+      }),
+      createLabel({
+        id: "server-empty-hint",
+        kind: "label",
+        rect: {
+          x: listX + 30,
+          y: listY + 136,
+          width: listWidth - 60,
+          height: 26,
+        },
+        text: "ADD ONE TO START PLAYING ONLINE",
+        scale: 2,
+        color: [0.78, 0.82, 0.86],
+        centered: true,
+      }),
+    ];
+  }
+
+  return visibleServers.flatMap((server, index) => {
+    const selected = server.id === viewModel.selectedServerId;
+    const rowY = listY + 56 + index * 60;
+    return [
+      createButton({
+        id: `server-${index}`,
+        kind: "button",
+        rect: {
+          x: listX + 22,
+          y: rowY,
+          width: listWidth - 126,
+          height: 48,
+        },
+        text: `${selected ? "> " : ""}${server.name}   ${server.address}`,
+        action: `select-server:${server.id}`,
+        scale: 2,
+        variant: selected ? "primary" : "secondary",
+        disabled: viewModel.busy,
+      }),
+      createButton({
+        id: `server-delete-${index}`,
+        kind: "button",
+        rect: {
+          x: listX + listWidth - 92,
+          y: rowY,
+          width: 70,
+          height: 48,
+        },
+        text: "X",
+        action: `delete-server:${server.id}`,
+        scale: 3,
+        variant: "danger",
+        disabled: viewModel.busy,
+      }),
+    ];
+  });
+};
+
+const buildMultiplayerMenu = (
+  width: number,
+  height: number,
+  viewModel: MainMenuViewModel,
+  seed: number,
+): UiComponent[] => {
+  const panelWidth = 980;
+  const panelHeight = 570;
+  const shell = buildMenuShell(
+    width,
+    height,
+    "MULTIPLAYER",
+    "Select a saved server or add a new one",
+    seed,
+    panelWidth,
+    panelHeight,
+  );
+  const listX = shell.panelX + 36;
+  const listY = shell.panelY + 132;
+  const listWidth = 540;
+  const sideX = shell.panelX + 608;
+  const buttonWidth = 320;
+  const buttonHeight = 52;
+  const selectedServer = viewModel.servers.find((server) => server.id === viewModel.selectedServerId) ?? null;
+
+  return [
+    ...shell.components,
+    createPanel({
+      id: "server-list-frame",
+      kind: "panel",
+      rect: {
+        x: listX,
+        y: listY,
+        width: listWidth,
+        height: 364,
+      },
+      color: [0.11, 0.12, 0.13],
+    }),
+    createPanel({
+      id: "server-list-panel",
+      kind: "panel",
+      rect: {
+        x: listX + 4,
+        y: listY + 4,
+        width: listWidth - 8,
+        height: 356,
+      },
+      color: [0.24, 0.26, 0.28],
+    }),
+    createLabel({
+      id: "server-list-title",
+      kind: "label",
+      rect: {
+        x: listX + 22,
+        y: listY + 18,
+        width: listWidth - 44,
+        height: 24,
+      },
+      text: "SAVED SERVERS",
+      scale: 3,
+      color: [0.94, 0.95, 0.96],
+      centered: false,
+    }),
+    ...buildServerList(viewModel, listX, listY, listWidth),
+    createPanel({
+      id: "server-side-panel",
+      kind: "panel",
+      rect: {
+        x: sideX,
+        y: listY,
+        width: 336,
+        height: 364,
+      },
+      color: [0.19, 0.2, 0.22],
+    }),
+    createLabel({
+      id: "server-selection-title",
+      kind: "label",
+      rect: {
+        x: sideX + 20,
+        y: listY + 18,
+        width: 296,
+        height: 24,
+      },
+      text: "SELECTED SERVER",
+      scale: 3,
+      color: [0.94, 0.95, 0.96],
+      centered: true,
+    }),
+    createLabel({
+      id: "server-selection-name",
+      kind: "label",
+      rect: {
+        x: sideX + 20,
+        y: listY + 64,
+        width: 296,
+        height: 44,
+      },
+      text: selectedServer?.name ?? "CLICK A SERVER",
+      scale: 3,
+      color: selectedServer ? [0.98, 0.95, 0.76] : [0.8, 0.84, 0.88],
+      centered: true,
+    }),
+    createLabel({
+      id: "server-selection-address",
+      kind: "label",
+      rect: {
+        x: sideX + 20,
+        y: listY + 112,
+        width: 296,
+        height: 24,
+      },
+      text: selectedServer?.address ?? "SELECT ONE FROM THE LEFT",
+      scale: 2,
+      color: [0.84, 0.88, 0.91],
+      centered: true,
+    }),
+    createButton({
+      id: "join-server-button",
+      kind: "button",
+      rect: {
+        x: sideX + 8,
+        y: listY + 166,
+        width: buttonWidth,
+        height: buttonHeight,
+      },
+      text: viewModel.busy ? "CONNECTING..." : "JOIN SERVER",
+      action: "join-server",
+      scale: 3,
+      variant: "primary",
+      disabled: viewModel.busy || selectedServer === null,
+    }),
+    createButton({
+      id: "open-add-server-button",
+      kind: "button",
+      rect: {
+        x: sideX + 8,
+        y: listY + 230,
+        width: buttonWidth,
+        height: buttonHeight,
+      },
+      text: "ADD SERVER",
+      action: "open-add-server",
+      scale: 3,
+      variant: "secondary",
+      disabled: viewModel.busy,
+    }),
+    createButton({
+      id: "multiplayer-back-button",
+      kind: "button",
+      rect: {
+        x: shell.panelX + 36,
+        y: shell.panelY + 514,
+        width: 200,
+        height: 42,
+      },
+      text: "BACK",
+      action: "back-to-play",
+      scale: 2,
+      variant: "secondary",
+      disabled: viewModel.busy,
+    }),
+    createLabel({
+      id: "multiplayer-status-label",
+      kind: "label",
+      rect: {
+        x: shell.panelX + 254,
+        y: shell.panelY + 514,
+        width: panelWidth - 290,
+        height: 42,
+      },
+      text: viewModel.statusText,
+      scale: 2,
+      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
+      centered: false,
+    }),
+  ];
+};
+
 const buildCreateWorldMenu = (
   width: number,
   height: number,
@@ -760,6 +1037,130 @@ const buildCreateWorldMenu = (
     }),
     createLabel({
       id: "status-label",
+      kind: "label",
+      rect: {
+        x: shell.panelX + 56,
+        y: shell.panelY + 416,
+        width: panelWidth - 112,
+        height: 24,
+      },
+      text: viewModel.statusText,
+      scale: 2,
+      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
+      centered: true,
+    }),
+  ];
+};
+
+const buildAddServerMenu = (
+  width: number,
+  height: number,
+  viewModel: MainMenuViewModel,
+  seed: number,
+): UiComponent[] => {
+  const panelWidth = 760;
+  const panelHeight = 470;
+  const shell = buildMenuShell(
+    width,
+    height,
+    "ADD SERVER",
+    "Set a display name and server address",
+    seed,
+    panelWidth,
+    panelHeight,
+  );
+  const contentX = shell.panelX + 112;
+  const fieldWidth = 536;
+  const fieldHeight = 60;
+
+  return [
+    ...shell.components,
+    createLabel({
+      id: "add-server-hint",
+      kind: "label",
+      rect: {
+        x: shell.panelX + 80,
+        y: shell.panelY + 136,
+        width: panelWidth - 160,
+        height: 28,
+      },
+      text: "PRESS TAB TO SWITCH FIELDS",
+      scale: 2,
+      color: [0.86, 0.9, 0.94],
+      centered: true,
+    }),
+    createButton({
+      id: "server-name-input",
+      kind: "button",
+      rect: {
+        x: contentX,
+        y: shell.panelY + 184,
+        width: fieldWidth,
+        height: fieldHeight,
+      },
+      text: formatInputValue(
+        "NAME",
+        viewModel.addServerName,
+        viewModel.focusedField === "server-name",
+        "LOCAL SERVER",
+      ),
+      action: "focus-server-name",
+      scale: 2,
+      variant: "secondary",
+      disabled: viewModel.busy,
+    }),
+    createButton({
+      id: "server-address-input",
+      kind: "button",
+      rect: {
+        x: contentX,
+        y: shell.panelY + 258,
+        width: fieldWidth,
+        height: fieldHeight,
+      },
+      text: formatInputValue(
+        "ADDRESS",
+        viewModel.addServerAddress,
+        viewModel.focusedField === "server-address",
+        "127.0.0.1:3210",
+      ),
+      action: "focus-server-address",
+      scale: 2,
+      variant: "secondary",
+      disabled: viewModel.busy,
+    }),
+    createButton({
+      id: "confirm-add-server-button",
+      kind: "button",
+      rect: {
+        x: contentX,
+        y: shell.panelY + 346,
+        width: 258,
+        height: 54,
+      },
+      text: viewModel.busy ? "SAVING..." : "ADD SERVER",
+      action: "save-server",
+      scale: 3,
+      variant: "primary",
+      disabled: viewModel.busy,
+    }),
+    createButton({
+      id: "cancel-add-server-button",
+      kind: "button",
+      rect: {
+        x: contentX + 278,
+        y: shell.panelY + 346,
+        width: 258,
+        height: 54,
+      },
+      text: "CANCEL",
+      action: "back-to-multiplayer",
+      scale: 3,
+      variant: "secondary",
+      disabled: viewModel.busy,
+    }),
+    createLabel({
+      id: "add-server-status-label",
       kind: "label",
       rect: {
         x: shell.panelX + 56,
@@ -1126,6 +1527,14 @@ export const buildMainMenu = (
 ): UiComponent[] => {
   if (viewModel.activeScreen === "settings") {
     return buildSettingsMenu(width, height, viewModel, seed);
+  }
+
+  if (viewModel.activeScreen === "multiplayer") {
+    return buildMultiplayerMenu(width, height, viewModel, seed);
+  }
+
+  if (viewModel.activeScreen === "add-server") {
+    return buildAddServerMenu(width, height, viewModel, seed);
   }
 
   if (viewModel.activeScreen === "worlds") {

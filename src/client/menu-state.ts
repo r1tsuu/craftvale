@@ -1,15 +1,31 @@
-import type { InputState } from "../types.ts";
 import type { WorldSummary } from "../shared/messages.ts";
+import type { InputState, SavedServerRecord } from "../types.ts";
 
-export type MenuScreen = "play" | "worlds" | "create-world" | "settings";
-export type MenuFocusField = "world-name" | "world-seed" | null;
+export type MenuScreen =
+  | "play"
+  | "worlds"
+  | "create-world"
+  | "multiplayer"
+  | "add-server"
+  | "settings";
+
+export type MenuFocusField =
+  | "world-name"
+  | "world-seed"
+  | "server-name"
+  | "server-address"
+  | null;
 
 export interface MenuState {
   activeScreen: MenuScreen;
   worlds: WorldSummary[];
   selectedWorldName: string | null;
+  servers: SavedServerRecord[];
+  selectedServerId: string | null;
   createWorldName: string;
   createSeedText: string;
+  addServerName: string;
+  addServerAddress: string;
   focusedField: MenuFocusField;
   statusText: string;
   busy: boolean;
@@ -19,14 +35,40 @@ export const createMenuState = (): MenuState => ({
   activeScreen: "play",
   worlds: [],
   selectedWorldName: null,
+  servers: [],
+  selectedServerId: null,
   createWorldName: "",
   createSeedText: "",
+  addServerName: "",
+  addServerAddress: "",
   focusedField: null,
-  statusText: "LOADING WORLDS...",
+  statusText: "SELECT A MODE",
   busy: false,
 });
 
 const DEFAULT_WORLD_NAME = "New World";
+
+const normalizeSelection = (
+  worlds: readonly WorldSummary[],
+  selectedWorldName: string | null,
+): string | null => {
+  if (selectedWorldName && worlds.some((world) => world.name === selectedWorldName)) {
+    return selectedWorldName;
+  }
+
+  return null;
+};
+
+const normalizeServerSelection = (
+  servers: readonly SavedServerRecord[],
+  selectedServerId: string | null,
+): string | null => {
+  if (selectedServerId && servers.some((server) => server.id === selectedServerId)) {
+    return selectedServerId;
+  }
+
+  return null;
+};
 
 export const suggestWorldName = (worlds: readonly WorldSummary[]): string => {
   const takenNames = new Set(worlds.map((world) => world.name.trim().toLowerCase()));
@@ -44,17 +86,6 @@ export const suggestWorldName = (worlds: readonly WorldSummary[]): string => {
   return `${DEFAULT_WORLD_NAME} ${Date.now()}`;
 };
 
-const normalizeSelection = (
-  worlds: readonly WorldSummary[],
-  selectedWorldName: string | null,
-): string | null => {
-  if (selectedWorldName && worlds.some((world) => world.name === selectedWorldName)) {
-    return selectedWorldName;
-  }
-
-  return null;
-};
-
 export const setMenuWorlds = (
   state: MenuState,
   worlds: readonly WorldSummary[],
@@ -62,6 +93,15 @@ export const setMenuWorlds = (
   ...state,
   worlds: [...worlds],
   selectedWorldName: normalizeSelection(worlds, state.selectedWorldName),
+});
+
+export const setMenuServers = (
+  state: MenuState,
+  servers: readonly SavedServerRecord[],
+): MenuState => ({
+  ...state,
+  servers: [...servers],
+  selectedServerId: normalizeServerSelection(servers, state.selectedServerId),
 });
 
 export const setMenuBusy = (state: MenuState, busy: boolean, statusText?: string): MenuState => ({
@@ -102,6 +142,24 @@ export const applyMenuAction = (state: MenuState, action: string): MenuState => 
     };
   }
 
+  if (action === "open-multiplayer" || action === "back-to-multiplayer") {
+    return {
+      ...state,
+      activeScreen: "multiplayer",
+      focusedField: null,
+    };
+  }
+
+  if (action === "open-add-server") {
+    return {
+      ...state,
+      activeScreen: "add-server",
+      addServerName: "",
+      addServerAddress: "",
+      focusedField: "server-name",
+    };
+  }
+
   if (action === "open-settings") {
     return {
       ...state,
@@ -114,6 +172,13 @@ export const applyMenuAction = (state: MenuState, action: string): MenuState => 
     return {
       ...state,
       selectedWorldName: action.slice("select-world:".length),
+    };
+  }
+
+  if (action.startsWith("select-server:")) {
+    return {
+      ...state,
+      selectedServerId: action.slice("select-server:".length),
     };
   }
 
@@ -133,6 +198,22 @@ export const applyMenuAction = (state: MenuState, action: string): MenuState => 
     };
   }
 
+  if (action === "focus-server-name") {
+    return {
+      ...state,
+      activeScreen: "add-server",
+      focusedField: "server-name",
+    };
+  }
+
+  if (action === "focus-server-address") {
+    return {
+      ...state,
+      activeScreen: "add-server",
+      focusedField: "server-address",
+    };
+  }
+
   return state;
 };
 
@@ -142,20 +223,42 @@ const sanitizeWorldNameInput = (value: string): string =>
 const sanitizeSeedInput = (value: string): string =>
   value.replace(/[^0-9\-]/g, "").slice(0, 16);
 
-const cycleFocus = (focusedField: MenuFocusField): MenuFocusField => {
-  if (focusedField === "world-name") {
-    return "world-seed";
-  }
+const sanitizeServerNameInput = (value: string): string =>
+  value.replace(/[^\w \-]/g, "").slice(0, 32);
 
-  if (focusedField === "world-seed") {
+const sanitizeServerAddressInput = (value: string): string =>
+  value.replace(/[^A-Za-z0-9.\-:\[\]]/g, "").slice(0, 128);
+
+const cycleFocus = (state: MenuState): MenuFocusField => {
+  if (state.activeScreen === "create-world") {
+    if (state.focusedField === "world-name") {
+      return "world-seed";
+    }
+
+    if (state.focusedField === "world-seed") {
+      return "world-name";
+    }
+
     return "world-name";
   }
 
-  return "world-name";
+  if (state.activeScreen === "add-server") {
+    if (state.focusedField === "server-name") {
+      return "server-address";
+    }
+
+    if (state.focusedField === "server-address") {
+      return "server-name";
+    }
+
+    return "server-name";
+  }
+
+  return state.focusedField;
 };
 
 export const applyMenuTyping = (state: MenuState, input: InputState): MenuState => {
-  if (state.activeScreen !== "create-world") {
+  if (state.activeScreen !== "create-world" && state.activeScreen !== "add-server") {
     return state;
   }
 
@@ -164,7 +267,7 @@ export const applyMenuTyping = (state: MenuState, input: InputState): MenuState 
   if (input.tabPressed) {
     nextState = {
       ...nextState,
-      focusedField: cycleFocus(nextState.focusedField),
+      focusedField: cycleFocus(nextState),
     };
   }
 
@@ -178,10 +281,20 @@ export const applyMenuTyping = (state: MenuState, input: InputState): MenuState 
         ...nextState,
         createWorldName: sanitizeWorldNameInput(nextState.createWorldName + input.typedText),
       };
-    } else {
+    } else if (nextState.focusedField === "world-seed") {
       nextState = {
         ...nextState,
         createSeedText: sanitizeSeedInput(nextState.createSeedText + input.typedText),
+      };
+    } else if (nextState.focusedField === "server-name") {
+      nextState = {
+        ...nextState,
+        addServerName: sanitizeServerNameInput(nextState.addServerName + input.typedText),
+      };
+    } else if (nextState.focusedField === "server-address") {
+      nextState = {
+        ...nextState,
+        addServerAddress: sanitizeServerAddressInput(nextState.addServerAddress + input.typedText),
       };
     }
   }
@@ -197,9 +310,23 @@ export const applyMenuTyping = (state: MenuState, input: InputState): MenuState 
     };
   }
 
+  if (nextState.focusedField === "world-seed") {
+    return {
+      ...nextState,
+      createSeedText: nextState.createSeedText.slice(0, -1),
+    };
+  }
+
+  if (nextState.focusedField === "server-name") {
+    return {
+      ...nextState,
+      addServerName: nextState.addServerName.slice(0, -1),
+    };
+  }
+
   return {
     ...nextState,
-    createSeedText: nextState.createSeedText.slice(0, -1),
+    addServerAddress: nextState.addServerAddress.slice(0, -1),
   };
 };
 

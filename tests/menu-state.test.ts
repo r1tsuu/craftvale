@@ -4,6 +4,7 @@ import {
   applyMenuTyping,
   createMenuState,
   parseSeedInput,
+  setMenuServers,
   setMenuWorlds,
   suggestWorldName,
 } from "../src/client/menu-state.ts";
@@ -55,6 +56,25 @@ test("menu typing updates world name and seed fields", () => {
   expect(state.createSeedText).toBe("1234");
 });
 
+test("menu typing updates saved server fields and tab cycles between them", () => {
+  let state = createMenuState();
+  state = applyMenuAction(state, "open-add-server");
+  expect(state.activeScreen).toBe("add-server");
+  expect(state.focusedField).toBe("server-name");
+
+  state = applyMenuTyping(state, createInput({ typedText: "Local Server" }));
+  expect(state.addServerName).toBe("Local Server");
+
+  state = applyMenuTyping(state, createInput({ tabPressed: true }));
+  expect(state.focusedField).toBe("server-address");
+
+  state = applyMenuTyping(state, createInput({ typedText: "127.0.0.1:3210" }));
+  expect(state.addServerAddress).toBe("127.0.0.1:3210");
+
+  state = applyMenuTyping(state, createInput({ backspacePressed: true }));
+  expect(state.addServerAddress).toBe("127.0.0.1:321");
+});
+
 test("menu actions drive screen navigation", () => {
   let state = createMenuState();
   expect(state.activeScreen).toBe("play");
@@ -81,6 +101,18 @@ test("menu actions drive screen navigation", () => {
 
   state = applyMenuAction(state, "back-to-play");
   expect(state.activeScreen).toBe("play");
+
+  state = applyMenuAction(state, "open-multiplayer");
+  expect(state.activeScreen).toBe("multiplayer");
+  expect(state.focusedField).toBeNull();
+
+  state = applyMenuAction(state, "open-add-server");
+  expect(state.activeScreen).toBe("add-server");
+  expect(state.focusedField).toBe("server-name");
+
+  state = applyMenuAction(state, "back-to-multiplayer");
+  expect(state.activeScreen).toBe("multiplayer");
+  expect(state.focusedField).toBeNull();
 });
 
 test("menu world selection starts unfocused and only changes on explicit selection", () => {
@@ -108,6 +140,23 @@ test("menu world refresh preserves an existing focused world when possible", () 
   ]);
 
   expect(refreshedState.selectedWorldName).toBe("Alpha");
+});
+
+test("saved server refresh preserves an existing focused server when possible", () => {
+  const initialState = applyMenuAction(
+    setMenuServers(createMenuState(), [
+      { id: "server-a", name: "Alpha", address: "127.0.0.1:3210", createdAt: 0, updatedAt: 0 },
+      { id: "server-b", name: "Bravo", address: "10.0.0.2:3210", createdAt: 0, updatedAt: 0 },
+    ]),
+    "select-server:server-b",
+  );
+
+  const refreshedState = setMenuServers(initialState, [
+    { id: "server-b", name: "Bravo", address: "10.0.0.2:3210", createdAt: 0, updatedAt: 1 },
+    { id: "server-c", name: "Charlie", address: "10.0.0.3:3210", createdAt: 0, updatedAt: 1 },
+  ]);
+
+  expect(refreshedState.selectedServerId).toBe("server-b");
 });
 
 test("suggestWorldName follows Minecraft-style base naming and skips taken variants", () => {

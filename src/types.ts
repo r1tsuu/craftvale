@@ -113,3 +113,11 @@ export interface ChatEntry {
   senderName?: PlayerName;
   receivedAt: number;
 }
+
+export interface SavedServerRecord {
+  id: string;
+  name: string;
+  address: string;
+  createdAt: number;
+  updatedAt: number;
+}

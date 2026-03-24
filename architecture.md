@@ -2,13 +2,13 @@
 
 ## Overview
 
-This project is a Bun/TypeScript voxel sandbox with a macOS-first native bridge for GLFW and OpenGL. The runtime is split into a client side and an authoritative server side, even in the current single-player setup. The client runs the app shell, rendering, input, menu, and local replicated world cache. The server runs inside a Worker and owns world generation, persistence, and all authoritative world mutations.
+This project is a Bun/TypeScript voxel sandbox with a macOS-first native bridge for GLFW and OpenGL. The runtime is split into a client side and an authoritative server side. The client runs the app shell, rendering, input, menu, and local replicated world cache. The authoritative server can run either inside a local Worker for singleplayer or as a dedicated WebSocket server for multiplayer, and it owns world generation, persistence, and all authoritative world mutations.
 
 At a high level:
 
 - `src/index.ts` is a tiny bootstrap that creates and runs the app.
 - `src/game-app.ts` owns the main application state and loop.
-- `src/client/*` implements the client runtime and worker-backed adapter.
+- `src/client/*` implements the client runtime, worker adapter, WebSocket adapter, and saved-server storage.
 - `src/server/*` implements authoritative world/session behavior and storage.
 - `src/shared/*` defines typed messaging, transport, and event-bus plumbing.
 - `src/world/*` contains deterministic worldgen, chunk data, meshing, atlas, inventory helpers, and raycasting.
@@ -25,9 +25,9 @@ The main thread hosts the playable client app:
 - owns the render loop and input polling
 - runs the `GameApp` instance
 - keeps a replicated `VoxelWorld` for rendering, raycast, and collision
-- sends typed requests/events to the worker-backed server
+- sends typed requests/events to either a worker-backed local server or a WebSocket-backed dedicated server
 
-### Worker thread
+### Local worker server
 
 The worker hosts the authoritative server:
 
@@ -38,6 +38,18 @@ The worker hosts the authoritative server:
 - generates chunks, applies block mutations, and owns the authoritative world/session state
 
 This separation means the client never directly mutates authoritative world state. It asks the server to do so and then applies the resulting authoritative updates.
+
+### Dedicated multiplayer server
+
+The dedicated multiplayer path is hosted separately from the desktop app:
+
+- boots through `src/server/standalone-entry.ts`
+- starts a `DedicatedServer`
+- exposes a WebSocket endpoint at `/ws`
+- creates or loads exactly one world on startup
+- keeps that one world authoritative for all connected sessions
+
+There is no remote world browser in this mode. A multiplayer client connects to one saved server entry and joins the server's single authoritative world.
 
 ## Main App Structure
 
@@ -58,11 +70,17 @@ It owns:
 Its dependencies are injected explicitly:
 
 - `NativeBridge`
-- client adapter
-- `ClientWorldRuntime`
 - `PlayerController`
 - `VoxelRenderer`
 - menu seed
+- client settings storage
+- saved-server storage
+
+The active transport connection is lifecycle-managed by `GameApp`:
+
+- local singleplayer connects a `WorkerClientAdapter`
+- remote multiplayer connects a `WebSocketClientAdapter`
+- each connection owns its own `ClientWorldRuntime`
 
 The app loop roughly does this every frame:
 
@@ -93,8 +111,12 @@ Current transport layers:
 - `WorkerClientAdapter` on the client side
 - `WorkerServerAdapter` on the worker side
 - `WorkerServerHost` as the worker lifecycle/controller instance
+- `WebSocketClientAdapter` on the multiplayer client side
+- `DedicatedServerTransport` inside the dedicated server
 
-Because the transport abstraction is explicit, the current worker-backed single-player setup can evolve later without changing gameplay/message semantics.
+`src/shared/message-codec.ts` serializes typed transport messages for the WebSocket path, including chunk payload byte buffers.
+
+Because the transport abstraction is explicit, local and remote play can share the same gameplay/message semantics even though their process boundaries differ.
 
 ## World Ownership Model
 

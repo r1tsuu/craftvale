@@ -28,6 +28,10 @@ export interface JoinWorldRequest {
   playerName: PlayerName;
 }
 
+export interface JoinServerRequest {
+  playerName: PlayerName;
+}
+
 export interface DeleteWorldRequest {
   name: string;
 }
@@ -87,6 +91,7 @@ export interface ClientRequestMap {
   listWorlds: Record<string, never>;
   createWorld: CreateWorldRequest;
   joinWorld: JoinWorldRequest;
+  joinServer: JoinServerRequest;
   requestChunks: ChunkRequest;
   saveWorld: Record<string, never>;
   deleteWorld: DeleteWorldRequest;
@@ -96,6 +101,7 @@ export interface ClientResponseMap {
   listWorlds: { worlds: WorldSummary[] };
   createWorld: { world: WorldSummary };
   joinWorld: JoinedWorldPayload;
+  joinServer: JoinedWorldPayload;
   requestChunks: { accepted: number };
   saveWorld: { world: WorldSummary; savedChunks: number };
   deleteWorld: { deleted: boolean; name: string };
@@ -185,6 +191,7 @@ const CLIENT_REQUEST_TYPES = new Set<keyof ClientRequestMap>([
   "listWorlds",
   "createWorld",
   "joinWorld",
+  "joinServer",
   "requestChunks",
   "saveWorld",
   "deleteWorld",

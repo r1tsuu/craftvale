@@ -11,12 +11,20 @@ import {
   createMenuState,
   parseSeedInput,
   setMenuBusy,
+  setMenuServers,
   setMenuStatus,
   setMenuWorlds,
   suggestWorldName,
   type MenuState,
 } from "./client/menu-state.ts";
+import {
+  JsonSavedServerStorage,
+  isValidSavedServerAddress,
+  isValidSavedServerName,
+} from "./client/saved-servers.ts";
 import { ClientWorldRuntime } from "./client/world-runtime.ts";
+import { type IClientAdapter } from "./client/client-adapter.ts";
+import { WebSocketClientAdapter } from "./client/websocket-client-adapter.ts";
 import { WorkerClientAdapter } from "./client/worker-client-adapter.ts";
 import {
   isGameplaySuppressed,
@@ -28,7 +36,6 @@ import { PlayerController } from "./game/player.ts";
 import { NativeBridge } from "./platform/native.ts";
 import { VoxelRenderer } from "./render/renderer.ts";
 import type { TextDrawCommand } from "./render/text.ts";
-import { type ClientEventBus } from "./shared/event-bus.ts";
 import type { ClientSettings, PlayerName } from "./types.ts";
 import { evaluateUi, type UiResolvedComponent } from "./ui/components.ts";
 import { buildPlayHud } from "./ui/hud.ts";
@@ -37,6 +44,7 @@ import { Biomes, getBiomeAt } from "./world/biomes.ts";
 import { Blocks } from "./world/blocks.ts";
 import { getSelectedInventorySlot } from "./world/inventory.ts";
 import { raycastVoxel } from "./world/raycast.ts";
+import { VoxelWorld } from "./world/world.ts";
 
 const FIXED_TIMESTEP = 1 / 60;
 
@@ -62,25 +70,25 @@ export interface GameAppState {
 
 export interface GameAppDependencies {
   nativeBridge: NativeBridge;
-  clientAdapter: {
-    eventBus: ClientEventBus;
-    close(): void;
-  };
-  clientWorldRuntime: ClientWorldRuntime;
   player: PlayerController;
   renderer: VoxelRenderer;
   menuSeed: number;
   playerName: PlayerName;
   clientSettings: ClientSettings;
   clientSettingsStorage: JsonClientSettingsStorage;
+  savedServerStorage: JsonSavedServerStorage;
 }
 
 export class GameApp {
-  private readonly unsubscribers: Array<() => void> = [];
+  private readonly connectionUnsubscribers: Array<() => void> = [];
   private initialized = false;
   private shutdownStarted = false;
   private settingsSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private settingsSavePromise: Promise<void> | null = null;
+  private clientAdapter: IClientAdapter | null = null;
+  private clientWorldRuntime: ClientWorldRuntime | null = null;
+  private connectionMode: "local" | "remote" | null = null;
+  private connectedServerAddress: string | null = null;
 
   private readonly state: GameAppState;
 
@@ -128,8 +136,7 @@ export class GameApp {
 
     this.initialized = true;
     this.state.previousTime = this.deps.nativeBridge.getTime();
-    this.registerEventHandlers();
-    await this.syncMenuWorlds();
+    await this.syncSavedServers();
   }
 
   public async shutdown(): Promise<void> {
@@ -139,12 +146,8 @@ export class GameApp {
 
     this.shutdownStarted = true;
     await this.flushSettingsSave();
-    for (const unsubscribe of this.unsubscribers.splice(0)) {
-      unsubscribe();
-    }
-
     await this.saveCurrentWorld();
-    this.deps.clientAdapter.close();
+    this.disconnectClient();
     this.deps.nativeBridge.shutdown();
   }
 
@@ -201,6 +204,7 @@ export class GameApp {
         void this.createWorld();
       }
     } else {
+      const worldRuntime = this.getWorldRuntime();
       this.handlePlayOverlayInput(input);
       if (
         !this.state.chatOpen &&
@@ -216,7 +220,7 @@ export class GameApp {
       }
 
       const focusHit = raycastVoxel(
-        this.deps.clientWorldRuntime.world,
+        worldRuntime.world,
         this.deps.player.getEyePositionVec3(),
         this.deps.player.getForwardVector(),
         8,
@@ -231,7 +235,7 @@ export class GameApp {
         ? this.buildOverlayText(x, y, z, yawDegrees, pitchDegrees)
         : [];
       const playHud = buildPlayHud(input.windowWidth, input.windowHeight, {
-        inventory: this.deps.clientWorldRuntime.inventory,
+        inventory: worldRuntime.inventory,
         inventoryOpen: this.state.inventoryOpen,
         cursorX: input.cursorX,
         cursorY: input.cursorY,
@@ -248,12 +252,12 @@ export class GameApp {
               }
             : undefined,
         biomeName,
-        chatMessages: this.deps.clientWorldRuntime.chatMessages,
+        chatMessages: worldRuntime.chatMessages,
         chatNowMs: Date.now(),
         chatDraft: this.state.chatDraft,
         chatOpen: this.state.chatOpen,
-        gamemode: this.deps.clientWorldRuntime.getClientPlayer()?.gamemode ?? 0,
-        flying: this.deps.clientWorldRuntime.getClientPlayer()?.flying ?? false,
+        gamemode: worldRuntime.getClientPlayer()?.gamemode ?? 0,
+        flying: worldRuntime.getClientPlayer()?.flying ?? false,
       });
       const evaluation = evaluateUi(playHud, {
         x: input.cursorX,
@@ -284,6 +288,75 @@ export class GameApp {
     await Bun.sleep(0);
   }
 
+  private getClientAdapter(): IClientAdapter {
+    if (!this.clientAdapter) {
+      throw new Error("No client adapter is connected.");
+    }
+
+    return this.clientAdapter;
+  }
+
+  private getWorldRuntime(): ClientWorldRuntime {
+    if (!this.clientWorldRuntime) {
+      throw new Error("No client world runtime is connected.");
+    }
+
+    return this.clientWorldRuntime;
+  }
+
+  private disconnectClient(): void {
+    for (const unsubscribe of this.connectionUnsubscribers.splice(0)) {
+      unsubscribe();
+    }
+
+    this.clientAdapter?.close();
+    this.clientAdapter = null;
+    this.clientWorldRuntime = null;
+    this.connectionMode = null;
+    this.connectedServerAddress = null;
+  }
+
+  private async connectLocalClient(): Promise<void> {
+    if (this.connectionMode === "local" && this.clientAdapter && this.clientWorldRuntime) {
+      return;
+    }
+
+    this.disconnectClient();
+    const adapter = new WorkerClientAdapter();
+    this.clientAdapter = adapter;
+    this.clientWorldRuntime = new ClientWorldRuntime(adapter);
+    this.connectionMode = "local";
+    this.registerConnectionEventHandlers();
+  }
+
+  private async connectRemoteClient(address: string): Promise<void> {
+    const normalizedAddress = address.trim();
+    if (
+      this.connectionMode === "remote" &&
+      this.connectedServerAddress === normalizedAddress &&
+      this.clientAdapter &&
+      this.clientWorldRuntime
+    ) {
+      return;
+    }
+
+    this.disconnectClient();
+    const adapter = await WebSocketClientAdapter.connect(this.toWebSocketUrl(normalizedAddress));
+    this.clientAdapter = adapter;
+    this.clientWorldRuntime = new ClientWorldRuntime(adapter);
+    this.connectionMode = "remote";
+    this.connectedServerAddress = normalizedAddress;
+    this.registerConnectionEventHandlers();
+  }
+
+  private toWebSocketUrl(address: string): string {
+    if (address.startsWith("ws://") || address.startsWith("wss://")) {
+      return `${address.replace(/\/+$/, "")}/ws`;
+    }
+
+    return `ws://${address.replace(/\/+$/, "")}/ws`;
+  }
+
   private async handleMenuAction(action: string): Promise<void> {
     this.state.menuState = applyMenuAction(this.state.menuState, action);
 
@@ -291,12 +364,20 @@ export class GameApp {
       return;
     }
 
-    if (
-      action === "open-worlds" &&
-      !this.state.menuState.busy &&
-      this.state.menuState.worlds.length === 0
-    ) {
+    if (action === "back-to-play" && !this.state.menuState.busy && this.state.appMode === "menu") {
+      this.disconnectClient();
+      await this.syncSavedServers("SELECT A MODE");
+      return;
+    }
+
+    if (action === "open-worlds" && !this.state.menuState.busy) {
+      await this.connectLocalClient();
       await this.syncMenuWorlds();
+      return;
+    }
+
+    if (action === "open-multiplayer" && !this.state.menuState.busy) {
+      await this.syncSavedServers("SELECT A SERVER");
       return;
     }
 
@@ -311,6 +392,25 @@ export class GameApp {
       this.state.menuState.selectedWorldName
     ) {
       await this.joinWorld(this.state.menuState.selectedWorldName);
+      return;
+    }
+
+    if (
+      action === "join-server" &&
+      !this.state.menuState.busy &&
+      this.state.menuState.selectedServerId
+    ) {
+      await this.joinServer(this.state.menuState.selectedServerId);
+      return;
+    }
+
+    if (action === "save-server" && !this.state.menuState.busy) {
+      await this.saveServer();
+      return;
+    }
+
+    if (action.startsWith("delete-server:") && !this.state.menuState.busy) {
+      await this.deleteServer(action.slice("delete-server:".length));
       return;
     }
 
@@ -368,52 +468,55 @@ export class GameApp {
     return false;
   }
 
-  private registerEventHandlers(): void {
-    this.unsubscribers.push(
-      this.deps.clientAdapter.eventBus.on("chunkDelivered", ({ chunk }) => {
-        this.deps.clientWorldRuntime.applyChunk(chunk);
+  private registerConnectionEventHandlers(): void {
+    const adapter = this.getClientAdapter();
+    const worldRuntime = this.getWorldRuntime();
+
+    this.connectionUnsubscribers.push(
+      adapter.eventBus.on("chunkDelivered", ({ chunk }) => {
+        worldRuntime.applyChunk(chunk);
       }),
-      this.deps.clientAdapter.eventBus.on("chunkChanged", ({ chunk }) => {
-        this.deps.clientWorldRuntime.applyChunk(chunk);
+      adapter.eventBus.on("chunkChanged", ({ chunk }) => {
+        worldRuntime.applyChunk(chunk);
       }),
-      this.deps.clientAdapter.eventBus.on(
+      adapter.eventBus.on(
         "inventoryUpdated",
         ({ playerEntityId, inventory }) => {
-          if (playerEntityId !== this.deps.clientWorldRuntime.clientPlayerEntityId) {
+          if (playerEntityId !== worldRuntime.clientPlayerEntityId) {
             return;
           }
 
-          this.deps.clientWorldRuntime.applyInventory(inventory);
+          worldRuntime.applyInventory(inventory);
           if (this.state.lastServerMessage.startsWith("OUT OF ")) {
             this.state.lastServerMessage = "";
           }
         },
       ),
-      this.deps.clientAdapter.eventBus.on("droppedItemSpawned", ({ item }) => {
-        this.deps.clientWorldRuntime.applyDroppedItem(item);
+      adapter.eventBus.on("droppedItemSpawned", ({ item }) => {
+        worldRuntime.applyDroppedItem(item);
       }),
-      this.deps.clientAdapter.eventBus.on("droppedItemUpdated", ({ item }) => {
-        this.deps.clientWorldRuntime.applyDroppedItem(item);
+      adapter.eventBus.on("droppedItemUpdated", ({ item }) => {
+        worldRuntime.applyDroppedItem(item);
       }),
-      this.deps.clientAdapter.eventBus.on("droppedItemRemoved", ({ entityId }) => {
-        this.deps.clientWorldRuntime.removeDroppedItem(entityId);
+      adapter.eventBus.on("droppedItemRemoved", ({ entityId }) => {
+        worldRuntime.removeDroppedItem(entityId);
       }),
-      this.deps.clientAdapter.eventBus.on("playerJoined", ({ player }) => {
-        this.deps.clientWorldRuntime.applyPlayer(player);
+      adapter.eventBus.on("playerJoined", ({ player }) => {
+        worldRuntime.applyPlayer(player);
       }),
-      this.deps.clientAdapter.eventBus.on("playerUpdated", ({ player }) => {
-        this.deps.clientWorldRuntime.applyPlayer(player);
-        if (player.entityId === this.deps.clientWorldRuntime.clientPlayerEntityId) {
+      adapter.eventBus.on("playerUpdated", ({ player }) => {
+        worldRuntime.applyPlayer(player);
+        if (player.entityId === worldRuntime.clientPlayerEntityId) {
           this.deps.player.syncFromSnapshot(player);
         }
       }),
-      this.deps.clientAdapter.eventBus.on("playerLeft", ({ playerEntityId, playerName }) => {
-        this.deps.clientWorldRuntime.removePlayer(playerEntityId, playerName);
+      adapter.eventBus.on("playerLeft", ({ playerEntityId, playerName }) => {
+        worldRuntime.removePlayer(playerEntityId, playerName);
       }),
-      this.deps.clientAdapter.eventBus.on("chatMessage", ({ entry }) => {
-        this.deps.clientWorldRuntime.appendChatMessage(entry);
+      adapter.eventBus.on("chatMessage", ({ entry }) => {
+        worldRuntime.appendChatMessage(entry);
       }),
-      this.deps.clientAdapter.eventBus.on(
+      adapter.eventBus.on(
         "saveStatus",
         ({ worldName, savedChunks, success, error }) => {
           this.state.lastServerMessage = success
@@ -425,18 +528,18 @@ export class GameApp {
           );
         },
       ),
-      this.deps.clientAdapter.eventBus.on("serverError", ({ message }) => {
+      adapter.eventBus.on("serverError", ({ message }) => {
         this.state.lastServerMessage = `SERVER ERROR: ${message}`;
         this.state.menuState = setMenuStatus(
           this.state.menuState,
           this.state.lastServerMessage,
         );
       }),
-      this.deps.clientAdapter.eventBus.on("worldDeleted", ({ name }) => {
+      adapter.eventBus.on("worldDeleted", ({ name }) => {
         if (this.state.currentWorldName === name) {
           this.state.currentWorldName = null;
           this.state.currentWorldSeed = null;
-          this.deps.clientWorldRuntime.reset();
+          worldRuntime.reset();
           this.state.appMode = "menu";
           this.state.chatOpen = false;
           this.state.chatDraft = "";
@@ -524,7 +627,7 @@ export class GameApp {
     );
 
     try {
-      const response = await this.deps.clientAdapter.eventBus.send({
+      const response = await this.getClientAdapter().eventBus.send({
         type: "listWorlds",
         payload: {},
       });
@@ -547,6 +650,16 @@ export class GameApp {
     }
   }
 
+  private async syncSavedServers(
+    statusText = "SELECT A MODE",
+  ): Promise<void> {
+    const servers = await this.deps.savedServerStorage.loadServers();
+    this.state.menuState = setMenuServers(
+      setMenuStatus(this.state.menuState, statusText),
+      servers,
+    );
+  }
+
   private async joinWorld(worldName: string): Promise<void> {
     this.state.menuState = setMenuBusy(
       this.state.menuState,
@@ -555,7 +668,8 @@ export class GameApp {
     );
 
     try {
-      const joined = await this.deps.clientAdapter.eventBus.send({
+      const worldRuntime = this.getWorldRuntime();
+      const joined = await this.getClientAdapter().eventBus.send({
         type: "joinWorld",
         payload: {
           name: worldName,
@@ -563,8 +677,8 @@ export class GameApp {
         },
       });
 
-      this.deps.clientWorldRuntime.reset();
-      this.deps.clientWorldRuntime.applyJoinedWorld(joined);
+      worldRuntime.reset();
+      worldRuntime.applyJoinedWorld(joined);
       this.state.currentWorldName = joined.world.name;
       this.state.currentWorldSeed = joined.world.seed;
       this.state.chatOpen = false;
@@ -574,12 +688,12 @@ export class GameApp {
       this.deps.player.resetFromSnapshot(joined.clientPlayer);
 
       const initialCoords =
-        this.deps.clientWorldRuntime.getChunkCoordsAroundPosition(
+        worldRuntime.getChunkCoordsAroundPosition(
           joined.clientPlayer.state.position,
           this.state.clientSettings.renderDistance,
         );
-      await this.deps.clientWorldRuntime.requestMissingChunks(initialCoords);
-      await this.deps.clientWorldRuntime.waitForChunks(initialCoords);
+      await worldRuntime.requestMissingChunks(initialCoords);
+      await worldRuntime.waitForChunks(initialCoords);
 
       this.state.appMode = "playing";
       this.syncCursorMode();
@@ -600,6 +714,69 @@ export class GameApp {
     }
   }
 
+  private async joinServer(serverId: string): Promise<void> {
+    const server = this.state.menuState.servers.find((entry) => entry.id === serverId);
+    if (!server) {
+      this.state.menuState = setMenuStatus(
+        this.state.menuState,
+        "SELECT A SERVER TO JOIN",
+      );
+      return;
+    }
+
+    this.state.menuState = setMenuBusy(
+      this.state.menuState,
+      true,
+      `CONNECTING TO ${server.name.toUpperCase()}...`,
+    );
+
+    try {
+      await this.connectRemoteClient(server.address);
+      const worldRuntime = this.getWorldRuntime();
+      const joined = await this.getClientAdapter().eventBus.send({
+        type: "joinServer",
+        payload: {
+          playerName: this.deps.playerName,
+        },
+      });
+
+      worldRuntime.reset();
+      worldRuntime.applyJoinedWorld(joined);
+      this.state.currentWorldName = joined.world.name;
+      this.state.currentWorldSeed = joined.world.seed;
+      this.state.chatOpen = false;
+      this.state.chatDraft = "";
+      this.state.inventoryOpen = false;
+      this.state.pauseScreen = "closed";
+      this.deps.player.resetFromSnapshot(joined.clientPlayer);
+
+      const initialCoords = worldRuntime.getChunkCoordsAroundPosition(
+        joined.clientPlayer.state.position,
+        this.state.clientSettings.renderDistance,
+      );
+      await worldRuntime.requestMissingChunks(initialCoords);
+      await worldRuntime.waitForChunks(initialCoords);
+
+      this.state.appMode = "playing";
+      this.syncCursorMode();
+      this.state.accumulator = 0;
+      this.state.lastServerMessage = `CONNECTED TO ${server.name.toUpperCase()}`;
+      this.state.menuState = setMenuBusy(
+        setMenuStatus(this.state.menuState, `JOINED ${server.name}`),
+        false,
+      );
+    } catch (error) {
+      this.disconnectClient();
+      this.state.menuState = setMenuBusy(
+        setMenuStatus(
+          this.state.menuState,
+          `FAILED TO CONNECT: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+        false,
+      );
+    }
+  }
+
   private async createWorld(): Promise<void> {
     const worldName =
       this.state.menuState.createWorldName.trim() ||
@@ -613,7 +790,7 @@ export class GameApp {
 
     try {
       const seed = parseSeedInput(this.state.menuState.createSeedText);
-      const response = await this.deps.clientAdapter.eventBus.send({
+      const response = await this.getClientAdapter().eventBus.send({
         type: "createWorld",
         payload: {
           name: worldName,
@@ -648,6 +825,70 @@ export class GameApp {
     }
   }
 
+  private async saveServer(): Promise<void> {
+    const name = this.state.menuState.addServerName.trim();
+    const address = this.state.menuState.addServerAddress.trim();
+
+    if (!isValidSavedServerName(name)) {
+      this.state.menuState = setMenuStatus(this.state.menuState, "ENTER A SERVER NAME");
+      return;
+    }
+
+    if (!isValidSavedServerAddress(address)) {
+      this.state.menuState = setMenuStatus(this.state.menuState, "ENTER A SERVER ADDRESS");
+      return;
+    }
+
+    this.state.menuState = setMenuBusy(this.state.menuState, true, "SAVING SERVER...");
+
+    try {
+      const servers = await this.deps.savedServerStorage.ensureServer(name, address);
+      const saved = servers.find((server) => server.address === address) ?? null;
+      this.state.menuState = setMenuServers({
+        ...this.state.menuState,
+        activeScreen: "multiplayer",
+        busy: false,
+        selectedServerId: saved?.id ?? this.state.menuState.selectedServerId,
+        addServerName: "",
+        addServerAddress: "",
+        focusedField: null,
+        statusText: `SAVED ${name.toUpperCase()}`,
+      }, servers);
+    } catch (error) {
+      this.state.menuState = setMenuBusy(
+        setMenuStatus(
+          this.state.menuState,
+          `FAILED TO SAVE SERVER: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+        false,
+      );
+    }
+  }
+
+  private async deleteServer(serverId: string): Promise<void> {
+    this.state.menuState = setMenuBusy(this.state.menuState, true, "DELETING SERVER...");
+
+    try {
+      const servers = await this.deps.savedServerStorage.deleteServer(serverId);
+      this.state.menuState = setMenuServers(
+        {
+          ...this.state.menuState,
+          busy: false,
+          statusText: "DELETED SERVER",
+        },
+        servers,
+      );
+    } catch (error) {
+      this.state.menuState = setMenuBusy(
+        setMenuStatus(
+          this.state.menuState,
+          `FAILED TO DELETE SERVER: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+        false,
+      );
+    }
+  }
+
   private async deleteWorld(): Promise<void> {
     if (!this.state.menuState.selectedWorldName) {
       this.state.menuState = setMenuStatus(
@@ -665,7 +906,7 @@ export class GameApp {
     );
 
     try {
-      await this.deps.clientAdapter.eventBus.send({
+      await this.getClientAdapter().eventBus.send({
         type: "deleteWorld",
         payload: { name: worldName },
       });
@@ -682,12 +923,12 @@ export class GameApp {
   }
 
   private async saveCurrentWorld(): Promise<void> {
-    if (!this.state.currentWorldName) {
+    if (!this.state.currentWorldName || !this.clientAdapter) {
       return;
     }
 
     try {
-      await this.deps.clientAdapter.eventBus.send({
+      await this.getClientAdapter().eventBus.send({
         type: "saveWorld",
         payload: {},
       });
@@ -700,12 +941,15 @@ export class GameApp {
     input: ReturnType<NativeBridge["pollInput"]>,
     deltaSeconds: number,
   ): void {
+    const adapter = this.getClientAdapter();
+    const worldRuntime = this.getWorldRuntime();
+
     if (isGameplaySuppressed(this.state)) {
       return;
     }
 
     if (input.hotbarSelection !== null) {
-      this.deps.clientAdapter.eventBus.send({
+      adapter.eventBus.send({
         type: "selectInventorySlot",
         payload: {
           slot: input.hotbarSelection,
@@ -713,23 +957,23 @@ export class GameApp {
       });
     }
 
-    void this.deps.clientWorldRuntime.requestChunksAroundPosition(
+    void worldRuntime.requestChunksAroundPosition(
       this.deps.player.state.position,
       this.state.clientSettings.renderDistance,
     );
     this.deps.player.update(
       input,
       deltaSeconds,
-      this.deps.clientWorldRuntime.world,
+      worldRuntime.world,
     );
-    const localPlayer = this.deps.clientWorldRuntime.createLocalPlayerSnapshot(
+    const localPlayer = worldRuntime.createLocalPlayerSnapshot(
       this.deps.player.state,
       this.deps.player.gamemode,
       this.deps.player.flying,
     );
     if (localPlayer) {
-      this.deps.clientWorldRuntime.applyPlayer(localPlayer);
-      this.deps.clientAdapter.eventBus.send({
+      worldRuntime.applyPlayer(localPlayer);
+      adapter.eventBus.send({
         type: "updatePlayerState",
         payload: {
           state: {
@@ -743,14 +987,14 @@ export class GameApp {
     }
 
     const hit = raycastVoxel(
-      this.deps.clientWorldRuntime.world,
+      worldRuntime.world,
       this.deps.player.getEyePositionVec3(),
       this.deps.player.getForwardVector(),
       8,
     );
 
     if (hit && input.breakBlock && !this.state.previousPrimaryDown) {
-      this.deps.clientAdapter.eventBus.send({
+      adapter.eventBus.send({
         type: "mutateBlock",
         payload: {
           x: hit.hit.x,
@@ -763,14 +1007,14 @@ export class GameApp {
 
     if (hit && input.placeBlock && !this.state.previousSecondaryDown) {
       const selectedSlot = getSelectedInventorySlot(
-        this.deps.clientWorldRuntime.inventory,
+        worldRuntime.inventory,
       );
       if (selectedSlot.count <= 0) {
         this.state.lastServerMessage = `OUT OF ${Blocks[selectedSlot.blockId].name.toUpperCase()}`;
         return;
       }
 
-      this.deps.clientAdapter.eventBus.send({
+      adapter.eventBus.send({
         type: "mutateBlock",
         payload: {
           x: hit.place.x,
@@ -875,7 +1119,7 @@ export class GameApp {
       return;
     }
 
-    this.deps.clientAdapter.eventBus.send({
+    this.getClientAdapter().eventBus.send({
       type: "interactInventorySlot",
       payload: {
         section,
@@ -935,7 +1179,8 @@ export class GameApp {
     this.state.chatDraft = "";
     this.state.inventoryOpen = false;
     this.state.pauseScreen = "closed";
-    this.deps.clientWorldRuntime.reset();
+    this.getWorldRuntime().reset();
+    this.disconnectClient();
     this.state.menuState = {
       ...this.state.menuState,
       activeScreen: "play",
@@ -963,7 +1208,7 @@ export class GameApp {
       return;
     }
 
-    this.deps.clientAdapter.eventBus.send({
+    this.getClientAdapter().eventBus.send({
       type: "submitChat",
       payload: { text },
     });
@@ -1052,15 +1297,16 @@ export class GameApp {
     overlayText: readonly TextDrawCommand[],
     uiComponents: readonly UiResolvedComponent[],
   ): void {
+    const worldRuntime = this.clientWorldRuntime;
     this.deps.nativeBridge.beginFrame();
     this.deps.renderer.render(
-      this.deps.clientWorldRuntime.world,
+      worldRuntime?.world ?? new VoxelWorld(),
       this.deps.player,
       this.state.clientSettings.renderDistance,
       framebufferWidth,
       framebufferHeight,
       focusedBlock,
-      [...this.deps.clientWorldRuntime.droppedItems.values()],
+      worldRuntime ? [...worldRuntime.droppedItems.values()] : [],
       overlayText,
       uiComponents,
       windowWidth,
@@ -1074,6 +1320,7 @@ export const createDefaultGameApp = (options: {
   playerName: PlayerName;
   clientSettings: ClientSettings;
   clientSettingsStorage: JsonClientSettingsStorage;
+  savedServerStorage: JsonSavedServerStorage;
 }): GameApp => {
   const menuSeed = (Date.now() ^ 0x5f3759df) >>> 0;
   const nativeBridge = new NativeBridge();
@@ -1084,20 +1331,17 @@ export const createDefaultGameApp = (options: {
   });
   nativeBridge.setCursorDisabled(false);
 
-  const clientAdapter = new WorkerClientAdapter();
-  const clientWorldRuntime = new ClientWorldRuntime(clientAdapter);
   const player = new PlayerController();
   const renderer = new VoxelRenderer(nativeBridge);
 
   return new GameApp({
     nativeBridge,
-    clientAdapter,
-    clientWorldRuntime,
     player,
     renderer,
     menuSeed,
     playerName: options.playerName,
     clientSettings: options.clientSettings,
     clientSettingsStorage: options.clientSettingsStorage,
+    savedServerStorage: options.savedServerStorage,
   });
 };

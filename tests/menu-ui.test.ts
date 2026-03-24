@@ -9,8 +9,14 @@ const createViewModel = (overrides: Partial<Parameters<typeof buildMainMenu>[2]>
     { name: "Bravo", seed: 456, createdAt: 0, updatedAt: 0 },
   ],
   selectedWorldName: null,
+  servers: [
+    { id: "server-1", name: "Local Server", address: "127.0.0.1:3210", createdAt: 0, updatedAt: 0 },
+  ],
+  selectedServerId: null,
   createWorldName: "",
   createSeedText: "",
+  addServerName: "",
+  addServerAddress: "",
   focusedField: null,
   statusText: "READY",
   busy: false,
@@ -27,10 +33,53 @@ test("play screen centers on play and quit actions", () => {
   const actions = getButtonActions(buildMainMenu(1280, 720, createViewModel({ activeScreen: "play" })));
 
   expect(actions).toContain("open-worlds");
+  expect(actions).toContain("open-multiplayer");
   expect(actions).toContain("open-settings");
   expect(actions).toContain("quit-game");
   expect(actions).not.toContain("create-world");
   expect(actions).not.toContain("join-world");
+});
+
+test("multiplayer screen exposes saved-server actions", () => {
+  const actions = getButtonActions(
+    buildMainMenu(
+      1280,
+      720,
+      createViewModel({
+        activeScreen: "multiplayer",
+        selectedServerId: "server-1",
+      }),
+    ),
+  );
+
+  expect(actions).toContain("join-server");
+  expect(actions).toContain("open-add-server");
+  expect(actions).toContain("back-to-play");
+  expect(actions).toContain("select-server:server-1");
+  expect(actions).toContain("delete-server:server-1");
+});
+
+test("add server screen exposes name, address, save, and cancel actions", () => {
+  const components = buildMainMenu(
+    1280,
+    720,
+    createViewModel({
+      activeScreen: "add-server",
+      addServerName: "Local Server",
+      focusedField: "server-name",
+    }),
+  );
+  const actions = getButtonActions(components);
+
+  expect(actions).toContain("focus-server-name");
+  expect(actions).toContain("focus-server-address");
+  expect(actions).toContain("save-server");
+  expect(actions).toContain("back-to-multiplayer");
+
+  const labels = components
+    .filter((component) => component.kind === "button")
+    .map((component) => component.text);
+  expect(labels.some((text) => text.includes("NAME: Local Server_"))).toBe(true);
 });
 
 test("worlds screen exposes world selection and create world navigation", () => {

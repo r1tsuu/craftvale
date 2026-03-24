@@ -1,6 +1,6 @@
 # Minecraft Clone
 
-A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing and OpenGL rendering. Bun/TypeScript handles the client/server runtime split, world generation, meshing, player/controller logic, persistence, menu UI, and HUD.
+A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing and OpenGL rendering. Bun/TypeScript handles the client/server runtime split, world generation, meshing, player/controller logic, persistence, menu UI, HUD, and both local and WebSocket-backed multiplayer transport.
 
 ## Current Features
 
@@ -14,7 +14,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Jump, gravity, and voxel collision
 - Centered in-game crosshair
 - Focused block highlight
-- Server-authoritative block breaking and placing through a worker-backed client/server architecture
+- Server-authoritative block breaking and placing through local worker transport or dedicated WebSocket server transport
 - Stable per-client player names with local profile persistence and optional `--player-name` override
 - Player-aware authoritative sessions with per-player position, rotation, and inventory state
 - World-level server entity state with shared entity ids for authoritative actors
@@ -27,6 +27,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Server-authoritative full inventory with a 9-slot hotbar, main storage grid, stack movement, and per-player persistence
 - Nine placeable hotbar block types including terrain, wood, and masonry-style blocks
 - Create, join, delete, and save worlds from the menu
+- Multiplayer server browser with saved servers, add/delete controls, and direct join flow
 - Pre-game menu with reusable UI components and clickable buttons
 - Seeded Minecraft-like menu background
 - On-screen HUD text for FPS, position, rotation, world name, and status
@@ -43,6 +44,8 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 
 - `bun run build:native` builds `native/libvoxel_bridge.dylib`
 - `bun run dev` builds the native bridge and starts the app
+- `bun run dev:server` starts the dedicated WebSocket server only
+- `bun run dev:full` starts the dedicated server and the desktop client together, and prefills the saved server list with the local server
 - `bun run typecheck` runs TypeScript checks
 - `bun test` runs the automated tests
 - Launch options: `--player-name=<name>` or `--player-name <name>` overrides the local player name for that run
@@ -75,8 +78,8 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 
 ## Project Layout
 
-- `src/client` client runtime and worker client adapter
-- `src/server` authoritative world runtime, world-level entity state, player system, dropped item system, and binary world storage
+- `src/client` client runtime, worker client adapter, WebSocket client adapter, and saved-server persistence
+- `src/server` authoritative world runtime, world-level entity state, player system, dropped item system, dedicated WebSocket server, and binary world storage
 - `src/shared` typed message schemas, transport, and event-bus plumbing
 - `src/platform` native bridge loading and GL bindings
 - `src/render` voxel rendering, text, UI rectangles, and highlight rendering
@@ -98,11 +101,12 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 
 ## Notes
 
-- World generation starts after a world is created or joined.
+- Local singleplayer worlds are created from the menu. A dedicated multiplayer server creates or loads exactly one world when it starts.
 - Biomes, terrain, and trees are all derived deterministically from the world seed.
-- World state is worker/server-authoritative even in the current single-player setup.
+- World state is authoritative on the server side in both local worker mode and dedicated WebSocket mode.
 - `AuthoritativeWorld` owns chunk/world authority while `PlayerSystem` mutates player components inside shared world-owned entity state.
 - Broken collectible blocks spawn dropped item actors in that same world-owned entity space, and players pick them up through a server-authoritative proximity check.
+- Dedicated servers expose one generated world only; clients do not browse remote world lists.
 - Player identity is stored separately from world saves in `data/client/player-profile.json`.
 - Player gamemode persists per player/world; chat history is session-only in this first pass.
 - The menu background is seeded and stable for a given run.
