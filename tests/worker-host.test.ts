@@ -2,9 +2,17 @@ import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ServerToClientMessage } from "../src/shared/messages.ts";
+import type { LoadingProgressPayload, ServerToClientMessage } from "../src/shared/messages.ts";
 import { WorkerServerHost, type WorkerInboundMessage } from "../src/server/worker-host.ts";
 import { BinaryWorldStorage } from "../src/server/world-storage.ts";
+
+const isLoadingProgressEvent = (
+  message: ServerToClientMessage,
+): message is {
+  kind: "event";
+  type: "loadingProgress";
+  payload: LoadingProgressPayload;
+} => message.kind === "event" && message.type === "loadingProgress";
 
 const createScope = () => {
   const messages: ServerToClientMessage[] = [];
@@ -64,10 +72,7 @@ test("worker host initializes once and dispatches requests through owned instanc
     });
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const sawReadyEvent = messages.some(
-        (message) =>
-          message.kind === "event" &&
-          message.type === "loadingProgress" &&
-          message.payload.stage === "ready",
+        (message) => isLoadingProgressEvent(message) && message.payload.stage === "ready",
       );
       const sawJoinResponse = messages.some(
         (message) =>
@@ -83,7 +88,7 @@ test("worker host initializes once and dispatches requests through owned instanc
     }
 
     const loadingProgressEvents = messages.filter(
-      (message) => message.kind === "event" && message.type === "loadingProgress",
+      isLoadingProgressEvent,
     );
     const joinedWorldEvent = messages.find(
       (message) => message.kind === "event" && message.type === "joinedWorld",
@@ -103,10 +108,7 @@ test("worker host initializes once and dispatches requests through owned instanc
     });
     expect(
       loadingProgressEvents.some(
-        (message) =>
-          message.kind === "event" &&
-          message.type === "loadingProgress" &&
-          message.payload.stage === "ready",
+        (message) => message.payload.stage === "ready",
       ),
     ).toBe(true);
     expect(joinedWorldEvent).toEqual({
