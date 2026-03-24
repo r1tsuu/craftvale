@@ -121,11 +121,22 @@ This local world is used for:
 `AuthoritativeWorld` owns the real gameplay state for one active world session:
 
 - authoritative chunks
+- world-level entity state and shared entity id space
 - dirty/save tracking
-- authoritative player registry keyed by player name
 - spawn computation
 - block mutation rules
 - command parsing for chat-driven server gameplay commands
+
+`PlayerSystem` operates within that world-owned entity state:
+
+- allocates and restores player entities from the shared world registry
+- owns player-specific component mutation and snapshot assembly
+- persists per-player position/rotation, gamemode, and inventory state
+
+Chunks still are not entities:
+
+- chunk data remains coordinate-addressed world resources
+- world generation, chunk persistence, and chunk resend decisions stay in `AuthoritativeWorld`
 
 The server is responsible for:
 

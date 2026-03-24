@@ -16,37 +16,8 @@ import {
   removeFromSelectedInventorySlot,
   setSelectedInventorySlot,
 } from "../world/inventory.ts";
-import { ComponentStore, EntityRegistry } from "./entity-system.ts";
 import type { WorldStorage } from "./world-storage.ts";
-
-interface PlayerIdentityComponent {
-  playerName: PlayerName;
-}
-
-interface TransformComponent {
-  state: PlayerState;
-}
-
-interface PlayerModeComponent {
-  gamemode: PlayerGamemode;
-}
-
-interface MovementStateComponent {
-  flying: boolean;
-}
-
-interface InventoryComponent {
-  inventory: InventorySnapshot;
-}
-
-interface SessionPresenceComponent {
-  active: boolean;
-}
-
-interface PersistenceComponent {
-  saveDirty: boolean;
-  persisted: boolean;
-}
+import { type WorldEntityState } from "./world-entity-state.ts";
 
 export interface JoinedPlayerState {
   clientPlayer: PlayerSnapshot;
@@ -83,30 +54,23 @@ const inventoriesEqual = (left: InventorySnapshot, right: InventorySnapshot): bo
   JSON.stringify(left) === JSON.stringify(right);
 
 export class PlayerSystem {
-  private readonly entityRegistry = new EntityRegistry();
   private readonly playerEntitiesByName = new Map<PlayerName, EntityId>();
-  private readonly playerIdentity = new ComponentStore<PlayerIdentityComponent>();
-  private readonly playerTransform = new ComponentStore<TransformComponent>();
-  private readonly playerMode = new ComponentStore<PlayerModeComponent>();
-  private readonly playerMovement = new ComponentStore<MovementStateComponent>();
-  private readonly playerInventory = new ComponentStore<InventoryComponent>();
-  private readonly playerSession = new ComponentStore<SessionPresenceComponent>();
-  private readonly playerPersistence = new ComponentStore<PersistenceComponent>();
 
   public constructor(
     private readonly worldName: string,
     private readonly storage: WorldStorage,
     private readonly spawnPosition: readonly [number, number, number],
+    private readonly entities: WorldEntityState,
   ) {}
 
   public getPlayerName(entityId: EntityId): PlayerName | null {
-    return this.playerIdentity.get(entityId)?.playerName ?? null;
+    return this.entities.playerIdentity.get(entityId)?.playerName ?? null;
   }
 
   public async joinPlayer(playerName: PlayerName): Promise<JoinedPlayerState> {
     const entityId = await this.ensurePlayerEntityLoaded(playerName);
-    const session = this.requireComponent(this.playerSession, entityId, "player session");
-    this.playerSession.set(entityId, {
+    const session = this.requireComponent(this.entities.playerSession, entityId, "player session");
+    this.entities.playerSession.set(entityId, {
       ...session,
       active: true,
     });
@@ -119,16 +83,16 @@ export class PlayerSystem {
   }
 
   public async leavePlayer(entityId: EntityId): Promise<PlayerSnapshot | null> {
-    if (!this.entityRegistry.has(entityId) || !this.playerIdentity.get(entityId)) {
+    if (!this.entities.hasPlayerEntity(entityId)) {
       return null;
     }
 
-    const session = this.requireComponent(this.playerSession, entityId, "player session");
+    const session = this.requireComponent(this.entities.playerSession, entityId, "player session");
     if (!session.active) {
       return this.getPlayerSnapshot(entityId);
     }
 
-    this.playerSession.set(entityId, {
+    this.entities.playerSession.set(entityId, {
       ...session,
       active: false,
     });
@@ -140,21 +104,21 @@ export class PlayerSystem {
     state: PlayerState,
     flying: boolean,
   ): Promise<PlayerSnapshot> {
-    const transform = this.requireComponent(this.playerTransform, entityId, "player transform");
-    const mode = this.requireComponent(this.playerMode, entityId, "player mode");
-    const movement = this.requireComponent(this.playerMovement, entityId, "player movement");
-    const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
+    const transform = this.requireComponent(this.entities.playerTransform, entityId, "player transform");
+    const mode = this.requireComponent(this.entities.playerMode, entityId, "player mode");
+    const movement = this.requireComponent(this.entities.playerMovement, entityId, "player movement");
+    const persistence = this.requireComponent(this.entities.playerPersistence, entityId, "player persistence");
     const nextState = this.clonePlayerState(state);
     const nextFlying = mode.gamemode === 1 ? flying : false;
 
     if (!playerStatesEqual(transform.state, nextState) || movement.flying !== nextFlying) {
-      this.playerTransform.set(entityId, {
+      this.entities.playerTransform.set(entityId, {
         state: nextState,
       });
-      this.playerMovement.set(entityId, {
+      this.entities.playerMovement.set(entityId, {
         flying: nextFlying,
       });
-      this.playerPersistence.set(entityId, {
+      this.entities.playerPersistence.set(entityId, {
         ...persistence,
         saveDirty: true,
       });
@@ -167,15 +131,15 @@ export class PlayerSystem {
     entityId: EntityId,
     gamemode: PlayerGamemode,
   ): Promise<PlayerSnapshot> {
-    const mode = this.requireComponent(this.playerMode, entityId, "player mode");
-    const movement = this.requireComponent(this.playerMovement, entityId, "player movement");
-    const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
+    const mode = this.requireComponent(this.entities.playerMode, entityId, "player mode");
+    const movement = this.requireComponent(this.entities.playerMovement, entityId, "player movement");
+    const persistence = this.requireComponent(this.entities.playerPersistence, entityId, "player persistence");
     const nextFlying = gamemode === 1 ? movement.flying : false;
 
     if (mode.gamemode !== gamemode || movement.flying !== nextFlying) {
-      this.playerMode.set(entityId, { gamemode });
-      this.playerMovement.set(entityId, { flying: nextFlying });
-      this.playerPersistence.set(entityId, {
+      this.entities.playerMode.set(entityId, { gamemode });
+      this.entities.playerMovement.set(entityId, { flying: nextFlying });
+      this.entities.playerPersistence.set(entityId, {
         ...persistence,
         saveDirty: true,
       });
@@ -185,11 +149,11 @@ export class PlayerSystem {
   }
 
   public getPlayerSnapshot(entityId: EntityId): PlayerSnapshot {
-    const identity = this.requireComponent(this.playerIdentity, entityId, "player identity");
-    const transform = this.requireComponent(this.playerTransform, entityId, "player transform");
-    const mode = this.requireComponent(this.playerMode, entityId, "player mode");
-    const movement = this.requireComponent(this.playerMovement, entityId, "player movement");
-    const session = this.requireComponent(this.playerSession, entityId, "player session");
+    const identity = this.requireComponent(this.entities.playerIdentity, entityId, "player identity");
+    const transform = this.requireComponent(this.entities.playerTransform, entityId, "player transform");
+    const mode = this.requireComponent(this.entities.playerMode, entityId, "player mode");
+    const movement = this.requireComponent(this.entities.playerMovement, entityId, "player movement");
+    const session = this.requireComponent(this.entities.playerSession, entityId, "player session");
 
     return {
       entityId,
@@ -203,18 +167,18 @@ export class PlayerSystem {
 
   public getInventorySnapshot(entityId: EntityId): InventorySnapshot {
     return this.cloneInventory(
-      this.requireComponent(this.playerInventory, entityId, "player inventory").inventory,
+      this.requireComponent(this.entities.playerInventory, entityId, "player inventory").inventory,
     );
   }
 
   public async selectInventorySlot(entityId: EntityId, slot: number): Promise<InventorySnapshot> {
-    const inventory = this.requireComponent(this.playerInventory, entityId, "player inventory");
-    const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
+    const inventory = this.requireComponent(this.entities.playerInventory, entityId, "player inventory");
+    const persistence = this.requireComponent(this.entities.playerPersistence, entityId, "player persistence");
     const next = setSelectedInventorySlot(inventory.inventory, slot);
 
     if (next.selectedSlot !== inventory.inventory.selectedSlot) {
-      this.playerInventory.set(entityId, { inventory: next });
-      this.playerPersistence.set(entityId, {
+      this.entities.playerInventory.set(entityId, { inventory: next });
+      this.entities.playerPersistence.set(entityId, {
         ...persistence,
         saveDirty: true,
       });
@@ -229,13 +193,13 @@ export class PlayerSystem {
     section: "hotbar" | "main",
     slot: number,
   ): Promise<InventorySnapshot> {
-    const inventory = this.requireComponent(this.playerInventory, entityId, "player inventory");
-    const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
+    const inventory = this.requireComponent(this.entities.playerInventory, entityId, "player inventory");
+    const persistence = this.requireComponent(this.entities.playerPersistence, entityId, "player persistence");
     const next = interactInventorySlot(inventory.inventory, section, slot);
 
     if (!inventoriesEqual(next, inventory.inventory)) {
-      this.playerInventory.set(entityId, { inventory: next });
-      this.playerPersistence.set(entityId, {
+      this.entities.playerInventory.set(entityId, { inventory: next });
+      this.entities.playerPersistence.set(entityId, {
         ...persistence,
         saveDirty: true,
       });
@@ -250,13 +214,13 @@ export class PlayerSystem {
     blockId: BlockId,
     count: number,
   ): AddedInventoryItemResult {
-    const inventory = this.requireComponent(this.playerInventory, entityId, "player inventory");
-    const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
+    const inventory = this.requireComponent(this.entities.playerInventory, entityId, "player inventory");
+    const persistence = this.requireComponent(this.entities.playerPersistence, entityId, "player persistence");
     const added = addInventoryItem(inventory.inventory, blockId, count);
 
     if (added.added > 0) {
-      this.playerInventory.set(entityId, { inventory: added.inventory });
-      this.playerPersistence.set(entityId, {
+      this.entities.playerInventory.set(entityId, { inventory: added.inventory });
+      this.entities.playerPersistence.set(entityId, {
         ...persistence,
         saveDirty: true,
       });
@@ -281,8 +245,8 @@ export class PlayerSystem {
     expectedBlockId: BlockId,
     count: number,
   ): RemovedSelectedInventoryItemResult {
-    const inventory = this.requireComponent(this.playerInventory, entityId, "player inventory");
-    const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
+    const inventory = this.requireComponent(this.entities.playerInventory, entityId, "player inventory");
+    const persistence = this.requireComponent(this.entities.playerPersistence, entityId, "player persistence");
     const selectedSlot = getSelectedInventorySlot(inventory.inventory);
     if (selectedSlot.blockId !== expectedBlockId || selectedSlot.count < count) {
       return {
@@ -293,8 +257,8 @@ export class PlayerSystem {
     }
 
     const next = removeFromSelectedInventorySlot(inventory.inventory, count);
-    this.playerInventory.set(entityId, { inventory: next });
-    this.playerPersistence.set(entityId, {
+    this.entities.playerInventory.set(entityId, { inventory: next });
+    this.entities.playerPersistence.set(entityId, {
       ...persistence,
       saveDirty: true,
     });
@@ -307,13 +271,13 @@ export class PlayerSystem {
 
   public getSelectedInventorySlot(entityId: EntityId) {
     return getSelectedInventorySlot(
-      this.requireComponent(this.playerInventory, entityId, "player inventory").inventory,
+      this.requireComponent(this.entities.playerInventory, entityId, "player inventory").inventory,
     );
   }
 
   public async save(): Promise<void> {
     for (const [playerName, entityId] of this.playerEntitiesByName) {
-      const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
+      const persistence = this.requireComponent(this.entities.playerPersistence, entityId, "player persistence");
       if (!persistence.saveDirty) {
         continue;
       }
@@ -322,7 +286,7 @@ export class PlayerSystem {
         snapshot: this.getPlayerSnapshot(entityId),
         inventory: this.getInventorySnapshot(entityId),
       });
-      this.playerPersistence.set(entityId, {
+      this.entities.playerPersistence.set(entityId, {
         saveDirty: false,
         persisted: true,
       });
@@ -339,54 +303,54 @@ export class PlayerSystem {
     const persisted = await this.storage.loadPlayer(this.worldName, playerName);
     if (persisted) {
       const { entityId } = persisted.snapshot;
-      if (this.entityRegistry.has(entityId)) {
+      if (this.entities.registry.has(entityId)) {
         throw new Error(`Duplicate player entity id "${entityId}" in world "${this.worldName}".`);
       }
 
-      this.entityRegistry.registerExistingEntity(entityId);
+      this.entities.registry.registerExistingEntity(entityId);
       this.playerEntitiesByName.set(playerName, entityId);
-      this.playerIdentity.set(entityId, { playerName });
-      this.playerTransform.set(entityId, {
+      this.entities.playerIdentity.set(entityId, { playerName });
+      this.entities.playerTransform.set(entityId, {
         state: this.clonePlayerState(persisted.snapshot.state),
       });
-      this.playerMode.set(entityId, {
+      this.entities.playerMode.set(entityId, {
         gamemode: persisted.snapshot.gamemode,
       });
-      this.playerMovement.set(entityId, {
+      this.entities.playerMovement.set(entityId, {
         flying: persisted.snapshot.flying,
       });
-      this.playerInventory.set(entityId, {
+      this.entities.playerInventory.set(entityId, {
         inventory: normalizeInventorySnapshot(persisted.inventory),
       });
-      this.playerSession.set(entityId, { active: false });
-      this.playerPersistence.set(entityId, {
+      this.entities.playerSession.set(entityId, { active: false });
+      this.entities.playerPersistence.set(entityId, {
         saveDirty: false,
         persisted: true,
       });
       return entityId;
     }
 
-    const entityId = this.entityRegistry.createEntity("player");
+    const entityId = this.entities.registry.createEntity("player");
     this.playerEntitiesByName.set(playerName, entityId);
-    this.playerIdentity.set(entityId, { playerName });
-    this.playerTransform.set(entityId, {
+    this.entities.playerIdentity.set(entityId, { playerName });
+    this.entities.playerTransform.set(entityId, {
       state: {
         position: [...this.spawnPosition],
         yaw: DEFAULT_PLAYER_YAW,
         pitch: DEFAULT_PLAYER_PITCH,
       },
     });
-    this.playerMode.set(entityId, {
+    this.entities.playerMode.set(entityId, {
       gamemode: DEFAULT_PLAYER_GAMEMODE,
     });
-    this.playerMovement.set(entityId, {
+    this.entities.playerMovement.set(entityId, {
       flying: false,
     });
-    this.playerInventory.set(entityId, {
+    this.entities.playerInventory.set(entityId, {
       inventory: createDefaultInventory(),
     });
-    this.playerSession.set(entityId, { active: false });
-    this.playerPersistence.set(entityId, {
+    this.entities.playerSession.set(entityId, { active: false });
+    this.entities.playerPersistence.set(entityId, {
       saveDirty: true,
       persisted: false,
     });
@@ -397,7 +361,7 @@ export class PlayerSystem {
     const snapshots: PlayerSnapshot[] = [];
 
     for (const entityId of this.playerEntitiesByName.values()) {
-      const session = this.requireComponent(this.playerSession, entityId, "player session");
+      const session = this.requireComponent(this.entities.playerSession, entityId, "player session");
       if (!session.active || entityId === excludeEntityId) {
         continue;
       }
@@ -421,11 +385,7 @@ export class PlayerSystem {
     };
   }
 
-  private requireComponent<T>(
-    store: ComponentStore<T>,
-    entityId: EntityId,
-    label: string,
-  ): T {
+  private requireComponent<T>(store: { require(entityId: EntityId, label: string): T }, entityId: EntityId, label: string): T {
     return store.require(entityId, label);
   }
 }

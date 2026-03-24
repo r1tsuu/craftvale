@@ -18,6 +18,7 @@ import { CHUNK_SIZE, WORLD_LAYER_CHUNKS_Y } from "../world/constants.ts";
 import { createGeneratedChunk, getTerrainHeight } from "../world/terrain.ts";
 import { worldToChunkCoord } from "../world/world.ts";
 import { PlayerSystem } from "./player-system.ts";
+import { WorldEntityState } from "./world-entity-state.ts";
 import type { WorldStorage } from "./world-storage.ts";
 
 interface ServerChunkEntry {
@@ -36,13 +37,19 @@ const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
 
 export class AuthoritativeWorld {
   private readonly chunks = new Map<string, ServerChunkEntry>();
+  private readonly entityState = new WorldEntityState();
   private readonly playerSystem: PlayerSystem;
 
   public constructor(
     private world: WorldSummary,
     private readonly storage: WorldStorage,
   ) {
-    this.playerSystem = new PlayerSystem(this.world.name, this.storage, this.spawnPosition);
+    this.playerSystem = new PlayerSystem(
+      this.world.name,
+      this.storage,
+      this.spawnPosition,
+      this.entityState,
+    );
   }
 
   public get summary(): WorldSummary {
