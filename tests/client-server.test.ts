@@ -51,6 +51,15 @@ const createHarness = async (): Promise<{
       worldRuntime.applyInventory(inventory);
     }
   });
+  client.eventBus.on("droppedItemSpawned", ({ item }) => {
+    worldRuntime.applyDroppedItem(item);
+  });
+  client.eventBus.on("droppedItemUpdated", ({ item }) => {
+    worldRuntime.applyDroppedItem(item);
+  });
+  client.eventBus.on("droppedItemRemoved", ({ entityId }) => {
+    worldRuntime.removeDroppedItem(entityId);
+  });
   client.eventBus.on("playerJoined", ({ player }) => {
     worldRuntime.applyPlayer(player);
   });
@@ -144,6 +153,8 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     expect(harness.worldRuntime.clientPlayerEntityId).toBe(joined.clientPlayer.entityId);
     expect(harness.worldRuntime.getClientPlayer()?.name).toBe(PLAYER_NAME);
     expect(harness.worldRuntime.getClientPlayer()?.entityId).toBe(joined.clientPlayer.entityId);
+    expect(joined.droppedItems).toEqual([]);
+    expect(harness.worldRuntime.droppedItems.size).toBe(0);
     expect(harness.worldRuntime.inventory.selectedSlot).toBe(0);
     expect(
       harness.worldRuntime.inventory.hotbar.every(
@@ -196,8 +207,36 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
 
     expect(changedChunkReceived).toBe(true);
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(0);
+    expect(
+      harness.worldRuntime.inventory.main.every(
+        (slot) => slot.blockId === 0 && slot.count === 0,
+      ),
+    ).toBe(true);
+    expect(harness.worldRuntime.droppedItems.size).toBe(1);
+
+    await Bun.sleep(300);
+    const droppedItem = [...harness.worldRuntime.droppedItems.values()][0];
+    expect(droppedItem).toBeDefined();
+    harness.client.eventBus.send({
+      type: "updatePlayerState",
+      payload: {
+        state: {
+          position: [
+            droppedItem!.position[0],
+            Math.max(droppedItem!.position[1] - 0.9, 0),
+            droppedItem!.position[2],
+          ],
+          yaw: 0.5,
+          pitch: -0.2,
+        },
+        flying: false,
+      },
+    });
+    await Bun.sleep(0);
+
     const collectedSlot = harness.worldRuntime.inventory.main.find((slot) => slot.blockId === targetBlockId);
     expect(collectedSlot?.count).toBe(1);
+    expect(harness.worldRuntime.droppedItems.size).toBe(0);
 
     const collectedSlotIndex = harness.worldRuntime.inventory.hotbar.findIndex(
       (slot) => slot.blockId === targetBlockId,

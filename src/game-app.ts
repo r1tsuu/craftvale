@@ -389,6 +389,15 @@ export class GameApp {
           }
         },
       ),
+      this.deps.clientAdapter.eventBus.on("droppedItemSpawned", ({ item }) => {
+        this.deps.clientWorldRuntime.applyDroppedItem(item);
+      }),
+      this.deps.clientAdapter.eventBus.on("droppedItemUpdated", ({ item }) => {
+        this.deps.clientWorldRuntime.applyDroppedItem(item);
+      }),
+      this.deps.clientAdapter.eventBus.on("droppedItemRemoved", ({ entityId }) => {
+        this.deps.clientWorldRuntime.removeDroppedItem(entityId);
+      }),
       this.deps.clientAdapter.eventBus.on("playerJoined", ({ player }) => {
         this.deps.clientWorldRuntime.applyPlayer(player);
       }),
@@ -1051,6 +1060,7 @@ export class GameApp {
       framebufferWidth,
       framebufferHeight,
       focusedBlock,
+      [...this.deps.clientWorldRuntime.droppedItems.values()],
       overlayText,
       uiComponents,
       windowWidth,

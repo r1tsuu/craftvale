@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type {
   BlockId,
   ChunkCoord,
+  DroppedItemSnapshot,
   InventorySnapshot,
   PlayerGamemode,
   PlayerName,
@@ -14,9 +15,11 @@ import { normalizeInventorySnapshot } from "../world/inventory.ts";
 const REGISTRY_MAGIC = "VWRG";
 const CHUNK_MAGIC = "VCHK";
 const PLAYER_MAGIC = "VPLY";
+const DROPPED_ITEMS_MAGIC = "VDRP";
 const REGISTRY_VERSION = 1;
 const CHUNK_VERSION = 1;
 const PLAYER_VERSION = 4;
+const DROPPED_ITEMS_VERSION = 1;
 
 export interface StoredWorldRecord extends WorldSummary {
   directoryName: string;
@@ -33,6 +36,10 @@ export interface StoredPlayerRecord {
   inventory: InventorySnapshot;
 }
 
+export interface StoredDroppedItemRecord {
+  snapshot: DroppedItemSnapshot;
+}
+
 export interface WorldStorage {
   listWorlds(): Promise<WorldSummary[]>;
   getWorld(name: string): Promise<StoredWorldRecord | null>;
@@ -43,6 +50,8 @@ export interface WorldStorage {
   deleteChunk(worldName: string, coord: ChunkCoord): Promise<void>;
   loadPlayer(worldName: string, playerName: PlayerName): Promise<StoredPlayerRecord | null>;
   savePlayer(worldName: string, player: StoredPlayerRecord): Promise<void>;
+  loadDroppedItems(worldName: string): Promise<DroppedItemSnapshot[]>;
+  saveDroppedItems(worldName: string, items: readonly DroppedItemSnapshot[]): Promise<void>;
   touchWorld(worldName: string, updatedAt?: number): Promise<StoredWorldRecord>;
 }
 
@@ -51,6 +60,7 @@ const textDecoder = new TextDecoder();
 
 const chunkFilename = (coord: ChunkCoord): string => `${coord.x}_${coord.y}_${coord.z}.bin`;
 const playerFilename = (playerName: PlayerName): string => `${encodeURIComponent(playerName)}.bin`;
+const droppedItemsFilename = (): string => "dropped-items.bin";
 
 const writeString = (target: Uint8Array, offset: number, value: string): number => {
   const bytes = textEncoder.encode(value);
@@ -295,6 +305,86 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
   };
 };
 
+const encodeDroppedItems = (items: readonly DroppedItemSnapshot[]): Uint8Array => {
+  const entityIds = items.map((item) => textEncoder.encode(item.entityId));
+  const totalSize = 12 + items.reduce((size, _item, index) => size + 66 + entityIds[index]!.length, 0);
+  const bytes = new Uint8Array(totalSize);
+  const view = new DataView(bytes.buffer);
+  bytes.set(textEncoder.encode(DROPPED_ITEMS_MAGIC), 0);
+  view.setUint32(4, DROPPED_ITEMS_VERSION, true);
+  view.setUint32(8, items.length, true);
+
+  let offset = 12;
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index]!;
+    view.setFloat64(offset, item.position[0], true);
+    view.setFloat64(offset + 8, item.position[1], true);
+    view.setFloat64(offset + 16, item.position[2], true);
+    view.setFloat64(offset + 24, item.velocity[0], true);
+    view.setFloat64(offset + 32, item.velocity[1], true);
+    view.setFloat64(offset + 40, item.velocity[2], true);
+    view.setUint32(offset + 48, item.blockId >>> 0, true);
+    view.setUint32(offset + 52, Math.max(0, Math.trunc(item.count)) >>> 0, true);
+    offset += 56;
+    offset = writeString(bytes, offset, item.entityId);
+    view.setFloat64(offset, Math.max(0, item.pickupCooldownMs), true);
+    offset += 8;
+  }
+
+  return bytes;
+};
+
+const decodeDroppedItems = (bytes: Uint8Array): DroppedItemSnapshot[] => {
+  if (bytes.byteLength < 12) {
+    throw new Error("Dropped items file is truncated.");
+  }
+
+  const magic = textDecoder.decode(bytes.subarray(0, 4));
+  if (magic !== DROPPED_ITEMS_MAGIC) {
+    throw new Error(`Invalid dropped items file header: ${magic}`);
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const version = view.getUint32(4, true);
+  if (version !== DROPPED_ITEMS_VERSION) {
+    throw new Error(`Unsupported dropped items file version ${version}.`);
+  }
+
+  const count = view.getUint32(8, true);
+  const items: DroppedItemSnapshot[] = [];
+  let offset = 12;
+
+  for (let index = 0; index < count; index += 1) {
+    const position: [number, number, number] = [
+      view.getFloat64(offset, true),
+      view.getFloat64(offset + 8, true),
+      view.getFloat64(offset + 16, true),
+    ];
+    const velocity: [number, number, number] = [
+      view.getFloat64(offset + 24, true),
+      view.getFloat64(offset + 32, true),
+      view.getFloat64(offset + 40, true),
+    ];
+    const blockId = view.getUint32(offset + 48, true) as BlockId;
+    const countValue = view.getUint32(offset + 52, true);
+    offset += 56;
+    const entityId = readString(bytes, offset);
+    offset = entityId.nextOffset;
+    const pickupCooldownMs = view.getFloat64(offset, true);
+    offset += 8;
+    items.push({
+      entityId: entityId.value,
+      position,
+      velocity,
+      blockId,
+      count: countValue,
+      pickupCooldownMs,
+    });
+  }
+
+  return items;
+};
+
 const sanitizeDirectoryToken = (value: string): string =>
   value
     .toLowerCase()
@@ -441,6 +531,43 @@ export class BinaryWorldStorage implements WorldStorage {
     });
   }
 
+  public async loadDroppedItems(worldName: string): Promise<DroppedItemSnapshot[]> {
+    return this.enqueue(async () => {
+      const world = await this.getWorldFromRegistry(worldName);
+      if (!world) {
+        return [];
+      }
+
+      try {
+        const bytes = new Uint8Array(await readFile(this.droppedItemsPath(world.directoryName)));
+        return decodeDroppedItems(bytes);
+      } catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+          return [];
+        }
+        throw error;
+      }
+    });
+  }
+
+  public async saveDroppedItems(
+    worldName: string,
+    items: readonly DroppedItemSnapshot[],
+  ): Promise<void> {
+    return this.enqueue(async () => {
+      const world = await this.requireWorld(worldName);
+      await this.ensureDirectories(world.directoryName);
+      const path = this.droppedItemsPath(world.directoryName);
+
+      if (items.length === 0) {
+        await rm(path, { force: true });
+        return;
+      }
+
+      await writeFile(path, encodeDroppedItems(items));
+    });
+  }
+
   public async touchWorld(worldName: string, updatedAt = Date.now()): Promise<StoredWorldRecord> {
     return this.enqueue(async () => {
       const registry = await this.readRegistry();
@@ -509,6 +636,10 @@ export class BinaryWorldStorage implements WorldStorage {
 
   private playerPath(directoryName: string, playerName: PlayerName): string {
     return join(this.playerDirectory(directoryName), playerFilename(playerName));
+  }
+
+  private droppedItemsPath(directoryName: string): string {
+    return join(this.worldDirectory(directoryName), droppedItemsFilename());
   }
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {

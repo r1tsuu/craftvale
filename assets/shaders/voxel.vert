@@ -5,6 +5,7 @@ layout (location = 1) in vec2 aUv;
 layout (location = 2) in float aShade;
 
 uniform mat4 uViewProjection;
+uniform mat4 uModel;
 
 out vec2 vUv;
 out float vShade;
@@ -12,5 +13,5 @@ out float vShade;
 void main() {
   vUv = aUv;
   vShade = aShade;
-  gl_Position = uViewProjection * vec4(aPosition, 1.0);
+  gl_Position = uViewProjection * uModel * vec4(aPosition, 1.0);
 }

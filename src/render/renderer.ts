@@ -1,15 +1,17 @@
+import { createIdentityMat4 } from "../math/mat4.ts";
 import type { Vec3 } from "../math/vec3.ts";
-import type { ChunkCoord, MeshData } from "../types.ts";
+import { PlayerController } from "../game/player.ts";
+import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
+import type { BlockId, ChunkCoord, DroppedItemSnapshot, MeshData } from "../types.ts";
+import { UiRenderer } from "../ui/renderer.ts";
+import { getAtlasUvRect, loadVoxelAtlasImageData } from "../world/atlas.ts";
+import { getBlockFaceTile, getBlockRenderPass, type BlockFaceRole } from "../world/blocks.ts";
 import { CHUNK_SIZE } from "../world/constants.ts";
 import { buildChunkMesh } from "../world/mesher.ts";
 import { VoxelWorld } from "../world/world.ts";
-import { loadVoxelAtlasImageData } from "../world/atlas.ts";
-import { PlayerController } from "../game/player.ts";
-import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
+import type { UiResolvedComponent } from "../ui/components.ts";
 import { FocusHighlightRenderer } from "./highlight.ts";
 import { TextOverlayRenderer, type TextDrawCommand } from "./text.ts";
-import { UiRenderer } from "../ui/renderer.ts";
-import type { UiResolvedComponent } from "../ui/components.ts";
 
 interface GpuMesh {
   vao: number;
@@ -22,6 +24,115 @@ interface GpuChunkMesh {
   opaque: GpuMesh | null;
   cutout: GpuMesh | null;
 }
+
+interface ItemFaceDefinition {
+  faceRole: BlockFaceRole;
+  shade: number;
+  vertices: ReadonlyArray<readonly [number, number, number]>;
+  uvs: ReadonlyArray<readonly [number, number]>;
+}
+
+const ITEM_RENDER_SCALE = 0.35;
+const IDENTITY_MODEL = createIdentityMat4();
+
+const ITEM_FACE_DEFINITIONS: readonly ItemFaceDefinition[] = [
+  {
+    faceRole: "side",
+    shade: 0.88,
+    vertices: [
+      [0.5, -0.5, -0.5],
+      [0.5, 0.5, -0.5],
+      [0.5, 0.5, 0.5],
+      [0.5, -0.5, 0.5],
+    ],
+    uvs: [
+      [0, 1],
+      [0, 0],
+      [1, 0],
+      [1, 1],
+    ],
+  },
+  {
+    faceRole: "side",
+    shade: 0.72,
+    vertices: [
+      [-0.5, -0.5, 0.5],
+      [-0.5, 0.5, 0.5],
+      [-0.5, 0.5, -0.5],
+      [-0.5, -0.5, -0.5],
+    ],
+    uvs: [
+      [0, 1],
+      [0, 0],
+      [1, 0],
+      [1, 1],
+    ],
+  },
+  {
+    faceRole: "top",
+    shade: 1,
+    vertices: [
+      [-0.5, 0.5, 0.5],
+      [0.5, 0.5, 0.5],
+      [0.5, 0.5, -0.5],
+      [-0.5, 0.5, -0.5],
+    ],
+    uvs: [
+      [0, 1],
+      [1, 1],
+      [1, 0],
+      [0, 0],
+    ],
+  },
+  {
+    faceRole: "bottom",
+    shade: 0.56,
+    vertices: [
+      [-0.5, -0.5, -0.5],
+      [0.5, -0.5, -0.5],
+      [0.5, -0.5, 0.5],
+      [-0.5, -0.5, 0.5],
+    ],
+    uvs: [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [0, 1],
+    ],
+  },
+  {
+    faceRole: "side",
+    shade: 0.8,
+    vertices: [
+      [0.5, -0.5, 0.5],
+      [0.5, 0.5, 0.5],
+      [-0.5, 0.5, 0.5],
+      [-0.5, -0.5, 0.5],
+    ],
+    uvs: [
+      [0, 1],
+      [0, 0],
+      [1, 0],
+      [1, 1],
+    ],
+  },
+  {
+    faceRole: "side",
+    shade: 0.68,
+    vertices: [
+      [-0.5, -0.5, -0.5],
+      [-0.5, 0.5, -0.5],
+      [0.5, 0.5, -0.5],
+      [0.5, -0.5, -0.5],
+    ],
+    uvs: [
+      [0, 1],
+      [0, 0],
+      [1, 0],
+      [1, 1],
+    ],
+  },
+];
 
 const meshKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
 
@@ -36,12 +147,57 @@ const compileShader = (nativeBridge: NativeBridge, type: number, source: string)
   return shader;
 };
 
+const buildDroppedItemMesh = (blockId: BlockId): MeshData => {
+  const vertices: number[] = [];
+  const indices: number[] = [];
+  let baseIndex = 0;
+
+  for (const face of ITEM_FACE_DEFINITIONS) {
+    const tile = getBlockFaceTile(blockId, face.faceRole);
+    if (!tile) {
+      continue;
+    }
+
+    const uvRect = getAtlasUvRect(tile);
+    for (let index = 0; index < face.vertices.length; index += 1) {
+      const [x, y, z] = face.vertices[index]!;
+      const [u, v] = face.uvs[index]!;
+      vertices.push(
+        x,
+        y,
+        z,
+        u === 0 ? uvRect.uMin : uvRect.uMax,
+        v === 0 ? uvRect.vMin : uvRect.vMax,
+        face.shade,
+      );
+    }
+
+    indices.push(
+      baseIndex,
+      baseIndex + 1,
+      baseIndex + 2,
+      baseIndex,
+      baseIndex + 2,
+      baseIndex + 3,
+    );
+    baseIndex += 4;
+  }
+
+  return {
+    vertexData: new Float32Array(vertices),
+    indexData: new Uint32Array(indices),
+    indexCount: indices.length,
+  };
+};
+
 export class VoxelRenderer {
   private readonly program: number;
   private readonly viewProjectionLocation: number;
+  private readonly modelLocation: number;
   private readonly atlasSamplerLocation: number;
   private readonly atlasTexture: number;
   private readonly meshes = new Map<string, GpuChunkMesh>();
+  private readonly droppedItemMeshes = new Map<BlockId, GpuMesh | null>();
   private readonly focusHighlightRenderer: FocusHighlightRenderer;
   private readonly textOverlayRenderer: TextOverlayRenderer;
   private readonly uiRenderer: UiRenderer;
@@ -79,6 +235,7 @@ export class VoxelRenderer {
       this.program,
       "uViewProjection",
     );
+    this.modelLocation = nativeBridge.gl.getUniformLocation(this.program, "uModel");
     this.atlasSamplerLocation = nativeBridge.gl.getUniformLocation(this.program, "uAtlas");
     this.atlasTexture = this.createAtlasTexture();
     this.focusHighlightRenderer = new FocusHighlightRenderer(nativeBridge);
@@ -93,6 +250,7 @@ export class VoxelRenderer {
     width: number,
     height: number,
     focusedBlock: Vec3 | null,
+    droppedItems: readonly DroppedItemSnapshot[],
     overlayText: readonly TextDrawCommand[],
     uiComponents: readonly UiResolvedComponent[],
     uiWidth: number,
@@ -109,6 +267,7 @@ export class VoxelRenderer {
     const aspect = Math.max(width / Math.max(height, 1), 0.01);
     const viewProjection = player.getViewProjection(aspect);
     this.nativeBridge.gl.uniformMatrix4fv(this.viewProjectionLocation, viewProjection);
+    this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL);
 
     const playerChunkX = Math.floor(player.state.position[0] / CHUNK_SIZE);
     const playerChunkZ = Math.floor(player.state.position[2] / CHUNK_SIZE);
@@ -118,6 +277,14 @@ export class VoxelRenderer {
         Math.abs(coord.x - playerChunkX) <= renderDistance &&
         Math.abs(coord.z - playerChunkZ) <= renderDistance,
     );
+    const visibleDroppedItems = droppedItems.filter((item) => {
+      const itemChunkX = Math.floor(item.position[0] / CHUNK_SIZE);
+      const itemChunkZ = Math.floor(item.position[2] / CHUNK_SIZE);
+      return (
+        Math.abs(itemChunkX - playerChunkX) <= renderDistance &&
+        Math.abs(itemChunkZ - playerChunkZ) <= renderDistance
+      );
+    });
 
     for (const coord of visibleCoords) {
       this.syncChunkMesh(world, coord);
@@ -126,6 +293,7 @@ export class VoxelRenderer {
         continue;
       }
 
+      this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL);
       this.nativeBridge.gl.bindVertexArray(gpuMesh.opaque.vao);
       this.nativeBridge.gl.drawElements(
         GL.TRIANGLES,
@@ -135,12 +303,15 @@ export class VoxelRenderer {
       );
     }
 
+    this.renderDroppedItems(visibleDroppedItems, "opaque");
+
     for (const coord of visibleCoords) {
       const gpuMesh = this.meshes.get(meshKey(coord));
       if (!gpuMesh?.cutout) {
         continue;
       }
 
+      this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL);
       this.nativeBridge.gl.bindVertexArray(gpuMesh.cutout.vao);
       this.nativeBridge.gl.drawElements(
         GL.TRIANGLES,
@@ -150,10 +321,40 @@ export class VoxelRenderer {
       );
     }
 
+    this.renderDroppedItems(visibleDroppedItems, "cutout");
+
     this.nativeBridge.gl.bindVertexArray(0);
     this.focusHighlightRenderer.render(focusedBlock, viewProjection);
     this.textOverlayRenderer.render(overlayText, width, height);
     this.uiRenderer.render(uiComponents, uiWidth, uiHeight);
+  }
+
+  private renderDroppedItems(
+    droppedItems: readonly DroppedItemSnapshot[],
+    renderPass: "opaque" | "cutout",
+  ): void {
+    for (const item of droppedItems) {
+      if (getBlockRenderPass(item.blockId) !== renderPass) {
+        continue;
+      }
+
+      const mesh = this.getDroppedItemMesh(item.blockId);
+      if (!mesh) {
+        continue;
+      }
+
+      this.nativeBridge.gl.uniformMatrix4fv(
+        this.modelLocation,
+        this.createDroppedItemModelMatrix(item),
+      );
+      this.nativeBridge.gl.bindVertexArray(mesh.vao);
+      this.nativeBridge.gl.drawElements(
+        GL.TRIANGLES,
+        mesh.indexCount,
+        GL.UNSIGNED_INT,
+        0,
+      );
+    }
   }
 
   private syncChunkMesh(world: VoxelWorld, coord: ChunkCoord): void {
@@ -178,6 +379,16 @@ export class VoxelRenderer {
       opaque: this.createGpuMesh(mesh.opaque),
       cutout: this.createGpuMesh(mesh.cutout),
     });
+  }
+
+  private getDroppedItemMesh(blockId: BlockId): GpuMesh | null {
+    if (this.droppedItemMeshes.has(blockId)) {
+      return this.droppedItemMeshes.get(blockId) ?? null;
+    }
+
+    const mesh = this.createGpuMesh(buildDroppedItemMesh(blockId));
+    this.droppedItemMeshes.set(blockId, mesh);
+    return mesh;
   }
 
   private createGpuMesh(mesh: MeshData): GpuMesh | null {
@@ -237,6 +448,15 @@ export class VoxelRenderer {
       this.nativeBridge.gl.deleteBuffer(mesh.cutout.ebo);
       this.nativeBridge.gl.deleteVertexArray(mesh.cutout.vao);
     }
+  }
+
+  private createDroppedItemModelMatrix(item: DroppedItemSnapshot): Float32Array {
+    return new Float32Array([
+      ITEM_RENDER_SCALE, 0, 0, 0,
+      0, ITEM_RENDER_SCALE, 0, 0,
+      0, 0, ITEM_RENDER_SCALE, 0,
+      item.position[0], item.position[1], item.position[2], 1,
+    ]);
   }
 
   private createAtlasTexture(): number {

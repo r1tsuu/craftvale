@@ -275,6 +275,10 @@ export class PlayerSystem {
     );
   }
 
+  public getActivePlayers(): PlayerSnapshot[] {
+    return this.getActivePlayerSnapshots();
+  }
+
   public async save(): Promise<void> {
     for (const [playerName, entityId] of this.playerEntitiesByName) {
       const persistence = this.requireComponent(this.entities.playerPersistence, entityId, "player persistence");

@@ -2,6 +2,7 @@ import type {
   BlockId,
   ChatEntry,
   ChunkCoord,
+  DroppedItemSnapshot,
   EntityId,
   InventorySection,
   InventorySnapshot,
@@ -79,6 +80,7 @@ export interface JoinedWorldPayload {
   clientPlayer: PlayerSnapshot;
   players: PlayerSnapshot[];
   inventory: InventorySnapshot;
+  droppedItems: DroppedItemSnapshot[];
 }
 
 export interface ClientRequestMap {
@@ -116,6 +118,9 @@ export interface ServerEventMap {
     playerName: PlayerName;
     inventory: InventorySnapshot;
   };
+  droppedItemSpawned: { item: DroppedItemSnapshot };
+  droppedItemUpdated: { item: DroppedItemSnapshot };
+  droppedItemRemoved: { entityId: EntityId };
   playerJoined: { player: PlayerSnapshot };
   playerUpdated: { player: PlayerSnapshot };
   playerLeft: { playerEntityId: EntityId; playerName: PlayerName };
@@ -198,6 +203,9 @@ const SERVER_EVENT_TYPES = new Set<keyof ServerEventMap>([
   "chunkDelivered",
   "chunkChanged",
   "inventoryUpdated",
+  "droppedItemSpawned",
+  "droppedItemUpdated",
+  "droppedItemRemoved",
   "playerJoined",
   "playerUpdated",
   "playerLeft",

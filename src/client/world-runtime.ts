@@ -1,6 +1,7 @@
 import type {
   ChatEntry,
   ChunkCoord,
+  DroppedItemSnapshot,
   EntityId,
   InventorySnapshot,
   PlayerGamemode,
@@ -22,6 +23,7 @@ export class ClientWorldRuntime {
   public clientPlayerName: PlayerName | null = null;
   public clientPlayerEntityId: EntityId | null = null;
   public readonly players = new Map<EntityId, PlayerSnapshot>();
+  public readonly droppedItems = new Map<EntityId, DroppedItemSnapshot>();
   private readonly playerEntityIdsByName = new Map<PlayerName, EntityId>();
   public chatMessages: ChatEntry[] = [];
   private readonly pendingChunkKeys = new Set<string>();
@@ -38,6 +40,7 @@ export class ClientWorldRuntime {
     this.clientPlayerName = null;
     this.clientPlayerEntityId = null;
     this.players.clear();
+    this.droppedItems.clear();
     this.playerEntityIdsByName.clear();
     this.chatMessages = [];
     this.pendingChunkKeys.clear();
@@ -58,10 +61,14 @@ export class ClientWorldRuntime {
     this.clientPlayerName = joined.clientPlayerName;
     this.clientPlayerEntityId = joined.clientPlayer.entityId;
     this.players.clear();
+    this.droppedItems.clear();
     this.playerEntityIdsByName.clear();
     this.applyPlayer(joined.clientPlayer);
     for (const player of joined.players) {
       this.applyPlayer(player);
+    }
+    for (const item of joined.droppedItems) {
+      this.applyDroppedItem(item);
     }
     this.applyInventory(joined.inventory);
   }
@@ -93,6 +100,21 @@ export class ClientWorldRuntime {
     if (this.clientPlayerEntityId === entityId) {
       this.clientPlayerEntityId = null;
     }
+  }
+
+  public applyDroppedItem(item: DroppedItemSnapshot): void {
+    this.droppedItems.set(item.entityId, {
+      entityId: item.entityId,
+      position: [...item.position],
+      velocity: [...item.velocity],
+      blockId: item.blockId,
+      count: item.count,
+      pickupCooldownMs: item.pickupCooldownMs,
+    });
+  }
+
+  public removeDroppedItem(entityId: EntityId): void {
+    this.droppedItems.delete(entityId);
   }
 
   public getClientPlayer(): PlayerSnapshot | null {

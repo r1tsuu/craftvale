@@ -19,6 +19,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Player-aware authoritative sessions with per-player position, rotation, and inventory state
 - World-level server entity state with shared entity ids for authoritative actors
 - Dedicated `PlayerSystem` operating within that shared world entity state
+- Server-authoritative dropped item entities with floor spawning, pickups, and persistence
 - In-game chat with slash-command submission and system feedback
 - Server-authoritative `/gamemode 0` and `/gamemode 1` command handling
 - Creative-mode flight toggled by double-tapping `Space`
@@ -75,7 +76,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 ## Project Layout
 
 - `src/client` client runtime and worker client adapter
-- `src/server` authoritative world runtime, world-level entity state, player system, and binary world storage
+- `src/server` authoritative world runtime, world-level entity state, player system, dropped item system, and binary world storage
 - `src/shared` typed message schemas, transport, and event-bus plumbing
 - `src/platform` native bridge loading and GL bindings
 - `src/render` voxel rendering, text, UI rectangles, and highlight rendering
@@ -101,6 +102,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Biomes, terrain, and trees are all derived deterministically from the world seed.
 - World state is worker/server-authoritative even in the current single-player setup.
 - `AuthoritativeWorld` owns chunk/world authority while `PlayerSystem` mutates player components inside shared world-owned entity state.
+- Broken collectible blocks spawn dropped item actors in that same world-owned entity space, and players pick them up through a server-authoritative proximity check.
 - Player identity is stored separately from world saves in `data/client/player-profile.json`.
 - Player gamemode persists per player/world; chat history is session-only in this first pass.
 - The menu background is seeded and stable for a given run.
@@ -111,7 +113,6 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 
 - Shared non-player actor systems built on the world-level entity state
 - Survival systems such as health, fall damage, death/respawn, hunger, and healing
-- Dropped item entities and player pickups instead of direct inventory grants
 - Crafting flows including player crafting and a crafting table
 - Tool progression with mining tiers, faster harvesting, and block hardness
 - Furnace and smelting mechanics with fuel and ore processing

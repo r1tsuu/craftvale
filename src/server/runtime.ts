@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { type JoinedWorldPayload, type SaveStatusPayload } from "../shared/messages.ts";
 import type { ChatEntry, EntityId, PlayerGamemode, PlayerName } from "../types.ts";
-import { AuthoritativeWorld } from "./authoritative-world.ts";
+import { AuthoritativeWorld, type WorldSimulationResult } from "./authoritative-world.ts";
 import { BinaryWorldStorage, type WorldStorage } from "./world-storage.ts";
 import type { IServerAdapter } from "./server-adapter.ts";
 
@@ -60,6 +60,7 @@ export class ServerRuntime {
         clientPlayer: joinedPlayer.clientPlayer,
         players: joinedPlayer.players,
         inventory: joinedPlayer.inventory,
+        droppedItems: joinedPlayer.droppedItems,
       };
       this.adapter.eventBus.send({
         type: "joinedWorld",
@@ -159,6 +160,8 @@ export class ServerRuntime {
           },
         });
       }
+
+      this.emitWorldSimulation(result.droppedItems);
     });
 
     this.adapter.eventBus.on("selectInventorySlot", async ({ slot }) => {
@@ -204,15 +207,16 @@ export class ServerRuntime {
         throw new Error("Join a world before updating player state.");
       }
 
-      const player = await this.activeWorld.updatePlayerState(
+      const result = await this.activeWorld.updatePlayerState(
         this.currentPlayerEntityId,
         state,
         flying,
       );
       this.adapter.eventBus.send({
         type: "playerUpdated",
-        payload: { player },
+        payload: { player: result.player },
       });
+      this.emitWorldSimulation(result.simulation);
     });
 
     this.adapter.eventBus.on("submitChat", async ({ text }) => {
@@ -251,6 +255,36 @@ export class ServerRuntime {
       type: "chatMessage",
       payload: { entry },
     });
+  }
+
+  private emitWorldSimulation(result: WorldSimulationResult): void {
+    for (const inventoryUpdate of result.inventoryUpdates) {
+      this.adapter.eventBus.send({
+        type: "inventoryUpdated",
+        payload: inventoryUpdate,
+      });
+    }
+
+    for (const item of result.spawnedDroppedItems) {
+      this.adapter.eventBus.send({
+        type: "droppedItemSpawned",
+        payload: { item },
+      });
+    }
+
+    for (const item of result.updatedDroppedItems) {
+      this.adapter.eventBus.send({
+        type: "droppedItemUpdated",
+        payload: { item },
+      });
+    }
+
+    for (const entityId of result.removedDroppedItemEntityIds) {
+      this.adapter.eventBus.send({
+        type: "droppedItemRemoved",
+        payload: { entityId },
+      });
+    }
   }
 
   private async handleCommand(commandLine: string): Promise<void> {

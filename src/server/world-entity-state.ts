@@ -1,4 +1,5 @@
 import type {
+  BlockId,
   EntityId,
   InventorySnapshot,
   PlayerGamemode,
@@ -36,6 +37,20 @@ export interface PersistenceComponent {
   persisted: boolean;
 }
 
+export interface DroppedItemTransformComponent {
+  position: [number, number, number];
+  velocity: [number, number, number];
+}
+
+export interface DroppedItemStackComponent {
+  blockId: BlockId;
+  count: number;
+}
+
+export interface DroppedItemLifecycleComponent {
+  pickupCooldownMs: number;
+}
+
 export class WorldEntityState {
   public readonly registry = new EntityRegistry();
   public readonly playerIdentity = new ComponentStore<PlayerIdentityComponent>();
@@ -45,8 +60,15 @@ export class WorldEntityState {
   public readonly playerInventory = new ComponentStore<InventoryComponent>();
   public readonly playerSession = new ComponentStore<SessionPresenceComponent>();
   public readonly playerPersistence = new ComponentStore<PersistenceComponent>();
+  public readonly droppedItemTransform = new ComponentStore<DroppedItemTransformComponent>();
+  public readonly droppedItemStack = new ComponentStore<DroppedItemStackComponent>();
+  public readonly droppedItemLifecycle = new ComponentStore<DroppedItemLifecycleComponent>();
 
   public hasPlayerEntity(entityId: EntityId): boolean {
     return this.registry.has(entityId) && this.playerIdentity.get(entityId) !== undefined;
+  }
+
+  public hasDroppedItemEntity(entityId: EntityId): boolean {
+    return this.registry.has(entityId) && this.droppedItemStack.get(entityId) !== undefined;
   }
 }

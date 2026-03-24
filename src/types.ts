@@ -98,6 +98,15 @@ export interface PlayerSnapshot {
   flying: boolean;
 }
 
+export interface DroppedItemSnapshot {
+  entityId: EntityId;
+  position: [number, number, number];
+  velocity: [number, number, number];
+  blockId: BlockId;
+  count: number;
+  pickupCooldownMs: number;
+}
+
 export interface ChatEntry {
   kind: "player" | "system";
   text: string;

@@ -116,11 +116,35 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
     expect(loadedPlayerB?.snapshot.state.position).toEqual([1, 2, 3]);
     expect(loadedPlayerB?.inventory.hotbar.find((slot) => slot.blockId === 4)?.count).toBe(9);
 
+    await storage.saveDroppedItems("Alpha", [
+      {
+        entityId: "drop:3",
+        position: [4.5, 65.25, -2.5],
+        velocity: [0.5, 1.75, -0.25],
+        blockId: 3,
+        count: 12,
+        pickupCooldownMs: 180,
+      },
+    ]);
+
+    const loadedDroppedItems = await storage.loadDroppedItems("Alpha");
+    expect(loadedDroppedItems).toEqual([
+      {
+        entityId: "drop:3",
+        position: [4.5, 65.25, -2.5],
+        velocity: [0.5, 1.75, -0.25],
+        blockId: 3,
+        count: 12,
+        pickupCooldownMs: 180,
+      },
+    ]);
+
     const deleted = await storage.deleteWorld("Alpha");
     expect(deleted).toBe(true);
     expect(await storage.listWorlds()).toEqual([]);
     expect(await storage.loadChunk("Alpha", { x: 0, y: 0, z: 0 })).toBeNull();
     expect(await storage.loadPlayer("Alpha", PLAYER_A)).toBeNull();
+    expect(await storage.loadDroppedItems("Alpha")).toEqual([]);
   } finally {
     await rm(rootDir, { recursive: true, force: true });
   }

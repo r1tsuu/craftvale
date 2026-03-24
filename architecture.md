@@ -106,6 +106,7 @@ Because the transport abstraction is explicit, the current worker-backed single-
 - pending chunk requests
 - chunk waiters for async loading
 - `clientPlayerName` and `clientPlayerEntityId` plus replicated player snapshots
+- replicated dropped-item snapshots keyed by world entity id
 - replicated local-player inventory snapshot
 - recent replicated chat/system messages
 
@@ -133,10 +134,18 @@ This local world is used for:
 - owns player-specific component mutation and snapshot assembly
 - persists per-player position/rotation, gamemode, and inventory state
 
+`DroppedItemSystem` also operates within that shared world-owned entity state:
+
+- allocates dropped-item actors from the same registry as players
+- stores dropped-item transform, stack, and pickup-cooldown components
+- indexes dropped items by chunk for pickup queries
+- persists active floor loot with the world save
+
 The shared world entity state currently includes:
 
 - one `EntityRegistry` for actor ids in the active world
 - world-owned component stores for player identity, transform, mode, movement, inventory, session presence, and persistence
+- world-owned component stores for dropped-item transform, stack contents, and pickup cooldown
 - a boundary that future actor systems can share without making chunks into entities
 
 Chunks still are not entities:
@@ -150,7 +159,10 @@ The server is responsible for:
 - validating and applying block mutations
 - loading, saving, and replicating per-player position/rotation state
 - loading, saving, and replicating per-player gamemode state
-- awarding/deducting per-player inventory items
+- deducting placed items from the authoritative inventory
+- spawning collectible block breaks as dropped item actors instead of direct inventory grants
+- simulating dropped item gravity, cooldown, and pickup checks
+- awarding picked-up items through the same authoritative inventory rules
 - deciding which chunks must be resent after a mutation
 - persisting changed state
 
@@ -183,10 +195,12 @@ The pipeline is:
 
 1. Build or refresh chunk meshes from the replicated client world.
 2. Render opaque voxel faces.
-3. Render cutout voxel faces.
-4. Render the focused-block highlight.
-5. Render text overlay.
-6. Render UI overlay, including the play HUD and crosshair.
+3. Render opaque dropped-item cubes.
+4. Render cutout voxel faces.
+5. Render cutout dropped-item cubes.
+6. Render the focused-block highlight.
+7. Render text overlay.
+8. Render UI overlay, including the play HUD and crosshair.
 
 Important rendering details:
 
@@ -194,6 +208,7 @@ Important rendering details:
 - directional face shading is applied in the shader
 - leaves use alpha-cutout rendering, not full sorted translucency
 - terrain meshing is split into opaque and cutout passes
+- dropped items render as lightweight atlas-textured cubes outside terrain meshing
 - the play HUD is composed from lightweight rectangle/text overlays rather than a separate retained UI layer
 
 The native bridge in `src/platform/native.ts` and `native/bridge.c` exposes the minimal GLFW/OpenGL surface needed by the renderers.
@@ -216,6 +231,8 @@ Gameplay updates currently include:
 - movement and collision
 - raycasting from the eye position
 - sending local player-state updates so the server can own the authoritative snapshot
+- receiving replicated dropped-item spawn/update/remove events
+- picking up nearby dropped items only after the server validates proximity, cooldown, and inventory space
 - opening chat, submitting chat lines, and routing slash commands through the server
 - breaking blocks through a server event
 - placing the selected hotbar block through a server event
