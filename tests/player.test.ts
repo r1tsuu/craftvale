@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createDefaultClientSettings } from "../src/client/client-settings.ts";
 import { PlayerController } from "../src/game/player.ts";
 import type { InputState, PlayerSnapshot } from "../src/types.ts";
 import { VoxelWorld } from "../src/world/world.ts";
@@ -218,4 +219,30 @@ test("disabling flight preserves normal gravity acceleration across syncs", () =
   const afterSecondFall = player.state.position[1];
 
   expect(startingHeight - afterFirstFall).toBeLessThan(afterFirstFall - afterSecondFall);
+});
+
+test("mouse sensitivity settings scale look speed", () => {
+  const player = new PlayerController();
+  player.applyClientSettings({
+    ...createDefaultClientSettings(),
+    mouseSensitivity: 200,
+  });
+
+  player.applyLook(createInput({ mouseDeltaX: 10 }));
+
+  expect(player.state.yaw).toBeCloseTo((-Math.PI / 2) + 0.05, 6);
+});
+
+test("fov settings change the projection matrix", () => {
+  const player = new PlayerController();
+  const defaultProjection = player.getViewProjection(16 / 9);
+
+  player.applyClientSettings({
+    ...createDefaultClientSettings(),
+    fovDegrees: 100,
+  });
+  const widerProjection = player.getViewProjection(16 / 9);
+
+  expect(widerProjection[0]).toBeLessThan(defaultProjection[0]);
+  expect(widerProjection[5]).toBeLessThan(defaultProjection[5]);
 });

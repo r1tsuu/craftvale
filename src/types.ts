@@ -80,6 +80,14 @@ export interface PlayerProfile {
   updatedAt: number;
 }
 
+export interface ClientSettings {
+  fovDegrees: number;
+  mouseSensitivity: number;
+  renderDistance: number;
+  showDebugOverlay: boolean;
+  showCrosshair: boolean;
+}
+
 export interface PlayerSnapshot {
   name: PlayerName;
   state: PlayerState;

@@ -8,7 +8,13 @@ import {
   vec3,
   type Vec3,
 } from "../math/vec3.ts";
-import type { InputState, PlayerGamemode, PlayerSnapshot, PlayerState } from "../types.ts";
+import type {
+  ClientSettings,
+  InputState,
+  PlayerGamemode,
+  PlayerSnapshot,
+  PlayerState,
+} from "../types.ts";
 import { isSolidBlock } from "../world/blocks.ts";
 import { VoxelWorld } from "../world/world.ts";
 
@@ -16,7 +22,8 @@ const WORLD_UP = vec3(0, 1, 0);
 const MOVE_SPEED = 4.75;
 const JUMP_VELOCITY = 7.5;
 const GRAVITY = 24;
-const MOUSE_SENSITIVITY = 0.0025;
+const BASE_MOUSE_SENSITIVITY = 0.0025;
+const DEFAULT_FOV_DEGREES = 70;
 const PLAYER_RADIUS = 0.32;
 const PLAYER_HEIGHT = 1.8;
 const PLAYER_EYE_HEIGHT = 1.62;
@@ -29,6 +36,8 @@ export class PlayerController {
   private grounded = false;
   private previousJumpDown = false;
   private timeSinceJumpPress = Number.POSITIVE_INFINITY;
+  private fovDegrees = DEFAULT_FOV_DEGREES;
+  private mouseSensitivityPercent = 100;
   public gamemode: PlayerGamemode = 0;
   public flying = false;
 
@@ -73,9 +82,15 @@ export class PlayerController {
     }
   }
 
+  public applyClientSettings(settings: Pick<ClientSettings, "fovDegrees" | "mouseSensitivity">): void {
+    this.fovDegrees = settings.fovDegrees;
+    this.mouseSensitivityPercent = settings.mouseSensitivity;
+  }
+
   public applyLook(input: InputState): void {
-    this.state.yaw += input.mouseDeltaX * MOUSE_SENSITIVITY;
-    this.state.pitch -= input.mouseDeltaY * MOUSE_SENSITIVITY;
+    const mouseSensitivity = BASE_MOUSE_SENSITIVITY * (this.mouseSensitivityPercent / 100);
+    this.state.yaw += input.mouseDeltaX * mouseSensitivity;
+    this.state.pitch -= input.mouseDeltaY * mouseSensitivity;
     this.state.pitch = Math.max(-1.54, Math.min(1.54, this.state.pitch));
   }
 
@@ -160,7 +175,7 @@ export class PlayerController {
     const eye = this.getEyePositionVec3();
     const target = addVec3(eye, this.getForwardVector());
     const view = createLookAtMat4(eye, target, WORLD_UP);
-    const projection = createPerspectiveMat4(Math.PI / 3, aspect, 0.1, 500);
+    const projection = createPerspectiveMat4((this.fovDegrees * Math.PI) / 180, aspect, 0.1, 500);
     return multiplyMat4(projection, view);
   }
 

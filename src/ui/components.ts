@@ -36,6 +36,16 @@ export interface UiHotspot extends UiBaseComponent {
   disabled?: boolean;
 }
 
+export interface UiSlider extends UiBaseComponent {
+  kind: "slider";
+  action: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  disabled?: boolean;
+}
+
 export type UiButtonVariant = "primary" | "secondary" | "danger";
 
 export interface UiButton extends UiBaseComponent {
@@ -47,7 +57,7 @@ export interface UiButton extends UiBaseComponent {
   disabled?: boolean;
 }
 
-export type UiComponent = UiPanel | UiLabel | UiButton | UiHotspot;
+export type UiComponent = UiPanel | UiLabel | UiButton | UiHotspot | UiSlider;
 
 export interface UiResolvedButton extends UiButton {
   hovered: boolean;
@@ -57,17 +67,35 @@ export interface UiResolvedHotspot extends UiHotspot {
   hovered: boolean;
 }
 
-export type UiResolvedComponent = UiPanel | UiLabel | UiResolvedButton | UiResolvedHotspot;
+export interface UiResolvedSlider extends UiSlider {
+  hovered: boolean;
+  dragging: boolean;
+  normalizedValue: number;
+}
+
+export interface UiSliderChange {
+  action: string;
+  value: number;
+}
+
+export type UiResolvedComponent =
+  | UiPanel
+  | UiLabel
+  | UiResolvedButton
+  | UiResolvedHotspot
+  | UiResolvedSlider;
 
 export interface UiEvaluationResult {
   components: UiResolvedComponent[];
   actions: string[];
+  sliderChanges: UiSliderChange[];
 }
 
 export const createPanel = (panel: UiPanel): UiPanel => panel;
 export const createLabel = (label: UiLabel): UiLabel => label;
 export const createButton = (button: UiButton): UiButton => button;
 export const createHotspot = (hotspot: UiHotspot): UiHotspot => hotspot;
+export const createSlider = (slider: UiSlider): UiSlider => slider;
 
 export const containsPoint = (rect: UiRect, x: number, y: number): boolean =>
   x >= rect.x &&
@@ -81,6 +109,7 @@ export const evaluateUi = (
 ): UiEvaluationResult => {
   const resolved: UiResolvedComponent[] = [];
   const actions: string[] = [];
+  const sliderChanges: UiSliderChange[] = [];
 
   for (const component of components) {
     if (component.kind === "panel" || component.kind === "label") {
@@ -89,6 +118,37 @@ export const evaluateUi = (
     }
 
     const hovered = !component.disabled && containsPoint(component.rect, pointer.x, pointer.y);
+
+    if (component.kind === "slider") {
+      const range = Math.max(component.max - component.min, 0.0001);
+      const normalizedValue = Math.max(
+        0,
+        Math.min(1, (component.value - component.min) / range),
+      );
+      const dragging = hovered && pointer.primaryDown;
+      if (dragging) {
+        const pointerNormalized = Math.max(
+          0,
+          Math.min(1, (pointer.x - component.rect.x) / Math.max(component.rect.width, 1)),
+        );
+        const steppedRange = range / Math.max(component.step ?? 1, 0.0001);
+        const nextValue = component.min
+          + Math.round(pointerNormalized * steppedRange) * (component.step ?? 1);
+        sliderChanges.push({
+          action: component.action,
+          value: Math.max(component.min, Math.min(component.max, nextValue)),
+        });
+      }
+
+      resolved.push({
+        ...component,
+        hovered,
+        dragging,
+        normalizedValue,
+      });
+      continue;
+    }
+
     if (hovered && pointer.primaryPressed) {
       actions.push(component.action);
     }
@@ -102,5 +162,6 @@ export const evaluateUi = (
   return {
     components: resolved,
     actions,
+    sliderChanges,
   };
 };

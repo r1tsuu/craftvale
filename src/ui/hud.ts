@@ -562,6 +562,7 @@ export interface PlayHudState {
   inventoryOpen?: boolean;
   cursorX?: number;
   cursorY?: number;
+  showCrosshair?: boolean;
   biomeName?: string | null;
   chatMessages?: readonly ChatEntry[];
   chatNowMs?: number;
@@ -576,7 +577,7 @@ export const buildPlayHud = (
   windowHeight: number,
   state: PlayHudState,
 ): UiComponent[] => [
-  ...(state.inventoryOpen ? [] : buildCrosshair(windowWidth, windowHeight)),
+  ...(state.inventoryOpen || state.showCrosshair === false ? [] : buildCrosshair(windowWidth, windowHeight)),
   ...(state.biomeName && !state.inventoryOpen ? buildBiomeBadge(windowWidth, windowHeight, state.biomeName) : []),
   ...buildModeBadge(windowWidth, state.gamemode ?? 0, state.flying ?? false),
   ...(!state.inventoryOpen

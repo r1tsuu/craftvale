@@ -59,6 +59,13 @@ test("menu actions drive screen navigation", () => {
   let state = createMenuState();
   expect(state.activeScreen).toBe("play");
 
+  state = applyMenuAction(state, "open-settings");
+  expect(state.activeScreen).toBe("settings");
+  expect(state.focusedField).toBeNull();
+
+  state = applyMenuAction(state, "back-to-play");
+  expect(state.activeScreen).toBe("play");
+
   state = applyMenuAction(state, "open-worlds");
   expect(state.activeScreen).toBe("worlds");
   expect(state.focusedField).toBeNull();

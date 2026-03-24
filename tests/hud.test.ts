@@ -22,6 +22,16 @@ test("play HUD includes a centered crosshair", () => {
   );
 });
 
+test("play HUD can hide the crosshair from settings", () => {
+  const hud = buildPlayHud(1280, 720, {
+    inventory: createDefaultInventory(),
+    showCrosshair: false,
+  });
+
+  expect(hud.some((component) => component.id === "crosshair-horizontal")).toBe(false);
+  expect(hud.some((component) => component.id === "crosshair-vertical")).toBe(false);
+});
+
 test("play HUD still renders the hotbar and selected slot label", () => {
   const inventory = setSelectedInventorySlot(createDefaultInventory(), 4);
   const hud = buildPlayHud(1280, 720, {

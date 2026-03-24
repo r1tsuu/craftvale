@@ -1,7 +1,7 @@
 import type { InputState } from "../types.ts";
 import type { WorldSummary } from "../shared/messages.ts";
 
-export type MenuScreen = "play" | "worlds" | "create-world";
+export type MenuScreen = "play" | "worlds" | "create-world" | "settings";
 export type MenuFocusField = "world-name" | "world-seed" | null;
 
 export interface MenuState {
@@ -99,6 +99,14 @@ export const applyMenuAction = (state: MenuState, action: string): MenuState => 
       createWorldName: suggestWorldName(state.worlds),
       createSeedText: "",
       focusedField: "world-name",
+    };
+  }
+
+  if (action === "open-settings") {
+    return {
+      ...state,
+      activeScreen: "settings",
+      focusedField: null,
     };
   }
 

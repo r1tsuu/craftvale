@@ -1,6 +1,6 @@
 import type { Vec3 } from "../math/vec3.ts";
 import type { ChunkCoord, MeshData } from "../types.ts";
-import { ACTIVE_CHUNK_RADIUS, CHUNK_SIZE } from "../world/constants.ts";
+import { CHUNK_SIZE } from "../world/constants.ts";
 import { buildChunkMesh } from "../world/mesher.ts";
 import { VoxelWorld } from "../world/world.ts";
 import { loadVoxelAtlasImageData } from "../world/atlas.ts";
@@ -89,6 +89,7 @@ export class VoxelRenderer {
   public render(
     world: VoxelWorld,
     player: PlayerController,
+    renderDistance: number,
     width: number,
     height: number,
     focusedBlock: Vec3 | null,
@@ -114,8 +115,8 @@ export class VoxelRenderer {
 
     const visibleCoords = world.getLoadedChunkCoords().filter(
       (coord) =>
-        Math.abs(coord.x - playerChunkX) <= ACTIVE_CHUNK_RADIUS &&
-        Math.abs(coord.z - playerChunkZ) <= ACTIVE_CHUNK_RADIUS,
+        Math.abs(coord.x - playerChunkX) <= renderDistance &&
+        Math.abs(coord.z - playerChunkZ) <= renderDistance,
     );
 
     for (const coord of visibleCoords) {

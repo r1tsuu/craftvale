@@ -1,9 +1,17 @@
 import type { MenuFocusField, MenuScreen } from "../client/menu-state.ts";
+import {
+  CLIENT_SETTINGS_LIMITS,
+  formatFovSetting,
+  formatRenderDistanceSetting,
+  formatSensitivitySetting,
+} from "../client/client-settings.ts";
 import type { WorldSummary } from "../shared/messages.ts";
+import type { ClientSettings } from "../types.ts";
 import {
   createButton,
   createLabel,
   createPanel,
+  createSlider,
   type UiComponent,
 } from "./components.ts";
 
@@ -16,6 +24,7 @@ export interface MainMenuViewModel {
   focusedField: MenuFocusField;
   statusText: string;
   busy: boolean;
+  settings: ClientSettings;
 }
 
 const createSeededRandom = (seed: number): (() => number) => {
@@ -186,6 +195,8 @@ const formatInputValue = (
   return `${label}: ${content}${focused ? "_" : ""}`;
 };
 
+const formatToggleValue = (enabled: boolean): string => (enabled ? "ON" : "OFF");
+
 const buildMenuShell = (
   width: number,
   height: number,
@@ -279,7 +290,7 @@ const buildPlayMenu = (
   seed: number,
 ): UiComponent[] => {
   const panelWidth = 620;
-  const panelHeight = 390;
+  const panelHeight = 460;
   const shell = buildMenuShell(
     width,
     height,
@@ -325,11 +336,26 @@ const buildPlayMenu = (
       disabled: viewModel.busy,
     }),
     createButton({
-      id: "quit-button",
+      id: "settings-button",
       kind: "button",
       rect: {
         x: buttonX,
         y: shell.panelY + 266,
+        width: buttonWidth,
+        height: buttonHeight,
+      },
+      text: "SETTINGS",
+      action: "open-settings",
+      scale: 3,
+      variant: "secondary",
+      disabled: viewModel.busy,
+    }),
+    createButton({
+      id: "quit-button",
+      kind: "button",
+      rect: {
+        x: buttonX,
+        y: shell.panelY + 340,
         width: buttonWidth,
         height: buttonHeight,
       },
@@ -343,7 +369,7 @@ const buildPlayMenu = (
       kind: "label",
       rect: {
         x: shell.panelX + 36,
-        y: shell.panelY + 334,
+        y: shell.panelY + 408,
         width: panelWidth - 72,
         height: 24,
       },
@@ -749,12 +775,231 @@ const buildCreateWorldMenu = (
   ];
 };
 
+const buildSettingsMenu = (
+  width: number,
+  height: number,
+  viewModel: MainMenuViewModel,
+  seed: number,
+): UiComponent[] => {
+  const panelWidth = 860;
+  const panelHeight = 620;
+  const shell = buildMenuShell(
+    width,
+    height,
+    "SETTINGS",
+    "Adjust camera, controls, and lightweight graphics options",
+    seed,
+    panelWidth,
+    panelHeight,
+  );
+  const contentX = shell.panelX + 72;
+  const sliderWidth = 540;
+  const valueLabelWidth = 150;
+  const rowHeight = 58;
+  const sliderX = contentX + 178;
+  const valueX = shell.panelX + panelWidth - valueLabelWidth - 72;
+
+  const sliderRows = [
+    {
+      id: "settings-fov",
+      title: "FOV",
+      value: viewModel.settings.fovDegrees,
+      text: formatFovSetting(viewModel.settings.fovDegrees),
+      min: CLIENT_SETTINGS_LIMITS.fovDegrees.min,
+      max: CLIENT_SETTINGS_LIMITS.fovDegrees.max,
+      step: CLIENT_SETTINGS_LIMITS.fovDegrees.step,
+      action: "set-setting:fovDegrees",
+      y: shell.panelY + 176,
+    },
+    {
+      id: "settings-sensitivity",
+      title: "SENSITIVITY",
+      value: viewModel.settings.mouseSensitivity,
+      text: formatSensitivitySetting(viewModel.settings.mouseSensitivity),
+      min: CLIENT_SETTINGS_LIMITS.mouseSensitivity.min,
+      max: CLIENT_SETTINGS_LIMITS.mouseSensitivity.max,
+      step: CLIENT_SETTINGS_LIMITS.mouseSensitivity.step,
+      action: "set-setting:mouseSensitivity",
+      y: shell.panelY + 246,
+    },
+    {
+      id: "settings-render-distance",
+      title: "RENDER DISTANCE",
+      value: viewModel.settings.renderDistance,
+      text: formatRenderDistanceSetting(viewModel.settings.renderDistance),
+      min: CLIENT_SETTINGS_LIMITS.renderDistance.min,
+      max: CLIENT_SETTINGS_LIMITS.renderDistance.max,
+      step: CLIENT_SETTINGS_LIMITS.renderDistance.step,
+      action: "set-setting:renderDistance",
+      y: shell.panelY + 316,
+    },
+  ] as const;
+
+  const sliderComponents = sliderRows.flatMap((row) => [
+    createLabel({
+      id: `${row.id}-label`,
+      kind: "label",
+      rect: {
+        x: contentX,
+        y: row.y + 2,
+        width: 170,
+        height: 24,
+      },
+      text: row.title,
+      scale: 3,
+      color: [0.96, 0.97, 0.98],
+      centered: false,
+    }),
+    createLabel({
+      id: `${row.id}-value`,
+      kind: "label",
+      rect: {
+        x: valueX,
+        y: row.y + 2,
+        width: valueLabelWidth,
+        height: 24,
+      },
+      text: row.text,
+      scale: 2,
+      color: [0.93, 0.95, 0.87],
+      centered: true,
+    }),
+    createSlider({
+      id: `${row.id}-slider`,
+      kind: "slider",
+      rect: {
+        x: sliderX,
+        y: row.y + 26,
+        width: sliderWidth,
+        height: 22,
+      },
+      action: row.action,
+      value: row.value,
+      min: row.min,
+      max: row.max,
+      step: row.step,
+      disabled: viewModel.busy,
+    }),
+  ]);
+
+  return [
+    ...shell.components,
+    createLabel({
+      id: "settings-gameplay-title",
+      kind: "label",
+      rect: {
+        x: contentX,
+        y: shell.panelY + 130,
+        width: panelWidth - 144,
+        height: 24,
+      },
+      text: "GAMEPLAY",
+      scale: 3,
+      color: [0.98, 0.95, 0.76],
+      centered: false,
+    }),
+    ...sliderComponents,
+    createLabel({
+      id: "settings-graphics-title",
+      kind: "label",
+      rect: {
+        x: contentX,
+        y: shell.panelY + 392,
+        width: panelWidth - 144,
+        height: 24,
+      },
+      text: "GRAPHICS",
+      scale: 3,
+      color: [0.98, 0.95, 0.76],
+      centered: false,
+    }),
+    createButton({
+      id: "settings-debug-toggle",
+      kind: "button",
+      rect: {
+        x: contentX,
+        y: shell.panelY + 430,
+        width: 336,
+        height: rowHeight,
+      },
+      text: `DEBUG INFO: ${formatToggleValue(viewModel.settings.showDebugOverlay)}`,
+      action: "toggle-setting:showDebugOverlay",
+      scale: 2,
+      variant: "secondary",
+      disabled: viewModel.busy,
+    }),
+    createButton({
+      id: "settings-crosshair-toggle",
+      kind: "button",
+      rect: {
+        x: contentX + 356,
+        y: shell.panelY + 430,
+        width: 336,
+        height: rowHeight,
+      },
+      text: `CROSSHAIR: ${formatToggleValue(viewModel.settings.showCrosshair)}`,
+      action: "toggle-setting:showCrosshair",
+      scale: 2,
+      variant: "secondary",
+      disabled: viewModel.busy,
+    }),
+    createButton({
+      id: "settings-reset",
+      kind: "button",
+      rect: {
+        x: contentX,
+        y: shell.panelY + 512,
+        width: 244,
+        height: 50,
+      },
+      text: "RESET DEFAULTS",
+      action: "reset-settings",
+      scale: 2,
+      variant: "secondary",
+      disabled: viewModel.busy,
+    }),
+    createButton({
+      id: "settings-back",
+      kind: "button",
+      rect: {
+        x: shell.panelX + panelWidth - 244 - 72,
+        y: shell.panelY + 512,
+        width: 244,
+        height: 50,
+      },
+      text: "BACK",
+      action: "back-to-play",
+      scale: 3,
+      variant: "primary",
+      disabled: viewModel.busy,
+    }),
+    createLabel({
+      id: "settings-status",
+      kind: "label",
+      rect: {
+        x: shell.panelX + 72,
+        y: shell.panelY + 576,
+        width: panelWidth - 144,
+        height: 22,
+      },
+      text: viewModel.statusText,
+      scale: 2,
+      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
+      centered: true,
+    }),
+  ];
+};
+
 export const buildMainMenu = (
   width: number,
   height: number,
   viewModel: MainMenuViewModel,
   seed = 1337,
 ): UiComponent[] => {
+  if (viewModel.activeScreen === "settings") {
+    return buildSettingsMenu(width, height, viewModel, seed);
+  }
+
   if (viewModel.activeScreen === "worlds") {
     return buildWorldsMenu(width, height, viewModel, seed);
   }

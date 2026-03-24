@@ -1,5 +1,11 @@
 import type { Vec3 } from "./math/vec3.ts";
 import {
+  cloneClientSettings,
+  createDefaultClientSettings,
+  normalizeClientSettings,
+  type JsonClientSettingsStorage,
+} from "./client/client-settings.ts";
+import {
   applyMenuAction,
   applyMenuTyping,
   createMenuState,
@@ -17,7 +23,7 @@ import { NativeBridge } from "./platform/native.ts";
 import { VoxelRenderer } from "./render/renderer.ts";
 import type { TextDrawCommand } from "./render/text.ts";
 import { type ClientEventBus } from "./shared/event-bus.ts";
-import type { PlayerName } from "./types.ts";
+import type { ClientSettings, PlayerName } from "./types.ts";
 import {
   evaluateUi,
   type UiResolvedComponent,
@@ -26,7 +32,6 @@ import { buildPlayHud } from "./ui/hud.ts";
 import { buildMainMenu } from "./ui/menu.ts";
 import { Biomes, getBiomeAt } from "./world/biomes.ts";
 import { Blocks } from "./world/blocks.ts";
-import { ACTIVE_CHUNK_RADIUS } from "./world/constants.ts";
 import { getSelectedInventorySlot } from "./world/inventory.ts";
 import { raycastVoxel } from "./world/raycast.ts";
 
@@ -48,6 +53,7 @@ export interface GameAppState {
   chatOpen: boolean;
   chatDraft: string;
   inventoryOpen: boolean;
+  clientSettings: ClientSettings;
 }
 
 export interface GameAppDependencies {
@@ -61,30 +67,40 @@ export interface GameAppDependencies {
   renderer: VoxelRenderer;
   menuSeed: number;
   playerName: PlayerName;
+  clientSettings: ClientSettings;
+  clientSettingsStorage: JsonClientSettingsStorage;
 }
 
 export class GameApp {
   private readonly unsubscribers: Array<() => void> = [];
   private initialized = false;
   private shutdownStarted = false;
+  private settingsSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private settingsSavePromise: Promise<void> | null = null;
 
-  private readonly state: GameAppState = {
-    previousTime: 0,
-    accumulator: 0,
-    smoothedFps: 60,
-    previousPrimaryDown: false,
-    previousSecondaryDown: false,
-    appMode: "menu",
-    menuState: createMenuState(),
-    currentWorldName: null,
-    currentWorldSeed: null,
-    lastServerMessage: "",
-    chatOpen: false,
-    chatDraft: "",
-    inventoryOpen: false,
-  };
+  private readonly state: GameAppState;
 
-  public constructor(private readonly deps: GameAppDependencies) {}
+  public constructor(private readonly deps: GameAppDependencies) {
+    this.state = {
+      previousTime: 0,
+      accumulator: 0,
+      smoothedFps: 60,
+      previousPrimaryDown: false,
+      previousSecondaryDown: false,
+      appMode: "menu",
+      menuState: createMenuState(),
+      currentWorldName: null,
+      currentWorldSeed: null,
+      lastServerMessage: "",
+      chatOpen: false,
+      chatDraft: "",
+      inventoryOpen: false,
+      clientSettings: cloneClientSettings(
+        normalizeClientSettings(deps.clientSettings ?? createDefaultClientSettings()),
+      ),
+    };
+    this.applyClientSettings(this.state.clientSettings);
+  }
 
   public async run(): Promise<void> {
     await this.initialize();
@@ -115,6 +131,7 @@ export class GameApp {
     }
 
     this.shutdownStarted = true;
+    await this.flushSettingsSave();
     for (const unsubscribe of this.unsubscribers.splice(0)) {
       unsubscribe();
     }
@@ -150,7 +167,10 @@ export class GameApp {
       const menu = buildMainMenu(
         input.windowWidth,
         input.windowHeight,
-        this.state.menuState,
+        {
+          ...this.state.menuState,
+          settings: this.state.clientSettings,
+        },
         this.deps.menuSeed,
       );
       const evaluation = evaluateUi(menu, {
@@ -160,6 +180,10 @@ export class GameApp {
         primaryPressed,
       });
       uiComponents = evaluation.components;
+
+      for (const change of evaluation.sliderChanges) {
+        this.handleMenuSliderChange(change.action, change.value);
+      }
 
       for (const action of evaluation.actions) {
         await this.handleMenuAction(action);
@@ -195,13 +219,15 @@ export class GameApp {
       const biomeName = this.getCurrentBiomeName(x, z);
 
       focusedBlock = focusHit?.hit ?? null;
-      overlayText = this.buildOverlayText(
-        x,
-        y,
-        z,
-        yawDegrees,
-        pitchDegrees,
-      );
+      overlayText = this.state.clientSettings.showDebugOverlay
+        ? this.buildOverlayText(
+          x,
+          y,
+          z,
+          yawDegrees,
+          pitchDegrees,
+        )
+        : [];
       const playHud = buildPlayHud(
         input.windowWidth,
         input.windowHeight,
@@ -210,6 +236,7 @@ export class GameApp {
           inventoryOpen: this.state.inventoryOpen,
           cursorX: input.cursorX,
           cursorY: input.cursorY,
+          showCrosshair: this.state.clientSettings.showCrosshair,
           biomeName,
           chatMessages: this.deps.clientWorldRuntime.chatMessages,
           chatNowMs: Date.now(),
@@ -248,6 +275,25 @@ export class GameApp {
   private async handleMenuAction(action: string): Promise<void> {
     this.state.menuState = applyMenuAction(this.state.menuState, action);
 
+    if (action === "toggle-setting:showDebugOverlay") {
+      this.updateClientSettings({
+        showDebugOverlay: !this.state.clientSettings.showDebugOverlay,
+      });
+      return;
+    }
+
+    if (action === "toggle-setting:showCrosshair") {
+      this.updateClientSettings({
+        showCrosshair: !this.state.clientSettings.showCrosshair,
+      });
+      return;
+    }
+
+    if (action === "reset-settings") {
+      this.updateClientSettings(createDefaultClientSettings());
+      return;
+    }
+
     if (action === "open-worlds" && !this.state.menuState.busy && this.state.menuState.worlds.length === 0) {
       await this.syncMenuWorlds();
       return;
@@ -275,6 +321,22 @@ export class GameApp {
 
     if (action === "quit-game") {
       this.deps.nativeBridge.requestClose();
+    }
+  }
+
+  private handleMenuSliderChange(action: string, value: number): void {
+    if (action === "set-setting:fovDegrees") {
+      this.updateClientSettings({ fovDegrees: value });
+      return;
+    }
+
+    if (action === "set-setting:mouseSensitivity") {
+      this.updateClientSettings({ mouseSensitivity: value });
+      return;
+    }
+
+    if (action === "set-setting:renderDistance") {
+      this.updateClientSettings({ renderDistance: value });
     }
   }
 
@@ -452,7 +514,7 @@ export class GameApp {
 
       const initialCoords = this.deps.clientWorldRuntime.getChunkCoordsAroundPosition(
         joined.clientPlayer.state.position,
-        ACTIVE_CHUNK_RADIUS,
+        this.state.clientSettings.renderDistance,
       );
       await this.deps.clientWorldRuntime.requestMissingChunks(initialCoords);
       await this.deps.clientWorldRuntime.waitForChunks(initialCoords);
@@ -583,7 +645,7 @@ export class GameApp {
 
     void this.deps.clientWorldRuntime.requestChunksAroundPosition(
       this.deps.player.state.position,
-      ACTIVE_CHUNK_RADIUS,
+      this.state.clientSettings.renderDistance,
     );
     this.deps.player.update(input, deltaSeconds, this.deps.clientWorldRuntime.world);
     const localPlayer = this.deps.clientWorldRuntime.createLocalPlayerSnapshot(
@@ -733,6 +795,70 @@ export class GameApp {
     });
   }
 
+  private applyClientSettings(settings: ClientSettings): void {
+    this.deps.player.applyClientSettings(settings);
+  }
+
+  private areClientSettingsEqual(left: ClientSettings, right: ClientSettings): boolean {
+    return left.fovDegrees === right.fovDegrees
+      && left.mouseSensitivity === right.mouseSensitivity
+      && left.renderDistance === right.renderDistance
+      && left.showDebugOverlay === right.showDebugOverlay
+      && left.showCrosshair === right.showCrosshair;
+  }
+
+  private updateClientSettings(partial: Partial<ClientSettings> | ClientSettings): void {
+    const nextSettings = normalizeClientSettings({
+      ...this.state.clientSettings,
+      ...partial,
+    });
+
+    if (this.areClientSettingsEqual(nextSettings, this.state.clientSettings)) {
+      return;
+    }
+
+    this.state.clientSettings = nextSettings;
+    this.applyClientSettings(nextSettings);
+    this.scheduleSettingsSave();
+  }
+
+  private scheduleSettingsSave(): void {
+    if (this.settingsSaveTimer !== null) {
+      clearTimeout(this.settingsSaveTimer);
+    }
+
+    const snapshot = cloneClientSettings(this.state.clientSettings);
+    this.settingsSaveTimer = setTimeout(() => {
+      this.settingsSaveTimer = null;
+      this.settingsSavePromise = this.persistClientSettings(snapshot)
+        .finally(() => {
+          this.settingsSavePromise = null;
+        });
+    }, 120);
+  }
+
+  private async flushSettingsSave(): Promise<void> {
+    if (this.settingsSaveTimer !== null) {
+      clearTimeout(this.settingsSaveTimer);
+      this.settingsSaveTimer = null;
+      this.settingsSavePromise = this.persistClientSettings(this.state.clientSettings);
+    }
+
+    await this.settingsSavePromise;
+    this.settingsSavePromise = null;
+  }
+
+  private async persistClientSettings(settings: ClientSettings): Promise<void> {
+    try {
+      await this.deps.clientSettingsStorage.saveSettings(settings);
+    } catch (error) {
+      this.state.menuState = setMenuStatus(
+        this.state.menuState,
+        `FAILED TO SAVE SETTINGS: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   private renderFrame(
     framebufferWidth: number,
     framebufferHeight: number,
@@ -746,6 +872,7 @@ export class GameApp {
     this.deps.renderer.render(
       this.deps.clientWorldRuntime.world,
       this.deps.player,
+      this.state.clientSettings.renderDistance,
       framebufferWidth,
       framebufferHeight,
       focusedBlock,
@@ -758,7 +885,11 @@ export class GameApp {
   }
 }
 
-export const createDefaultGameApp = (options: { playerName: PlayerName }): GameApp => {
+export const createDefaultGameApp = (options: {
+  playerName: PlayerName;
+  clientSettings: ClientSettings;
+  clientSettingsStorage: JsonClientSettingsStorage;
+}): GameApp => {
   const menuSeed = (Date.now() ^ 0x5f3759df) >>> 0;
   const nativeBridge = new NativeBridge();
   nativeBridge.initWindow({
@@ -781,5 +912,7 @@ export const createDefaultGameApp = (options: { playerName: PlayerName }): GameA
     renderer,
     menuSeed,
     playerName: options.playerName,
+    clientSettings: options.clientSettings,
+    clientSettingsStorage: options.clientSettingsStorage,
   });
 };
