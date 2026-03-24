@@ -29,13 +29,14 @@ The main thread hosts the playable client app:
 
 ### Local worker server
 
-The worker hosts the authoritative server:
+The local worker hosts the authoritative gameplay server for one selected world:
 
 - boots through `src/server/worker-entry.ts`
 - is attached to a `WorkerServerHost`
 - constructs a `ServerRuntime`
-- loads/saves worlds through `BinaryWorldStorage`
-- generates chunks, applies block mutations, and owns the authoritative world/session state
+- is initialized with one chosen local world record
+- saves that world through `BinaryWorldStorage`
+- generates chunks, applies block mutations, and owns the authoritative state for that one world
 
 This separation means the client never directly mutates authoritative world state. It asks the server to do so and then applies the resulting authoritative updates.
 
@@ -100,7 +101,7 @@ The client/server boundary is strongly typed through `src/shared/messages.ts`.
 
 There are three main categories:
 
-- client requests: request/response operations such as `listWorlds`, `joinWorld`, `requestChunks`, and `saveWorld`
+- client requests: request/response operations such as `joinWorld`, `requestChunks`, and `saveWorld`
 - client events: one-way gameplay intents such as `mutateBlock`, `selectInventorySlot`, chat submission, and player-state updates
 - server events: one-way authoritative updates such as `chunkDelivered`, `chunkChanged`, `inventoryUpdated`, `playerUpdated`, chat/system messages, and `saveStatus`
 

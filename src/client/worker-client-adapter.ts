@@ -1,3 +1,4 @@
+import type { StoredWorldRecord } from "../server/world-storage.ts";
 import { PortClientAdapter } from "./client-adapter.ts";
 import type { ClientToServerMessage, ServerToClientMessage } from "../shared/messages.ts";
 import type { TransferList, TransportPort } from "../shared/transport.ts";
@@ -5,6 +6,7 @@ import type { TransferList, TransportPort } from "../shared/transport.ts";
 interface WorkerInitMessage {
   kind: "internal:init";
   storageRoot?: string;
+  world: StoredWorldRecord;
 }
 
 type WorkerInboundMessage = ServerToClientMessage;
@@ -29,7 +31,7 @@ const createWorkerTransport = (
 export class WorkerClientAdapter extends PortClientAdapter {
   private readonly worker: Worker;
 
-  public constructor(options: { storageRoot?: string } = {}) {
+  public constructor(options: { storageRoot?: string; world: StoredWorldRecord }) {
     const worker = new Worker(new URL("../server/worker-entry.ts", import.meta.url).href, {
       type: "module",
     });
@@ -39,6 +41,7 @@ export class WorkerClientAdapter extends PortClientAdapter {
     transport.postMessage({
       kind: "internal:init",
       storageRoot: options.storageRoot,
+      world: options.world,
     });
   }
 

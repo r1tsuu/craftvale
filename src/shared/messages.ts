@@ -24,7 +24,6 @@ export interface CreateWorldRequest {
 }
 
 export interface JoinWorldRequest {
-  name: string;
   playerName: PlayerName;
 }
 

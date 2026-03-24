@@ -1,11 +1,13 @@
+import { AuthoritativeWorld } from "./authoritative-world.ts";
 import type { ClientToServerMessage } from "../shared/messages.ts";
 import { DEFAULT_WORLD_STORAGE_ROOT, ServerRuntime } from "./runtime.ts";
-import { BinaryWorldStorage } from "./world-storage.ts";
+import { BinaryWorldStorage, type StoredWorldRecord } from "./world-storage.ts";
 import { WorkerServerAdapter, type WorkerLikeScope } from "./worker-server-adapter.ts";
 
 export interface WorkerInitMessage {
   kind: "internal:init";
   storageRoot?: string;
+  world: StoredWorldRecord;
 }
 
 export type WorkerInboundMessage = ClientToServerMessage | WorkerInitMessage;
@@ -18,7 +20,7 @@ export class WorkerServerHost {
 
   public handleMessage(message: WorkerInboundMessage): void {
     if (message.kind === "internal:init") {
-      this.initialize(message.storageRoot);
+      this.initialize(message.world, message.storageRoot);
       return;
     }
 
@@ -29,19 +31,20 @@ export class WorkerServerHost {
     this.adapter.handleMessage(message);
   }
 
-  private initialize(storageRoot?: string): void {
+  private initialize(world: StoredWorldRecord, storageRoot?: string): void {
     if (this.adapter || this.runtime) {
       return;
     }
 
     const adapter = new WorkerServerAdapter(this.scope);
+    const storage = new BinaryWorldStorage(storageRoot ?? DEFAULT_WORLD_STORAGE_ROOT);
     this.adapter = adapter;
     this.runtime = new ServerRuntime(
       {
         eventBus: adapter.eventBus,
         close: () => this.scope.close(),
       },
-      new BinaryWorldStorage(storageRoot ?? DEFAULT_WORLD_STORAGE_ROOT),
+      new AuthoritativeWorld(world, storage),
     );
   }
 }

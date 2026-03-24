@@ -78,7 +78,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 
 ## Project Layout
 
-- `src/client` client runtime, worker client adapter, WebSocket client adapter, and saved-server persistence
+- `src/client` client runtime, local-world metadata/storage helpers, worker client adapter, WebSocket client adapter, and saved-server persistence
 - `src/server` authoritative world runtime, world-level entity state, player system, dropped item system, dedicated WebSocket server, and binary world storage
 - `src/shared` typed message schemas, transport, and event-bus plumbing
 - `src/platform` native bridge loading and GL bindings
@@ -102,6 +102,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 ## Notes
 
 - Local singleplayer worlds are created from the menu. A dedicated multiplayer server creates or loads exactly one world when it starts.
+- In local singleplayer, world list/create/delete lives on the app side; the worker only boots for the selected world and runs gameplay for that one world.
 - Biomes, terrain, and trees are all derived deterministically from the world seed.
 - World state is authoritative on the server side in both local worker mode and dedicated WebSocket mode.
 - `AuthoritativeWorld` owns chunk/world authority while `PlayerSystem` mutates player components inside shared world-owned entity state.

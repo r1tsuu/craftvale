@@ -210,7 +210,6 @@ test("dedicated multiplayer sessions share one generated world and only support 
         bob.client.eventBus.send({
           type: "joinWorld",
           payload: {
-            name: "Server World",
             playerName: "Bob",
           },
         }),

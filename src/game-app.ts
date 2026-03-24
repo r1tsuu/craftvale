@@ -22,6 +22,7 @@ import {
   isValidSavedServerAddress,
   isValidSavedServerName,
 } from "./client/saved-servers.ts";
+import { LocalWorldStorage } from "./client/local-world-storage.ts";
 import { ClientWorldRuntime } from "./client/world-runtime.ts";
 import { type IClientAdapter } from "./client/client-adapter.ts";
 import { WebSocketClientAdapter } from "./client/websocket-client-adapter.ts";
@@ -77,6 +78,7 @@ export interface GameAppDependencies {
   clientSettings: ClientSettings;
   clientSettingsStorage: JsonClientSettingsStorage;
   savedServerStorage: JsonSavedServerStorage;
+  localWorldStorage: LocalWorldStorage;
 }
 
 export class GameApp {
@@ -316,13 +318,14 @@ export class GameApp {
     this.connectedServerAddress = null;
   }
 
-  private async connectLocalClient(): Promise<void> {
-    if (this.connectionMode === "local" && this.clientAdapter && this.clientWorldRuntime) {
-      return;
+  private async connectLocalClient(worldName: string): Promise<void> {
+    const world = await this.deps.localWorldStorage.getWorldRecord(worldName);
+    if (!world) {
+      throw new Error(`World "${worldName}" does not exist.`);
     }
 
     this.disconnectClient();
-    const adapter = new WorkerClientAdapter();
+    const adapter = new WorkerClientAdapter({ world });
     this.clientAdapter = adapter;
     this.clientWorldRuntime = new ClientWorldRuntime(adapter);
     this.connectionMode = "local";
@@ -371,7 +374,6 @@ export class GameApp {
     }
 
     if (action === "open-worlds" && !this.state.menuState.busy) {
-      await this.connectLocalClient();
       await this.syncMenuWorlds();
       return;
     }
@@ -627,17 +629,14 @@ export class GameApp {
     );
 
     try {
-      const response = await this.getClientAdapter().eventBus.send({
-        type: "listWorlds",
-        payload: {},
-      });
+      const worlds = await this.deps.localWorldStorage.listWorlds();
       this.state.menuState = setMenuWorlds(
         {
           ...this.state.menuState,
           busy: false,
           statusText,
         },
-        response.worlds,
+        worlds,
       );
     } catch (error) {
       this.state.menuState = setMenuBusy(
@@ -668,11 +667,11 @@ export class GameApp {
     );
 
     try {
+      await this.connectLocalClient(worldName);
       const worldRuntime = this.getWorldRuntime();
       const joined = await this.getClientAdapter().eventBus.send({
         type: "joinWorld",
         payload: {
-          name: worldName,
           playerName: this.deps.playerName,
         },
       });
@@ -790,15 +789,9 @@ export class GameApp {
 
     try {
       const seed = parseSeedInput(this.state.menuState.createSeedText);
-      const response = await this.getClientAdapter().eventBus.send({
-        type: "createWorld",
-        payload: {
-          name: worldName,
-          seed,
-        },
-      });
+      const world = await this.deps.localWorldStorage.createWorld(worldName, seed);
 
-      const worlds = [...this.state.menuState.worlds, response.world].sort(
+      const worlds = [...this.state.menuState.worlds, world].sort(
         (left, right) => left.name.localeCompare(right.name),
       );
       this.state.menuState = setMenuWorlds(
@@ -806,11 +799,11 @@ export class GameApp {
           ...this.state.menuState,
           activeScreen: "worlds",
           busy: false,
-          selectedWorldName: response.world.name,
+          selectedWorldName: world.name,
           focusedField: null,
           createWorldName: "",
           createSeedText: "",
-          statusText: `CREATED ${response.world.name}`,
+          statusText: `CREATED ${world.name}`,
         },
         worlds,
       );
@@ -906,10 +899,7 @@ export class GameApp {
     );
 
     try {
-      await this.getClientAdapter().eventBus.send({
-        type: "deleteWorld",
-        payload: { name: worldName },
-      });
+      await this.deps.localWorldStorage.deleteWorld(worldName);
       await this.syncMenuWorlds(`DELETED ${worldName}`);
     } catch (error) {
       this.state.menuState = setMenuBusy(
@@ -1321,6 +1311,7 @@ export const createDefaultGameApp = (options: {
   clientSettings: ClientSettings;
   clientSettingsStorage: JsonClientSettingsStorage;
   savedServerStorage: JsonSavedServerStorage;
+  localWorldStorage: LocalWorldStorage;
 }): GameApp => {
   const menuSeed = (Date.now() ^ 0x5f3759df) >>> 0;
   const nativeBridge = new NativeBridge();
@@ -1343,5 +1334,6 @@ export const createDefaultGameApp = (options: {
     clientSettings: options.clientSettings,
     clientSettingsStorage: options.clientSettingsStorage,
     savedServerStorage: options.savedServerStorage,
+    localWorldStorage: options.localWorldStorage,
   });
 };

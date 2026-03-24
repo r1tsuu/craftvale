@@ -1,5 +1,4 @@
 import { join } from "node:path";
-import { BinaryWorldStorage, type WorldStorage } from "./world-storage.ts";
 import type { IServerAdapter } from "./server-adapter.ts";
 import { AuthoritativeWorld } from "./authoritative-world.ts";
 import {
@@ -14,16 +13,15 @@ const projectRoot = import.meta.dir.endsWith("/src/server")
 export const DEFAULT_WORLD_STORAGE_ROOT = join(projectRoot, "data");
 
 export class ServerRuntime {
-  private activeWorld: AuthoritativeWorld | null = null;
   private readonly session: WorldSessionController;
 
   public constructor(
     private readonly adapter: Pick<IServerAdapter, "eventBus" | "close">,
-    private readonly storage: WorldStorage = new BinaryWorldStorage(DEFAULT_WORLD_STORAGE_ROOT),
+    private readonly world: AuthoritativeWorld,
   ) {
     const host: WorldSessionHost = {
       contextLabel: "world",
-      getWorld: () => this.activeWorld,
+      getWorld: () => this.world,
       sendToPlayer: (_playerEntityId, message) => {
         this.session.sendEvent(message);
       },
@@ -46,58 +44,15 @@ export class ServerRuntime {
   }
 
   public async shutdown(): Promise<void> {
-    await this.flushActiveWorld();
+    await this.session.disconnect();
+    await this.world.save();
     this.session.dispose();
     this.adapter.close();
   }
 
   private registerHandlers(): void {
-    this.adapter.eventBus.on("listWorlds", async () => ({
-      worlds: await this.storage.listWorlds(),
-    }));
-
-    this.adapter.eventBus.on("createWorld", async ({ name, seed }) => ({
-      world: await this.storage.createWorld(name, seed),
-    }));
-
-    this.adapter.eventBus.on("joinWorld", async ({ name, playerName }) => {
-      if (this.activeWorld?.summary.name !== name) {
-        await this.flushActiveWorld();
-
-        const world = await this.storage.getWorld(name);
-        if (!world) {
-          throw new Error(`World "${name}" does not exist.`);
-        }
-
-        this.activeWorld = new AuthoritativeWorld(world, this.storage);
-      }
-
+    this.adapter.eventBus.on("joinWorld", async ({ playerName }) => {
       return this.session.join(playerName);
     });
-
-    this.adapter.eventBus.on("deleteWorld", async ({ name }) => {
-      if (this.activeWorld?.summary.name === name) {
-        await this.flushActiveWorld();
-      }
-
-      const deleted = await this.storage.deleteWorld(name);
-      if (deleted) {
-        this.session.sendEvent({
-          type: "worldDeleted",
-          payload: { name },
-        });
-      }
-      return { deleted, name };
-    });
-  }
-
-  private async flushActiveWorld(): Promise<void> {
-    if (!this.activeWorld) {
-      return;
-    }
-
-    await this.session.disconnect();
-    await this.activeWorld.save();
-    this.activeWorld = null;
   }
 }

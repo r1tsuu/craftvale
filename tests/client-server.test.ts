@@ -6,6 +6,7 @@ import { PortClientAdapter } from "../src/client/client-adapter.ts";
 import { ClientWorldRuntime } from "../src/client/world-runtime.ts";
 import type { ClientToServerMessage, ServerToClientMessage } from "../src/shared/messages.ts";
 import { createInMemoryTransportPair } from "../src/shared/transport.ts";
+import { AuthoritativeWorld } from "../src/server/authoritative-world.ts";
 import { PortServerAdapter } from "../src/server/server-adapter.ts";
 import { ServerRuntime } from "../src/server/runtime.ts";
 import { BinaryWorldStorage } from "../src/server/world-storage.ts";
@@ -38,7 +39,9 @@ const createHarness = async (): Promise<{
   const client = new PortClientAdapter(transport.left);
   const server = new PortServerAdapter(transport.right);
   const worldRuntime = new ClientWorldRuntime(client);
-  const serverRuntime = new ServerRuntime(server, new BinaryWorldStorage(rootDir));
+  const storage = new BinaryWorldStorage(rootDir);
+  const worldRecord = await storage.createWorld("Alpha", 42);
+  const serverRuntime = new ServerRuntime(server, new AuthoritativeWorld(worldRecord, storage));
 
   client.eventBus.on("chunkDelivered", ({ chunk }) => {
     worldRuntime.applyChunk(chunk);
@@ -86,22 +89,13 @@ test("client/server request-response correlation and error events work", async (
   const harness = await createHarness();
 
   try {
-    await Promise.all([
-      harness.client.eventBus.send({
-        type: "createWorld",
-        payload: { name: "Alpha", seed: 1 },
-      }),
-      harness.client.eventBus.send({
-        type: "createWorld",
-        payload: { name: "Bravo", seed: 2 },
-      }),
-    ]);
-
-    const listed = await harness.client.eventBus.send({
-      type: "listWorlds",
-      payload: {},
+    const joined = await harness.client.eventBus.send({
+      type: "joinWorld",
+      payload: {
+        playerName: PLAYER_NAME,
+      },
     });
-    expect(listed.worlds.map((world) => world.name)).toEqual(["Alpha", "Bravo"]);
+    expect(joined.world.name).toBe("Alpha");
 
     let serverErrorMessage = "";
     harness.client.eventBus.on("serverError", ({ message }) => {
@@ -127,15 +121,9 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
   const harness = await createHarness();
 
   try {
-    await harness.client.eventBus.send({
-      type: "createWorld",
-      payload: { name: "Alpha", seed: 42 },
-    });
-
     const joined = await harness.client.eventBus.send({
         type: "joinWorld",
         payload: {
-          name: "Alpha",
           playerName: PLAYER_NAME,
         },
       });
