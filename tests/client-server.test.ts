@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PortClientAdapter } from "../src/client/client-adapter.ts";
 import { ClientWorldRuntime } from "../src/client/world-runtime.ts";
-import type { ClientToServerMessage, ServerToClientMessage } from "../src/shared/messages.ts";
+import type {
+  ClientToServerMessage,
+  LoadingProgressPayload,
+  ServerToClientMessage,
+} from "../src/shared/messages.ts";
 import { createInMemoryTransportPair } from "../src/shared/transport.ts";
 import { AuthoritativeWorld } from "../src/server/authoritative-world.ts";
 import { PortServerAdapter } from "../src/server/server-adapter.ts";
@@ -28,6 +32,7 @@ const createHarness = async (): Promise<{
   client: PortClientAdapter;
   worldRuntime: ClientWorldRuntime;
   serverRuntime: ServerRuntime;
+  loadingProgressEvents: LoadingProgressPayload[];
 }> => {
   const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-runtime-"));
   const transport = createInMemoryTransportPair<
@@ -39,6 +44,7 @@ const createHarness = async (): Promise<{
   const client = new PortClientAdapter(transport.left);
   const server = new PortServerAdapter(transport.right);
   const worldRuntime = new ClientWorldRuntime(client);
+  const loadingProgressEvents: LoadingProgressPayload[] = [];
   const storage = new BinaryWorldStorage(rootDir);
   const worldRecord = await storage.createWorld("Alpha", 42);
   const serverRuntime = new ServerRuntime(server, new AuthoritativeWorld(worldRecord, storage));
@@ -75,6 +81,9 @@ const createHarness = async (): Promise<{
   client.eventBus.on("chatMessage", ({ entry }) => {
     worldRuntime.appendChatMessage(entry);
   });
+  client.eventBus.on("loadingProgress", (payload) => {
+    loadingProgressEvents.push(payload);
+  });
 
   return {
     rootDir,
@@ -82,6 +91,7 @@ const createHarness = async (): Promise<{
     client,
     worldRuntime,
     serverRuntime,
+    loadingProgressEvents,
   };
 };
 
@@ -96,6 +106,16 @@ test("client/server request-response correlation and error events work", async (
       },
     });
     expect(joined.world.name).toBe("Alpha");
+    expect(harness.loadingProgressEvents.length).toBeGreaterThan(0);
+    expect(harness.loadingProgressEvents[0]?.stage).toBe("preparing-world");
+    expect(harness.loadingProgressEvents.at(-1)?.stage).toBe("ready");
+    for (let index = 1; index < harness.loadingProgressEvents.length; index += 1) {
+      expect(
+        harness.loadingProgressEvents[index]!.completedUnits,
+      ).toBeGreaterThanOrEqual(
+        harness.loadingProgressEvents[index - 1]!.completedUnits,
+      );
+    }
 
     let serverErrorMessage = "";
     harness.client.eventBus.on("serverError", ({ message }) => {
@@ -127,6 +147,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
           playerName: PLAYER_NAME,
         },
       });
+    expect(harness.loadingProgressEvents.at(-1)?.stage).toBe("ready");
     harness.worldRuntime.reset();
     harness.worldRuntime.applyJoinedWorld(joined);
 

@@ -15,7 +15,12 @@ import {
 } from "../shared/messages.ts";
 import { Chunk } from "../world/chunk.ts";
 import { isCollectibleBlock, isPlaceableBlock } from "../world/blocks.ts";
-import { CHUNK_SIZE, WORLD_LAYER_CHUNKS_Y } from "../world/constants.ts";
+import {
+  CHUNK_SIZE,
+  STARTUP_CHUNK_RADIUS,
+  WORLD_LAYER_CHUNKS_Y,
+} from "../world/constants.ts";
+import { getChunkCoordsAroundPosition } from "../world/chunk-coords.ts";
 import { createGeneratedChunk, getTerrainHeight } from "../world/terrain.ts";
 import { worldToChunkCoord } from "../world/world.ts";
 import { DroppedItemSystem, type DroppedItemSimulationResult } from "./dropped-item-system.ts";
@@ -25,7 +30,8 @@ import type { WorldStorage } from "./world-storage.ts";
 
 interface ServerChunkEntry {
   chunk: Chunk;
-  hasOverride: boolean;
+  hasPersistedRecord: boolean;
+  persistBaseline: boolean;
   saveDirty: boolean;
 }
 
@@ -47,6 +53,11 @@ export interface WorldSimulationResult {
   updatedDroppedItems: DroppedItemSnapshot[];
   removedDroppedItemEntityIds: EntityId[];
   inventoryUpdates: WorldInventoryUpdate[];
+}
+
+export interface StartupAreaProgress {
+  completedChunks: number;
+  totalChunks: number;
 }
 
 interface UpdatedPlayerResult {
@@ -105,6 +116,51 @@ export class AuthoritativeWorld {
     return {
       ...joined,
       droppedItems: await this.droppedItemSystem.getDroppedItemSnapshots(),
+    };
+  }
+
+  public getStartupChunkCoords(
+    position = this.spawnPosition,
+    radius = STARTUP_CHUNK_RADIUS,
+  ): ChunkCoord[] {
+    return getChunkCoordsAroundPosition(position, radius, {
+      nearestFirst: true,
+    });
+  }
+
+  public async pregenerateStartupArea(
+    position = this.spawnPosition,
+    radius = STARTUP_CHUNK_RADIUS,
+    onProgress?: (progress: StartupAreaProgress) => void,
+  ): Promise<{
+    coords: ChunkCoord[];
+    savedChunks: number;
+  }> {
+    const coords = this.getStartupChunkCoords(position, radius);
+    let completedChunks = 0;
+
+    onProgress?.({
+      completedChunks,
+      totalChunks: coords.length,
+    });
+
+    for (const coord of coords) {
+      const entry = await this.ensureChunkLoaded(coord);
+      if (!entry.hasPersistedRecord) {
+        entry.persistBaseline = true;
+        entry.saveDirty = true;
+      }
+
+      completedChunks += 1;
+      onProgress?.({
+        completedChunks,
+        totalChunks: coords.length,
+      });
+    }
+
+    return {
+      coords,
+      savedChunks: await this.flushDirtyChunks(true),
     };
   }
 
@@ -192,7 +248,6 @@ export class AuthoritativeWorld {
         ]);
         entry.chunk.set(coords.local.x, coords.local.y, coords.local.z, blockId);
         entry.chunk.revision += 1;
-        entry.hasOverride = true;
         entry.saveDirty = true;
 
         const affected = this.getAffectedChunkPayloads(coords.chunk, coords.local.x, coords.local.y, coords.local.z);
@@ -239,7 +294,6 @@ export class AuthoritativeWorld {
 
     entry.chunk.set(coords.local.x, coords.local.y, coords.local.z, blockId);
     entry.chunk.revision += 1;
-    entry.hasOverride = true;
     entry.saveDirty = true;
 
     return {
@@ -256,38 +310,7 @@ export class AuthoritativeWorld {
   }
 
   public async save(): Promise<{ world: WorldSummary; savedChunks: number }> {
-    let savedChunks = 0;
-
-    for (const [key, entry] of this.chunks) {
-      if (!entry.saveDirty) {
-        continue;
-      }
-
-      const baseline = createGeneratedChunk(entry.chunk.coord, this.world.seed);
-      const blocksMatchBaseline = entry.chunk.blocks.every(
-        (blockId, index) => blockId === baseline.blocks[index],
-      );
-
-      if (blocksMatchBaseline) {
-        if (entry.hasOverride) {
-          await this.storage.deleteChunk(this.world.name, entry.chunk.coord);
-          savedChunks += 1;
-        }
-        entry.hasOverride = false;
-      } else {
-        await this.storage.saveChunk(this.world.name, {
-          coord: entry.chunk.coord,
-          blocks: entry.chunk.cloneBlocks(),
-          revision: entry.chunk.revision,
-        });
-        entry.hasOverride = true;
-        savedChunks += 1;
-      }
-
-      entry.saveDirty = false;
-      this.chunks.set(key, entry);
-    }
-
+    const savedChunks = await this.flushDirtyChunks(false);
     await this.playerSystem.save();
     await this.droppedItemSystem.save();
     this.world = await this.storage.touchWorld(this.world.name, Date.now());
@@ -318,15 +341,21 @@ export class AuthoritativeWorld {
 
     const persisted = await this.storage.loadChunk(this.world.name, coord);
     const chunk = persisted ? new Chunk(coord) : createGeneratedChunk(coord, this.world.seed);
+    let persistBaseline = false;
 
     if (persisted) {
       chunk.replace(persisted.blocks, persisted.revision);
       chunk.dirty = false;
+      const baseline = createGeneratedChunk(coord, this.world.seed);
+      persistBaseline = chunk.blocks.every(
+        (blockId, index) => blockId === baseline.blocks[index],
+      );
     }
 
     const entry: ServerChunkEntry = {
       chunk,
-      hasOverride: Boolean(persisted),
+      hasPersistedRecord: Boolean(persisted),
+      persistBaseline,
       saveDirty: false,
     };
     this.chunks.set(key, entry);
@@ -402,5 +431,53 @@ export class AuthoritativeWorld {
         inventory,
       })),
     };
+  }
+
+  private async flushDirtyChunks(touchWorld: boolean): Promise<number> {
+    let savedChunks = 0;
+
+    for (const [key, entry] of this.chunks) {
+      if (!entry.saveDirty) {
+        continue;
+      }
+
+      const baseline = createGeneratedChunk(entry.chunk.coord, this.world.seed);
+      const blocksMatchBaseline = entry.chunk.blocks.every(
+        (blockId, index) => blockId === baseline.blocks[index],
+      );
+
+      if (blocksMatchBaseline) {
+        if (entry.persistBaseline) {
+          await this.storage.saveChunk(this.world.name, {
+            coord: entry.chunk.coord,
+            blocks: entry.chunk.cloneBlocks(),
+            revision: entry.chunk.revision,
+          });
+          entry.hasPersistedRecord = true;
+          savedChunks += 1;
+        } else if (entry.hasPersistedRecord) {
+          await this.storage.deleteChunk(this.world.name, entry.chunk.coord);
+          entry.hasPersistedRecord = false;
+          savedChunks += 1;
+        }
+      } else {
+        await this.storage.saveChunk(this.world.name, {
+          coord: entry.chunk.coord,
+          blocks: entry.chunk.cloneBlocks(),
+          revision: entry.chunk.revision,
+        });
+        entry.hasPersistedRecord = true;
+        savedChunks += 1;
+      }
+
+      entry.saveDirty = false;
+      this.chunks.set(key, entry);
+    }
+
+    if (touchWorld && savedChunks > 0) {
+      this.world = await this.storage.touchWorld(this.world.name, Date.now());
+    }
+
+    return savedChunks;
   }
 }

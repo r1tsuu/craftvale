@@ -77,6 +77,22 @@ export interface SaveStatusPayload {
   error?: string;
 }
 
+export type LoadingProgressStage =
+  | "preparing-world"
+  | "generating-startup-area"
+  | "synchronizing-initial-state"
+  | "ready";
+
+export interface LoadingProgressPayload {
+  worldName: string;
+  stage: LoadingProgressStage;
+  statusText: string;
+  completedUnits: number;
+  totalUnits: number;
+  completedChunks: number;
+  totalChunks: number;
+}
+
 export interface JoinedWorldPayload {
   world: WorldSummary;
   clientPlayerName: PlayerName;
@@ -130,6 +146,7 @@ export interface ServerEventMap {
   playerUpdated: { player: PlayerSnapshot };
   playerLeft: { playerEntityId: EntityId; playerName: PlayerName };
   chatMessage: { entry: ChatEntry };
+  loadingProgress: LoadingProgressPayload;
   saveStatus: SaveStatusPayload;
   worldDeleted: { name: string };
   serverError: { message: string; requestId?: string };
@@ -216,6 +233,7 @@ const SERVER_EVENT_TYPES = new Set<keyof ServerEventMap>([
   "playerUpdated",
   "playerLeft",
   "chatMessage",
+  "loadingProgress",
   "saveStatus",
   "worldDeleted",
   "serverError",

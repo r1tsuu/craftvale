@@ -172,6 +172,10 @@ test("dedicated multiplayer sessions share one generated world and only support 
 
     const alice = createDedicatedSessionHarness(host);
     const bob = createDedicatedSessionHarness(host);
+    let remoteLoadingProgressEvents = 0;
+    alice.client.eventBus.on("loadingProgress", () => {
+      remoteLoadingProgressEvents += 1;
+    });
 
     try {
       const aliceJoined = await alice.client.eventBus.send({
@@ -187,6 +191,7 @@ test("dedicated multiplayer sessions share one generated world and only support 
       expect(aliceJoined.world.seed).toBe(77);
       expect(aliceJoined.clientPlayer.name).toBe("Alice");
       expect(aliceJoined.players).toEqual([]);
+      expect(remoteLoadingProgressEvents).toBe(0);
 
       const coords = [{ x: 0, y: 0, z: 0 }];
       await alice.runtime.requestMissingChunks(coords);

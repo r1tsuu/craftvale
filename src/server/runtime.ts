@@ -52,7 +52,9 @@ export class ServerRuntime {
 
   private registerHandlers(): void {
     this.adapter.eventBus.on("joinWorld", async ({ playerName }) => {
-      return this.session.join(playerName);
+      return this.session.join(playerName, {
+        emitLoadingProgress: true,
+      });
     });
   }
 }

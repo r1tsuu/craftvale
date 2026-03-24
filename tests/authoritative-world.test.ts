@@ -117,3 +117,47 @@ test("authoritative world spawns and persists dropped items until players pick t
     await rm(rootDir, { recursive: true, force: true });
   }
 });
+
+test("authoritative world pregenerates and persists the startup chunk set", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-authoritative-world-startup-"));
+  const storage = new BinaryWorldStorage(rootDir);
+
+  try {
+    const worldRecord = await storage.createWorld("Startup", 42);
+    const world = new AuthoritativeWorld(worldRecord, storage);
+    const expectedCoords = world.getStartupChunkCoords();
+    const progress: Array<{ completedChunks: number; totalChunks: number }> = [];
+
+    const pregenerated = await world.pregenerateStartupArea(
+      world.spawnPosition,
+      undefined,
+      (update) => {
+        progress.push(update);
+      },
+    );
+
+    expect(pregenerated.coords).toEqual(expectedCoords);
+    expect(pregenerated.savedChunks).toBe(expectedCoords.length);
+    expect(progress[0]).toEqual({
+      completedChunks: 0,
+      totalChunks: expectedCoords.length,
+    });
+    expect(progress.at(-1)).toEqual({
+      completedChunks: expectedCoords.length,
+      totalChunks: expectedCoords.length,
+    });
+
+    for (const coord of expectedCoords) {
+      await expect(storage.loadChunk(worldRecord.name, coord)).resolves.toEqual(
+        expect.objectContaining({
+          coord,
+        }),
+      );
+    }
+
+    const secondPass = await world.pregenerateStartupArea();
+    expect(secondPass.savedChunks).toBe(0);
+  } finally {
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});

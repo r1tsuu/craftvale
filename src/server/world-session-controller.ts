@@ -1,5 +1,6 @@
 import {
   type JoinedWorldPayload,
+  type LoadingProgressPayload,
   type SaveStatusPayload,
   type ServerEventMap,
 } from "../shared/messages.ts";
@@ -56,12 +57,66 @@ export class WorldSessionController implements WorldSessionPeer {
     this.registerHandlers();
   }
 
-  public async join(playerName: PlayerName): Promise<JoinedWorldPayload> {
+  public async join(
+    playerName: PlayerName,
+    options: {
+      emitLoadingProgress?: boolean;
+    } = {},
+  ): Promise<JoinedWorldPayload> {
     const world = this.requireWorld("joining");
     await this.releaseCurrentPlayer(world);
+    const initialStartupChunkTotal = world.getStartupChunkCoords().length;
+
+    if (options.emitLoadingProgress) {
+      this.emitLoadingProgress({
+        worldName: world.summary.name,
+        stage: "preparing-world",
+        statusText: "PREPARING WORLD...",
+        completedUnits: 1,
+        totalUnits: initialStartupChunkTotal + 3,
+        completedChunks: 0,
+        totalChunks: initialStartupChunkTotal,
+      });
+    }
 
     const joinedPlayer = await world.joinPlayer(playerName);
     this.currentPlayerEntityId = joinedPlayer.clientPlayer.entityId;
+    const startupChunkCoords = world.getStartupChunkCoords(
+      joinedPlayer.clientPlayer.state.position,
+    );
+    const totalUnits = startupChunkCoords.length + 3;
+
+    await world.pregenerateStartupArea(
+      joinedPlayer.clientPlayer.state.position,
+      undefined,
+      ({ completedChunks, totalChunks }) => {
+        if (!options.emitLoadingProgress) {
+          return;
+        }
+
+        this.emitLoadingProgress({
+          worldName: world.summary.name,
+          stage: "generating-startup-area",
+          statusText: "GENERATING STARTUP AREA...",
+          completedUnits: 1 + completedChunks,
+          totalUnits,
+          completedChunks,
+          totalChunks,
+        });
+      },
+    );
+
+    if (options.emitLoadingProgress) {
+      this.emitLoadingProgress({
+        worldName: world.summary.name,
+        stage: "synchronizing-initial-state",
+        statusText: "SYNCHRONIZING INITIAL STATE...",
+        completedUnits: totalUnits - 1,
+        totalUnits,
+        completedChunks: startupChunkCoords.length,
+        totalChunks: startupChunkCoords.length,
+      });
+    }
 
     const payload: JoinedWorldPayload = {
       world: world.summary,
@@ -76,6 +131,17 @@ export class WorldSessionController implements WorldSessionPeer {
       type: "joinedWorld",
       payload,
     });
+    if (options.emitLoadingProgress) {
+      this.emitLoadingProgress({
+        worldName: world.summary.name,
+        stage: "ready",
+        statusText: "READY",
+        completedUnits: totalUnits,
+        totalUnits,
+        completedChunks: startupChunkCoords.length,
+        totalChunks: startupChunkCoords.length,
+      });
+    }
     this.host.afterJoin?.(joinedPlayer.clientPlayer);
     return payload;
   }
@@ -250,6 +316,13 @@ export class WorldSessionController implements WorldSessionPeer {
   private emitSaveStatus(payload: SaveStatusPayload): void {
     this.sendEvent({
       type: "saveStatus",
+      payload,
+    });
+  }
+
+  private emitLoadingProgress(payload: LoadingProgressPayload): void {
+    this.sendEvent({
+      type: "loadingProgress",
       payload,
     });
   }

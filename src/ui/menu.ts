@@ -40,7 +40,7 @@ const createSeededRandom = (seed: number): (() => number) => {
   };
 };
 
-const buildVoxelBackdrop = (
+export const buildVoxelBackdrop = (
   width: number,
   height: number,
   seed: number,

@@ -28,6 +28,8 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Nine placeable hotbar block types including terrain, wood, and masonry-style blocks
 - Create, join, delete, and save worlds from the menu
 - Multiplayer server browser with saved servers, add/delete controls, and direct join flow
+- Explicit world loading screen for local singleplayer and multiplayer joins
+- Server-authoritative startup chunk pregeneration around the initial entry area
 - Pre-game menu with reusable UI components and clickable buttons
 - Seeded Minecraft-like menu background
 - On-screen HUD text for FPS, position, rotation, world name, and status
@@ -103,8 +105,10 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 
 - Local singleplayer worlds are created from the menu. A dedicated multiplayer server creates or loads exactly one world when it starts.
 - In local singleplayer, world list/create/delete lives on the app side; the worker only boots for the selected world and runs gameplay for that one world.
+- Entering a world now follows a menu -> loading -> play flow instead of dropping straight into partially streamed terrain.
 - Biomes, terrain, and trees are all derived deterministically from the world seed.
 - World state is authoritative on the server side in both local worker mode and dedicated WebSocket mode.
+- Local singleplayer reports real startup loading progress from the worker, while multiplayer uses a simpler loading screen until the first startup chunk set is ready.
 - `AuthoritativeWorld` owns chunk/world authority while `PlayerSystem` mutates player components inside shared world-owned entity state.
 - Broken collectible blocks spawn dropped item actors in that same world-owned entity space, and players pick them up through a server-authoritative proximity check.
 - Dedicated servers expose one generated world only; clients do not browse remote world lists.

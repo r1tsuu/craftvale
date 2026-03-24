@@ -62,11 +62,54 @@ test("worker host initializes once and dispatches requests through owned instanc
       type: "joinWorld",
       payload: { playerName: "Alice" },
     });
-    await Bun.sleep(0);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const sawReadyEvent = messages.some(
+        (message) =>
+          message.kind === "event" &&
+          message.type === "loadingProgress" &&
+          message.payload.stage === "ready",
+      );
+      const sawJoinResponse = messages.some(
+        (message) =>
+          message.kind === "response" &&
+          message.type === "joinWorld" &&
+          message.ok,
+      );
+      if (sawReadyEvent && sawJoinResponse) {
+        break;
+      }
 
-    expect(messages).toHaveLength(2);
-    expect(messages[0]?.kind).toBe("event");
-    expect(messages[0]).toEqual({
+      await Bun.sleep(5);
+    }
+
+    const loadingProgressEvents = messages.filter(
+      (message) => message.kind === "event" && message.type === "loadingProgress",
+    );
+    const joinedWorldEvent = messages.find(
+      (message) => message.kind === "event" && message.type === "joinedWorld",
+    );
+    const joinResponse = messages.find(
+      (message) => message.kind === "response" && message.type === "joinWorld",
+    );
+
+    expect(loadingProgressEvents.length).toBeGreaterThan(0);
+    expect(loadingProgressEvents[0]).toEqual({
+      kind: "event",
+      type: "loadingProgress",
+      payload: expect.objectContaining({
+        stage: "preparing-world",
+        worldName: "Alpha",
+      }),
+    });
+    expect(
+      loadingProgressEvents.some(
+        (message) =>
+          message.kind === "event" &&
+          message.type === "loadingProgress" &&
+          message.payload.stage === "ready",
+      ),
+    ).toBe(true);
+    expect(joinedWorldEvent).toEqual({
       kind: "event",
       type: "joinedWorld",
       payload: expect.objectContaining({
@@ -77,13 +120,13 @@ test("worker host initializes once and dispatches requests through owned instanc
         clientPlayerName: "Alice",
       }),
     });
-    expect(messages[1]?.kind).toBe("response");
-    if (messages[1]?.kind !== "response") {
+    expect(joinResponse?.kind).toBe("response");
+    if (joinResponse?.kind !== "response") {
       throw new Error("Expected a response message.");
     }
-    expect(messages[1].id).toBe("req-1");
-    expect(messages[1].type).toBe("joinWorld");
-    expect(messages[1].ok).toBe(true);
+    expect(joinResponse.id).toBe("req-1");
+    expect(joinResponse.type).toBe("joinWorld");
+    expect(joinResponse.ok).toBe(true);
   } finally {
     await rm(rootDir, { recursive: true, force: true });
   }

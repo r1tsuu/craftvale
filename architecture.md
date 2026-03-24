@@ -58,8 +58,9 @@ There is no remote world browser in this mode. A multiplayer client connects to 
 
 It owns:
 
-- app mode (`menu` or `playing`)
+- app mode (`menu`, `loading`, or `playing`)
 - menu state
+- loading-screen state for in-flight world entry
 - current world/session metadata
 - the local player identity used for joins
 - transient HUD/status text
@@ -88,10 +89,11 @@ The app loop roughly does this every frame:
 1. Poll native input.
 2. Advance timing state.
 3. If in menu mode, evaluate UI and issue world-management requests.
-4. If in play mode, run fixed-step gameplay updates.
-5. Build HUD/UI data.
-6. Render the frame.
-7. Yield back to the event loop.
+4. If in loading mode, render the loading screen and wait for startup readiness.
+5. If in play mode, run fixed-step gameplay updates.
+6. Build HUD/UI data.
+7. Render the frame.
+8. Yield back to the event loop.
 
 Shutdown is also instance-owned. `GameApp` saves the current world, closes the client adapter, and shuts down the native bridge.
 
@@ -176,9 +178,16 @@ Chunks still are not entities:
 - chunk data remains coordinate-addressed world resources
 - world generation, chunk persistence, and chunk resend decisions stay in `AuthoritativeWorld`
 
+World entry now also has a startup warmup path:
+
+- the authoritative world preloads and persists a bounded startup chunk radius near the joining player's initial position
+- local worker sessions emit monotonic loading-progress events while that startup area is prepared
+- the client only leaves the loading screen after the joined payload is applied and the required startup chunks are present in the replicated cache
+
 The server is responsible for:
 
 - chunk generation on demand
+- bounded startup-area pregeneration before local world entry completes
 - validating and applying block mutations
 - loading, saving, and replicating per-player position/rotation state
 - loading, saving, and replicating per-player gamemode state

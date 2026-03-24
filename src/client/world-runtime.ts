@@ -9,11 +9,12 @@ import type {
   PlayerSnapshot,
   PlayerState,
 } from "../types.ts";
-import { ACTIVE_CHUNK_RADIUS, CHUNK_SIZE, WORLD_LAYER_CHUNKS_Y } from "../world/constants.ts";
+import { ACTIVE_CHUNK_RADIUS, STARTUP_CHUNK_RADIUS } from "../world/constants.ts";
 import { createDefaultInventory, normalizeInventorySnapshot } from "../world/inventory.ts";
 import { VoxelWorld } from "../world/world.ts";
 import type { ChunkPayload, JoinedWorldPayload } from "../shared/messages.ts";
 import type { IClientAdapter } from "./client-adapter.ts";
+import { getChunkCoordsAroundPosition } from "../world/chunk-coords.ts";
 
 const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
 
@@ -156,19 +157,16 @@ export class ClientWorldRuntime {
     position: readonly [number, number, number],
     radius = ACTIVE_CHUNK_RADIUS,
   ): ChunkCoord[] {
-    const centerChunkX = Math.floor(position[0] / CHUNK_SIZE);
-    const centerChunkZ = Math.floor(position[2] / CHUNK_SIZE);
-    const coords: ChunkCoord[] = [];
+    return getChunkCoordsAroundPosition(position, radius);
+  }
 
-    for (let chunkZ = centerChunkZ - radius; chunkZ <= centerChunkZ + radius; chunkZ += 1) {
-      for (let chunkX = centerChunkX - radius; chunkX <= centerChunkX + radius; chunkX += 1) {
-        for (const chunkY of WORLD_LAYER_CHUNKS_Y) {
-          coords.push({ x: chunkX, y: chunkY, z: chunkZ });
-        }
-      }
-    }
-
-    return coords;
+  public getStartupChunkCoordsAroundPosition(
+    position: readonly [number, number, number],
+    radius = STARTUP_CHUNK_RADIUS,
+  ): ChunkCoord[] {
+    return getChunkCoordsAroundPosition(position, radius, {
+      nearestFirst: true,
+    });
   }
 
   public async requestMissingChunks(coords: readonly ChunkCoord[]): Promise<void> {

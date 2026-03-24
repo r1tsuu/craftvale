@@ -37,6 +37,6 @@ export const isGameplaySuppressed = (state: PlayOverlayState): boolean =>
   state.chatOpen || state.inventoryOpen || state.pauseScreen !== "closed";
 
 export const shouldLockCursor = (
-  appMode: "menu" | "playing",
+  appMode: "menu" | "loading" | "playing",
   state: Pick<PlayOverlayState, "inventoryOpen" | "pauseScreen">,
 ): boolean => appMode === "playing" && !state.inventoryOpen && state.pauseScreen === "closed";

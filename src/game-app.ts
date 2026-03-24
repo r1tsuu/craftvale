@@ -37,19 +37,34 @@ import { PlayerController } from "./game/player.ts";
 import { NativeBridge } from "./platform/native.ts";
 import { VoxelRenderer } from "./render/renderer.ts";
 import type { TextDrawCommand } from "./render/text.ts";
+import type {
+  JoinedWorldPayload,
+  LoadingProgressPayload,
+} from "./shared/messages.ts";
 import type { ClientSettings, PlayerName } from "./types.ts";
 import { evaluateUi, type UiResolvedComponent } from "./ui/components.ts";
 import { buildPlayHud } from "./ui/hud.ts";
+import { buildLoadingScreen } from "./ui/loading.ts";
 import { buildMainMenu } from "./ui/menu.ts";
 import { Biomes, getBiomeAt } from "./world/biomes.ts";
 import { Blocks } from "./world/blocks.ts";
+import { STARTUP_CHUNK_RADIUS } from "./world/constants.ts";
 import { getSelectedInventorySlot } from "./world/inventory.ts";
 import { raycastVoxel } from "./world/raycast.ts";
 import { VoxelWorld } from "./world/world.ts";
 
 const FIXED_TIMESTEP = 1 / 60;
 
-export type AppMode = "menu" | "playing";
+export type AppMode = "menu" | "loading" | "playing";
+
+export interface WorldLoadingState {
+  token: number;
+  entryMode: "local" | "remote";
+  targetName: string;
+  transportLabel: string;
+  statusText: string;
+  progressPercent: number | null;
+}
 
 export interface GameAppState {
   previousTime: number;
@@ -59,6 +74,7 @@ export interface GameAppState {
   previousSecondaryDown: boolean;
   appMode: AppMode;
   menuState: MenuState;
+  loadingState: WorldLoadingState | null;
   currentWorldName: string | null;
   currentWorldSeed: number | null;
   lastServerMessage: string;
@@ -91,6 +107,7 @@ export class GameApp {
   private clientWorldRuntime: ClientWorldRuntime | null = null;
   private connectionMode: "local" | "remote" | null = null;
   private connectedServerAddress: string | null = null;
+  private nextLoadingToken = 0;
 
   private readonly state: GameAppState;
 
@@ -103,6 +120,7 @@ export class GameApp {
       previousSecondaryDown: false,
       appMode: "menu",
       menuState: createMenuState(),
+      loadingState: null,
       currentWorldName: null,
       currentWorldSeed: null,
       lastServerMessage: "",
@@ -204,6 +222,29 @@ export class GameApp {
         this.state.menuState.activeScreen === "create-world"
       ) {
         void this.createWorld();
+      }
+    } else if (this.state.appMode === "loading") {
+      const loadingState = this.state.loadingState;
+      if (loadingState) {
+        uiComponents = evaluateUi(
+          buildLoadingScreen(
+            input.windowWidth,
+            input.windowHeight,
+            {
+              targetName: loadingState.targetName,
+              transportLabel: loadingState.transportLabel,
+              statusText: loadingState.statusText,
+              progressPercent: loadingState.progressPercent,
+            },
+            this.deps.menuSeed,
+          ),
+          {
+            x: input.cursorX,
+            y: input.cursorY,
+            primaryDown: false,
+            primaryPressed: false,
+          },
+        ).components;
       }
     } else {
       const worldRuntime = this.getWorldRuntime();
@@ -393,7 +434,7 @@ export class GameApp {
       !this.state.menuState.busy &&
       this.state.menuState.selectedWorldName
     ) {
-      await this.joinWorld(this.state.menuState.selectedWorldName);
+      void this.joinWorld(this.state.menuState.selectedWorldName);
       return;
     }
 
@@ -402,7 +443,7 @@ export class GameApp {
       !this.state.menuState.busy &&
       this.state.menuState.selectedServerId
     ) {
-      await this.joinServer(this.state.menuState.selectedServerId);
+      void this.joinServer(this.state.menuState.selectedServerId);
       return;
     }
 
@@ -518,6 +559,9 @@ export class GameApp {
       adapter.eventBus.on("chatMessage", ({ entry }) => {
         worldRuntime.appendChatMessage(entry);
       }),
+      adapter.eventBus.on("loadingProgress", (progress) => {
+        this.applyLoadingProgress(progress);
+      }),
       adapter.eventBus.on(
         "saveStatus",
         ({ worldName, savedChunks, success, error }) => {
@@ -531,6 +575,12 @@ export class GameApp {
         },
       ),
       adapter.eventBus.on("serverError", ({ message }) => {
+        if (this.state.appMode === "loading" && this.state.loadingState) {
+          this.state.loadingState = {
+            ...this.state.loadingState,
+            statusText: `SERVER ERROR: ${message}`,
+          };
+        }
         this.state.lastServerMessage = `SERVER ERROR: ${message}`;
         this.state.menuState = setMenuStatus(
           this.state.menuState,
@@ -539,6 +589,7 @@ export class GameApp {
       }),
       adapter.eventBus.on("worldDeleted", ({ name }) => {
         if (this.state.currentWorldName === name) {
+          this.state.loadingState = null;
           this.state.currentWorldName = null;
           this.state.currentWorldSeed = null;
           worldRuntime.reset();
@@ -660,6 +711,13 @@ export class GameApp {
   }
 
   private async joinWorld(worldName: string): Promise<void> {
+    const loadingToken = this.beginLoading({
+      entryMode: "local",
+      targetName: worldName,
+      transportLabel: "LOCAL SINGLEPLAYER",
+      statusText: `STARTING ${worldName.toUpperCase()}...`,
+      progressPercent: null,
+    });
     this.state.menuState = setMenuBusy(
       this.state.menuState,
       true,
@@ -668,7 +726,13 @@ export class GameApp {
 
     try {
       await this.connectLocalClient(worldName);
-      const worldRuntime = this.getWorldRuntime();
+      if (!this.isLoadingTokenActive(loadingToken)) {
+        return;
+      }
+
+      this.updateLoadingState(loadingToken, {
+        statusText: "JOINING WORLD...",
+      });
       const joined = await this.getClientAdapter().eventBus.send({
         type: "joinWorld",
         payload: {
@@ -676,39 +740,14 @@ export class GameApp {
         },
       });
 
-      worldRuntime.reset();
-      worldRuntime.applyJoinedWorld(joined);
-      this.state.currentWorldName = joined.world.name;
-      this.state.currentWorldSeed = joined.world.seed;
-      this.state.chatOpen = false;
-      this.state.chatDraft = "";
-      this.state.inventoryOpen = false;
-      this.state.pauseScreen = "closed";
-      this.deps.player.resetFromSnapshot(joined.clientPlayer);
-
-      const initialCoords =
-        worldRuntime.getChunkCoordsAroundPosition(
-          joined.clientPlayer.state.position,
-          this.state.clientSettings.renderDistance,
-        );
-      await worldRuntime.requestMissingChunks(initialCoords);
-      await worldRuntime.waitForChunks(initialCoords);
-
-      this.state.appMode = "playing";
-      this.syncCursorMode();
-      this.state.accumulator = 0;
-      this.state.lastServerMessage = "";
-      this.state.menuState = setMenuBusy(
-        setMenuStatus(this.state.menuState, `JOINED ${joined.world.name}`),
-        false,
-      );
+      await this.completeWorldJoinLoading(loadingToken, joined, {
+        successStatusText: `JOINED ${joined.world.name}`,
+        connectedMessage: "",
+      });
     } catch (error) {
-      this.state.menuState = setMenuBusy(
-        setMenuStatus(
-          this.state.menuState,
-          `FAILED TO JOIN: ${error instanceof Error ? error.message : String(error)}`,
-        ),
-        false,
+      this.failLoading(
+        loadingToken,
+        `FAILED TO JOIN: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -723,6 +762,13 @@ export class GameApp {
       return;
     }
 
+    const loadingToken = this.beginLoading({
+      entryMode: "remote",
+      targetName: server.name,
+      transportLabel: "MULTIPLAYER SERVER",
+      statusText: `CONNECTING TO ${server.name.toUpperCase()}...`,
+      progressPercent: null,
+    });
     this.state.menuState = setMenuBusy(
       this.state.menuState,
       true,
@@ -731,7 +777,13 @@ export class GameApp {
 
     try {
       await this.connectRemoteClient(server.address);
-      const worldRuntime = this.getWorldRuntime();
+      if (!this.isLoadingTokenActive(loadingToken)) {
+        return;
+      }
+
+      this.updateLoadingState(loadingToken, {
+        statusText: "JOINING SERVER...",
+      });
       const joined = await this.getClientAdapter().eventBus.send({
         type: "joinServer",
         payload: {
@@ -739,41 +791,151 @@ export class GameApp {
         },
       });
 
-      worldRuntime.reset();
-      worldRuntime.applyJoinedWorld(joined);
-      this.state.currentWorldName = joined.world.name;
-      this.state.currentWorldSeed = joined.world.seed;
-      this.state.chatOpen = false;
-      this.state.chatDraft = "";
-      this.state.inventoryOpen = false;
-      this.state.pauseScreen = "closed";
-      this.deps.player.resetFromSnapshot(joined.clientPlayer);
-
-      const initialCoords = worldRuntime.getChunkCoordsAroundPosition(
-        joined.clientPlayer.state.position,
-        this.state.clientSettings.renderDistance,
-      );
-      await worldRuntime.requestMissingChunks(initialCoords);
-      await worldRuntime.waitForChunks(initialCoords);
-
-      this.state.appMode = "playing";
-      this.syncCursorMode();
-      this.state.accumulator = 0;
-      this.state.lastServerMessage = `CONNECTED TO ${server.name.toUpperCase()}`;
-      this.state.menuState = setMenuBusy(
-        setMenuStatus(this.state.menuState, `JOINED ${server.name}`),
-        false,
-      );
+      await this.completeWorldJoinLoading(loadingToken, joined, {
+        successStatusText: `JOINED ${server.name}`,
+        connectedMessage: `CONNECTED TO ${server.name.toUpperCase()}`,
+      });
     } catch (error) {
-      this.disconnectClient();
-      this.state.menuState = setMenuBusy(
-        setMenuStatus(
-          this.state.menuState,
-          `FAILED TO CONNECT: ${error instanceof Error ? error.message : String(error)}`,
-        ),
-        false,
+      this.failLoading(
+        loadingToken,
+        `FAILED TO CONNECT: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  private beginLoading(
+    loadingState: Omit<WorldLoadingState, "token">,
+  ): number {
+    const token = ++this.nextLoadingToken;
+    this.state.loadingState = {
+      token,
+      ...loadingState,
+    };
+    this.state.appMode = "loading";
+    this.state.lastServerMessage = "";
+    this.state.accumulator = 0;
+    this.syncCursorMode();
+    return token;
+  }
+
+  private isLoadingTokenActive(token: number): boolean {
+    return this.state.appMode === "loading" && this.state.loadingState?.token === token;
+  }
+
+  private updateLoadingState(
+    token: number,
+    partial: Partial<Omit<WorldLoadingState, "token">>,
+  ): void {
+    if (!this.isLoadingTokenActive(token) || !this.state.loadingState) {
+      return;
+    }
+
+    this.state.loadingState = {
+      ...this.state.loadingState,
+      ...partial,
+    };
+  }
+
+  private applyLoadingProgress(progress: LoadingProgressPayload): void {
+    if (
+      this.state.appMode !== "loading" ||
+      !this.state.loadingState ||
+      this.state.loadingState.entryMode !== "local"
+    ) {
+      return;
+    }
+
+    this.state.loadingState = {
+      ...this.state.loadingState,
+      targetName: progress.worldName,
+      statusText: progress.statusText,
+      progressPercent:
+        progress.totalUnits > 0
+          ? (progress.completedUnits / progress.totalUnits) * 100
+          : null,
+    };
+  }
+
+  private getStartupChunkRadius(): number {
+    return Math.max(
+      0,
+      Math.min(STARTUP_CHUNK_RADIUS, this.state.clientSettings.renderDistance),
+    );
+  }
+
+  private async completeWorldJoinLoading(
+    loadingToken: number,
+    joined: JoinedWorldPayload,
+    options: {
+      successStatusText: string;
+      connectedMessage: string;
+    },
+  ): Promise<void> {
+    if (!this.isLoadingTokenActive(loadingToken)) {
+      return;
+    }
+
+    const worldRuntime = this.getWorldRuntime();
+    worldRuntime.reset();
+    worldRuntime.applyJoinedWorld(joined);
+    this.state.currentWorldName = joined.world.name;
+    this.state.currentWorldSeed = joined.world.seed;
+    this.state.chatOpen = false;
+    this.state.chatDraft = "";
+    this.state.inventoryOpen = false;
+    this.state.pauseScreen = "closed";
+    this.deps.player.resetFromSnapshot(joined.clientPlayer);
+
+    const initialCoords = worldRuntime.getStartupChunkCoordsAroundPosition(
+      joined.clientPlayer.state.position,
+      this.getStartupChunkRadius(),
+    );
+    const currentLoadingState = this.state.loadingState;
+    this.updateLoadingState(loadingToken, {
+      targetName: joined.world.name,
+      statusText: "WAITING FOR STARTUP CHUNKS...",
+      progressPercent:
+        currentLoadingState?.entryMode === "local"
+          ? currentLoadingState.progressPercent
+          : null,
+    });
+    await worldRuntime.requestMissingChunks(initialCoords);
+    await worldRuntime.waitForChunks(initialCoords);
+    if (!this.isLoadingTokenActive(loadingToken)) {
+      return;
+    }
+
+    this.state.loadingState = null;
+    this.state.appMode = "playing";
+    this.syncCursorMode();
+    this.state.accumulator = 0;
+    this.state.lastServerMessage = options.connectedMessage;
+    this.state.menuState = setMenuBusy(
+      setMenuStatus(this.state.menuState, options.successStatusText),
+      false,
+    );
+  }
+
+  private failLoading(token: number, statusText: string): void {
+    if (!this.isLoadingTokenActive(token)) {
+      return;
+    }
+
+    this.disconnectClient();
+    this.state.loadingState = null;
+    this.state.appMode = "menu";
+    this.state.currentWorldName = null;
+    this.state.currentWorldSeed = null;
+    this.state.chatOpen = false;
+    this.state.chatDraft = "";
+    this.state.inventoryOpen = false;
+    this.state.pauseScreen = "closed";
+    this.state.lastServerMessage = statusText;
+    this.state.menuState = setMenuBusy(
+      setMenuStatus(this.state.menuState, statusText),
+      false,
+    );
+    this.syncCursorMode();
   }
 
   private async createWorld(): Promise<void> {
@@ -1162,6 +1324,7 @@ export class GameApp {
   private async exitToMainMenu(statusText: string): Promise<void> {
     await this.saveCurrentWorld();
     this.state.appMode = "menu";
+    this.state.loadingState = null;
     this.state.currentWorldName = null;
     this.state.currentWorldSeed = null;
     this.state.lastServerMessage = statusText;
