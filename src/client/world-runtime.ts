@@ -1,6 +1,7 @@
 import type {
   ChatEntry,
   ChunkCoord,
+  EntityId,
   InventorySnapshot,
   PlayerGamemode,
   PlayerName,
@@ -19,7 +20,9 @@ export class ClientWorldRuntime {
   public readonly world = new VoxelWorld();
   public inventory: InventorySnapshot = createDefaultInventory();
   public clientPlayerName: PlayerName | null = null;
-  public readonly players = new Map<PlayerName, PlayerSnapshot>();
+  public clientPlayerEntityId: EntityId | null = null;
+  public readonly players = new Map<EntityId, PlayerSnapshot>();
+  private readonly playerEntityIdsByName = new Map<PlayerName, EntityId>();
   public chatMessages: ChatEntry[] = [];
   private readonly pendingChunkKeys = new Set<string>();
   private readonly chunkWaiters = new Set<{
@@ -33,7 +36,9 @@ export class ClientWorldRuntime {
     this.world.clear();
     this.inventory = createDefaultInventory();
     this.clientPlayerName = null;
+    this.clientPlayerEntityId = null;
     this.players.clear();
+    this.playerEntityIdsByName.clear();
     this.chatMessages = [];
     this.pendingChunkKeys.clear();
     this.chunkWaiters.clear();
@@ -51,7 +56,9 @@ export class ClientWorldRuntime {
 
   public applyJoinedWorld(joined: JoinedWorldPayload): void {
     this.clientPlayerName = joined.clientPlayerName;
+    this.clientPlayerEntityId = joined.clientPlayer.entityId;
     this.players.clear();
+    this.playerEntityIdsByName.clear();
     this.applyPlayer(joined.clientPlayer);
     for (const player of joined.players) {
       this.applyPlayer(player);
@@ -60,19 +67,40 @@ export class ClientWorldRuntime {
   }
 
   public applyPlayer(player: PlayerSnapshot): void {
-    this.players.set(player.name, this.clonePlayerSnapshot(player));
+    const previousEntityId = this.playerEntityIdsByName.get(player.name);
+    if (previousEntityId && previousEntityId !== player.entityId) {
+      this.players.delete(previousEntityId);
+    }
+
+    const snapshot = this.clonePlayerSnapshot(player);
+    this.players.set(player.entityId, snapshot);
+    this.playerEntityIdsByName.set(player.name, player.entityId);
+
+    if (player.name === this.clientPlayerName) {
+      this.clientPlayerEntityId = player.entityId;
+    }
   }
 
-  public removePlayer(playerName: PlayerName): void {
-    this.players.delete(playerName);
+  public removePlayer(entityId: EntityId, playerName?: PlayerName): void {
+    const snapshot = this.players.get(entityId);
+    this.players.delete(entityId);
+
+    const resolvedPlayerName = playerName ?? snapshot?.name;
+    if (resolvedPlayerName && this.playerEntityIdsByName.get(resolvedPlayerName) === entityId) {
+      this.playerEntityIdsByName.delete(resolvedPlayerName);
+    }
+
+    if (this.clientPlayerEntityId === entityId) {
+      this.clientPlayerEntityId = null;
+    }
   }
 
   public getClientPlayer(): PlayerSnapshot | null {
-    if (!this.clientPlayerName) {
+    if (!this.clientPlayerEntityId) {
       return null;
     }
 
-    return this.players.get(this.clientPlayerName) ?? null;
+    return this.players.get(this.clientPlayerEntityId) ?? null;
   }
 
   public createLocalPlayerSnapshot(
@@ -80,11 +108,12 @@ export class ClientWorldRuntime {
     gamemode: PlayerGamemode,
     flying: boolean,
   ): PlayerSnapshot | null {
-    if (!this.clientPlayerName) {
+    if (!this.clientPlayerName || !this.clientPlayerEntityId) {
       return null;
     }
 
     return {
+      entityId: this.clientPlayerEntityId,
       name: this.clientPlayerName,
       active: true,
       gamemode,
@@ -183,6 +212,7 @@ export class ClientWorldRuntime {
 
   private clonePlayerSnapshot(player: PlayerSnapshot): PlayerSnapshot {
     return {
+      entityId: player.entityId,
       name: player.name,
       active: player.active,
       gamemode: player.gamemode,

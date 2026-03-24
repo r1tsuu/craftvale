@@ -1,6 +1,7 @@
 import type {
   BlockId,
   ChunkCoord,
+  EntityId,
   InventorySnapshot,
   PlayerGamemode,
   PlayerName,
@@ -25,6 +26,7 @@ import {
 } from "../world/inventory.ts";
 import { createGeneratedChunk, getTerrainHeight } from "../world/terrain.ts";
 import { worldToChunkCoord } from "../world/world.ts";
+import { ComponentStore, EntityRegistry } from "./entity-system.ts";
 import type { WorldStorage } from "./world-storage.ts";
 
 interface ServerChunkEntry {
@@ -33,9 +35,31 @@ interface ServerChunkEntry {
   saveDirty: boolean;
 }
 
-interface ServerPlayerEntry {
-  snapshot: PlayerSnapshot;
+interface PlayerIdentityComponent {
+  playerName: PlayerName;
+}
+
+interface TransformComponent {
+  state: PlayerState;
+}
+
+interface PlayerModeComponent {
+  gamemode: PlayerGamemode;
+}
+
+interface MovementStateComponent {
+  flying: boolean;
+}
+
+interface InventoryComponent {
   inventory: InventorySnapshot;
+}
+
+interface SessionPresenceComponent {
+  active: boolean;
+}
+
+interface PersistenceComponent {
   saveDirty: boolean;
   persisted: boolean;
 }
@@ -59,9 +83,20 @@ const playerStatesEqual = (left: PlayerState, right: PlayerState): boolean =>
   left.yaw === right.yaw &&
   left.pitch === right.pitch;
 
+const inventoriesEqual = (left: InventorySnapshot, right: InventorySnapshot): boolean =>
+  JSON.stringify(left) === JSON.stringify(right);
+
 export class AuthoritativeWorld {
   private readonly chunks = new Map<string, ServerChunkEntry>();
-  private readonly players = new Map<PlayerName, ServerPlayerEntry>();
+  private readonly entityRegistry = new EntityRegistry();
+  private readonly playerEntitiesByName = new Map<PlayerName, EntityId>();
+  private readonly playerIdentity = new ComponentStore<PlayerIdentityComponent>();
+  private readonly playerTransform = new ComponentStore<TransformComponent>();
+  private readonly playerMode = new ComponentStore<PlayerModeComponent>();
+  private readonly playerMovement = new ComponentStore<MovementStateComponent>();
+  private readonly playerInventory = new ComponentStore<InventoryComponent>();
+  private readonly playerSession = new ComponentStore<SessionPresenceComponent>();
+  private readonly playerPersistence = new ComponentStore<PersistenceComponent>();
 
   public constructor(
     private world: WorldSummary,
@@ -78,146 +113,164 @@ export class AuthoritativeWorld {
     return [spawnX + 0.5, getTerrainHeight(this.world.seed, spawnX, spawnZ) + 1, spawnZ + 0.5];
   }
 
+  public getPlayerName(entityId: EntityId): PlayerName | null {
+    return this.playerIdentity.get(entityId)?.playerName ?? null;
+  }
+
   public async joinPlayer(playerName: PlayerName): Promise<{
     clientPlayer: PlayerSnapshot;
     players: PlayerSnapshot[];
     inventory: InventorySnapshot;
   }> {
-    const entry = await this.ensurePlayerLoaded(playerName);
-    entry.snapshot = {
-      ...entry.snapshot,
+    const entityId = await this.ensurePlayerEntityLoaded(playerName);
+    const session = this.requireComponent(this.playerSession, entityId, "player session");
+    this.playerSession.set(entityId, {
+      ...session,
       active: true,
-    };
-    this.players.set(playerName, entry);
+    });
+
     return {
-      clientPlayer: this.clonePlayerSnapshot(entry.snapshot),
-      players: this.getActivePlayerSnapshots(playerName),
-      inventory: this.cloneInventory(entry.inventory),
+      clientPlayer: this.getPlayerSnapshot(entityId),
+      players: this.getActivePlayerSnapshots(entityId),
+      inventory: this.getInventorySnapshot(entityId),
     };
   }
 
-  public async leavePlayer(playerName: PlayerName): Promise<PlayerSnapshot | null> {
-    const entry = this.players.get(playerName);
-    if (!entry) {
+  public async leavePlayer(entityId: EntityId): Promise<PlayerSnapshot | null> {
+    if (!this.entityRegistry.has(entityId) || !this.playerIdentity.get(entityId)) {
       return null;
     }
 
-    if (!entry.snapshot.active) {
-      return this.clonePlayerSnapshot(entry.snapshot);
+    const session = this.requireComponent(this.playerSession, entityId, "player session");
+    if (!session.active) {
+      return this.getPlayerSnapshot(entityId);
     }
 
-    entry.snapshot = {
-      ...entry.snapshot,
+    this.playerSession.set(entityId, {
+      ...session,
       active: false,
-    };
-    this.players.set(playerName, entry);
-    return this.clonePlayerSnapshot(entry.snapshot);
+    });
+    return this.getPlayerSnapshot(entityId);
   }
 
   public async updatePlayerState(
-    playerName: PlayerName,
+    entityId: EntityId,
     state: PlayerState,
     flying: boolean,
   ): Promise<PlayerSnapshot> {
-    const entry = await this.ensurePlayerLoaded(playerName);
+    const transform = this.requireComponent(this.playerTransform, entityId, "player transform");
+    const mode = this.requireComponent(this.playerMode, entityId, "player mode");
+    const movement = this.requireComponent(this.playerMovement, entityId, "player movement");
+    const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
     const nextState = this.clonePlayerState(state);
-    const nextFlying = entry.snapshot.gamemode === 1 ? flying : false;
-    if (
-      !playerStatesEqual(entry.snapshot.state, nextState) ||
-      entry.snapshot.flying !== nextFlying
-    ) {
-      entry.snapshot = {
-        ...entry.snapshot,
-        active: true,
+    const nextFlying = mode.gamemode === 1 ? flying : false;
+
+    if (!playerStatesEqual(transform.state, nextState) || movement.flying !== nextFlying) {
+      this.playerTransform.set(entityId, {
         state: nextState,
+      });
+      this.playerMovement.set(entityId, {
         flying: nextFlying,
-      };
-      entry.saveDirty = true;
-      this.players.set(playerName, entry);
+      });
+      this.playerPersistence.set(entityId, {
+        ...persistence,
+        saveDirty: true,
+      });
     }
 
-    return this.clonePlayerSnapshot(entry.snapshot);
+    return this.getPlayerSnapshot(entityId);
   }
 
   public async setPlayerGamemode(
-    playerName: PlayerName,
+    entityId: EntityId,
     gamemode: PlayerGamemode,
   ): Promise<PlayerSnapshot> {
-    const entry = await this.ensurePlayerLoaded(playerName);
-    if (entry.snapshot.gamemode !== gamemode || entry.snapshot.flying) {
-      entry.snapshot = {
-        ...entry.snapshot,
-        gamemode,
-        flying: gamemode === 1 ? entry.snapshot.flying : false,
-      };
-      if (gamemode === 0) {
-        entry.snapshot.flying = false;
-      }
-      entry.saveDirty = true;
-      this.players.set(playerName, entry);
+    const mode = this.requireComponent(this.playerMode, entityId, "player mode");
+    const movement = this.requireComponent(this.playerMovement, entityId, "player movement");
+    const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
+    const nextFlying = gamemode === 1 ? movement.flying : false;
+
+    if (mode.gamemode !== gamemode || movement.flying !== nextFlying) {
+      this.playerMode.set(entityId, { gamemode });
+      this.playerMovement.set(entityId, { flying: nextFlying });
+      this.playerPersistence.set(entityId, {
+        ...persistence,
+        saveDirty: true,
+      });
     }
 
-    return this.clonePlayerSnapshot(entry.snapshot);
+    return this.getPlayerSnapshot(entityId);
   }
 
   public async getChunkPayload(coord: ChunkCoord): Promise<ChunkPayload> {
     return this.toChunkPayload((await this.ensureChunkLoaded(coord)).chunk);
   }
 
-  public async getInventorySnapshot(playerName: PlayerName): Promise<InventorySnapshot> {
-    return this.cloneInventory((await this.ensurePlayerLoaded(playerName)).inventory);
+  public getInventorySnapshot(entityId: EntityId): InventorySnapshot {
+    return this.cloneInventory(
+      this.requireComponent(this.playerInventory, entityId, "player inventory").inventory,
+    );
   }
 
-  public async selectInventorySlot(playerName: PlayerName, slot: number): Promise<InventorySnapshot> {
-    const entry = await this.ensurePlayerLoaded(playerName);
-    const next = setSelectedInventorySlot(entry.inventory, slot);
-    if (next.selectedSlot !== entry.inventory.selectedSlot) {
-      entry.inventory = next;
-      entry.saveDirty = true;
-      this.players.set(playerName, entry);
+  public async selectInventorySlot(entityId: EntityId, slot: number): Promise<InventorySnapshot> {
+    const inventory = this.requireComponent(this.playerInventory, entityId, "player inventory");
+    const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
+    const next = setSelectedInventorySlot(inventory.inventory, slot);
+
+    if (next.selectedSlot !== inventory.inventory.selectedSlot) {
+      this.playerInventory.set(entityId, { inventory: next });
+      this.playerPersistence.set(entityId, {
+        ...persistence,
+        saveDirty: true,
+      });
       return this.cloneInventory(next);
     }
 
-    return this.cloneInventory(entry.inventory);
+    return this.cloneInventory(inventory.inventory);
   }
 
   public async interactInventorySlot(
-    playerName: PlayerName,
+    entityId: EntityId,
     section: "hotbar" | "main",
     slot: number,
   ): Promise<InventorySnapshot> {
-    const entry = await this.ensurePlayerLoaded(playerName);
-    const next = interactInventorySlot(entry.inventory, section, slot);
-    if (JSON.stringify(next) !== JSON.stringify(entry.inventory)) {
-      entry.inventory = next;
-      entry.saveDirty = true;
-      this.players.set(playerName, entry);
+    const inventory = this.requireComponent(this.playerInventory, entityId, "player inventory");
+    const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
+    const next = interactInventorySlot(inventory.inventory, section, slot);
+
+    if (!inventoriesEqual(next, inventory.inventory)) {
+      this.playerInventory.set(entityId, { inventory: next });
+      this.playerPersistence.set(entityId, {
+        ...persistence,
+        saveDirty: true,
+      });
       return this.cloneInventory(next);
     }
 
-    return this.cloneInventory(entry.inventory);
+    return this.cloneInventory(inventory.inventory);
   }
 
   public async applyBlockMutation(
-    playerName: PlayerName,
+    entityId: EntityId,
     worldX: number,
     worldY: number,
     worldZ: number,
     blockId: BlockId,
   ): Promise<BlockMutationResult> {
-    const playerEntry = await this.ensurePlayerLoaded(playerName);
+    const inventoryComponent = this.requireComponent(this.playerInventory, entityId, "player inventory");
+    const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
     const coords = worldToChunkCoord(worldX, worldY, worldZ);
     if (!WORLD_LAYER_CHUNKS_Y.includes(coords.chunk.y)) {
       return {
         changedChunks: [],
-        inventory: this.cloneInventory(playerEntry.inventory),
+        inventory: this.cloneInventory(inventoryComponent.inventory),
         inventoryChanged: false,
       };
     }
 
     const entry = await this.ensureChunkLoaded(coords.chunk);
     const current = entry.chunk.get(coords.local.x, coords.local.y, coords.local.z);
-    let nextInventory = playerEntry.inventory;
+    let nextInventory = inventoryComponent.inventory;
     let inventoryChanged = false;
 
     if (blockId === 0) {
@@ -228,6 +281,7 @@ export class AuthoritativeWorld {
           inventoryChanged: false,
         };
       }
+
       if (isCollectibleBlock(current)) {
         const added = addInventoryItem(nextInventory, current, 1);
         if (added.added <= 0) {
@@ -237,6 +291,7 @@ export class AuthoritativeWorld {
             inventoryChanged: false,
           };
         }
+
         nextInventory = added.inventory;
         inventoryChanged = true;
       }
@@ -288,9 +343,11 @@ export class AuthoritativeWorld {
     }
 
     if (inventoryChanged) {
-      playerEntry.inventory = nextInventory;
-      playerEntry.saveDirty = true;
-      this.players.set(playerName, playerEntry);
+      this.playerInventory.set(entityId, { inventory: nextInventory });
+      this.playerPersistence.set(entityId, {
+        ...persistence,
+        saveDirty: true,
+      });
     }
 
     return {
@@ -333,18 +390,21 @@ export class AuthoritativeWorld {
       this.chunks.set(key, entry);
     }
 
-    for (const [playerName, entry] of this.players) {
-      if (!entry.saveDirty) {
+    for (const [playerName, entityId] of this.playerEntitiesByName) {
+      const persistence = this.requireComponent(this.playerPersistence, entityId, "player persistence");
+      if (!persistence.saveDirty) {
         continue;
       }
 
       await this.storage.savePlayer(this.world.name, {
-        snapshot: this.clonePlayerSnapshot(entry.snapshot),
-        inventory: this.cloneInventory(entry.inventory),
+        snapshot: this.getPlayerSnapshot(entityId),
+        inventory: this.getInventorySnapshot(entityId),
       });
-      entry.saveDirty = false;
-      entry.persisted = true;
-      this.players.set(playerName, entry);
+      this.playerPersistence.set(entityId, {
+        saveDirty: false,
+        persisted: true,
+      });
+      this.playerEntitiesByName.set(playerName, entityId);
     }
 
     this.world = await this.storage.touchWorld(this.world.name, Date.now());
@@ -378,54 +438,100 @@ export class AuthoritativeWorld {
     return entry;
   }
 
-  private async ensurePlayerLoaded(playerName: PlayerName): Promise<ServerPlayerEntry> {
-    const existing = this.players.get(playerName);
-    if (existing) {
-      return existing;
+  private async ensurePlayerEntityLoaded(playerName: PlayerName): Promise<EntityId> {
+    const existingEntityId = this.playerEntitiesByName.get(playerName);
+    if (existingEntityId) {
+      return existingEntityId;
     }
 
     const persisted = await this.storage.loadPlayer(this.world.name, playerName);
-    const entry: ServerPlayerEntry = persisted
-      ? {
-        snapshot: {
-          ...persisted.snapshot,
-          active: false,
-        },
+    if (persisted) {
+      const { entityId } = persisted.snapshot;
+      if (this.entityRegistry.has(entityId)) {
+        throw new Error(`Duplicate player entity id "${entityId}" in world "${this.world.name}".`);
+      }
+
+      this.entityRegistry.registerExistingEntity(entityId);
+      this.playerEntitiesByName.set(playerName, entityId);
+      this.playerIdentity.set(entityId, { playerName });
+      this.playerTransform.set(entityId, {
+        state: this.clonePlayerState(persisted.snapshot.state),
+      });
+      this.playerMode.set(entityId, {
+        gamemode: persisted.snapshot.gamemode,
+      });
+      this.playerMovement.set(entityId, {
+        flying: persisted.snapshot.flying,
+      });
+      this.playerInventory.set(entityId, {
         inventory: normalizeInventorySnapshot(persisted.inventory),
+      });
+      this.playerSession.set(entityId, { active: false });
+      this.playerPersistence.set(entityId, {
         saveDirty: false,
         persisted: true,
-      }
-      : {
-        snapshot: this.createInitialPlayerSnapshot(playerName),
-        inventory: createDefaultInventory(),
-        saveDirty: true,
-        persisted: false,
-      };
+      });
+      return entityId;
+    }
 
-    this.players.set(playerName, entry);
-    return entry;
-  }
-
-  private createInitialPlayerSnapshot(playerName: PlayerName): PlayerSnapshot {
-    return {
-      name: playerName,
-      active: false,
-      gamemode: DEFAULT_PLAYER_GAMEMODE,
-      flying: false,
+    const entityId = this.entityRegistry.createEntity("player");
+    this.playerEntitiesByName.set(playerName, entityId);
+    this.playerIdentity.set(entityId, { playerName });
+    this.playerTransform.set(entityId, {
       state: {
         position: [...this.spawnPosition],
         yaw: DEFAULT_PLAYER_YAW,
         pitch: DEFAULT_PLAYER_PITCH,
       },
-    };
+    });
+    this.playerMode.set(entityId, {
+      gamemode: DEFAULT_PLAYER_GAMEMODE,
+    });
+    this.playerMovement.set(entityId, {
+      flying: false,
+    });
+    this.playerInventory.set(entityId, {
+      inventory: createDefaultInventory(),
+    });
+    this.playerSession.set(entityId, { active: false });
+    this.playerPersistence.set(entityId, {
+      saveDirty: true,
+      persisted: false,
+    });
+    return entityId;
   }
 
-  private getActivePlayerSnapshots(excludePlayerName?: PlayerName): PlayerSnapshot[] {
-    return [...this.players.values()]
-      .map((entry) => entry.snapshot)
-      .filter((snapshot) => snapshot.active && snapshot.name !== excludePlayerName)
-      .sort((left, right) => left.name.localeCompare(right.name))
-      .map((snapshot) => this.clonePlayerSnapshot(snapshot));
+  private getActivePlayerSnapshots(excludeEntityId?: EntityId): PlayerSnapshot[] {
+    const snapshots: PlayerSnapshot[] = [];
+
+    for (const entityId of this.playerEntitiesByName.values()) {
+      const session = this.requireComponent(this.playerSession, entityId, "player session");
+      if (!session.active || entityId === excludeEntityId) {
+        continue;
+      }
+
+      snapshots.push(this.getPlayerSnapshot(entityId));
+    }
+
+    snapshots.sort((left, right) => left.name.localeCompare(right.name));
+    return snapshots;
+  }
+
+  private getPlayerSnapshot(entityId: EntityId): PlayerSnapshot {
+    const identity = this.requireComponent(this.playerIdentity, entityId, "player identity");
+    const transform = this.requireComponent(this.playerTransform, entityId, "player transform");
+    const mode = this.requireComponent(this.playerMode, entityId, "player mode");
+    const movement = this.requireComponent(this.playerMovement, entityId, "player movement");
+    const session = this.requireComponent(this.playerSession, entityId, "player session");
+
+    return {
+      entityId,
+      name: identity.playerName,
+      active: session.active,
+      gamemode: mode.gamemode,
+      flying: movement.flying,
+      state: this.clonePlayerState(transform.state),
+    };
   }
 
   private toChunkPayload(chunk: Chunk): ChunkPayload {
@@ -440,21 +546,19 @@ export class AuthoritativeWorld {
     return normalizeInventorySnapshot(inventory);
   }
 
-  private clonePlayerSnapshot(snapshot: PlayerSnapshot): PlayerSnapshot {
-    return {
-      name: snapshot.name,
-      active: snapshot.active,
-      gamemode: snapshot.gamemode,
-      flying: snapshot.flying,
-      state: this.clonePlayerState(snapshot.state),
-    };
-  }
-
   private clonePlayerState(state: PlayerState): PlayerState {
     return {
       position: [...state.position],
       yaw: state.yaw,
       pitch: state.pitch,
     };
+  }
+
+  private requireComponent<T>(
+    store: ComponentStore<T>,
+    entityId: EntityId,
+    label: string,
+  ): T {
+    return store.require(entityId, label);
   }
 }

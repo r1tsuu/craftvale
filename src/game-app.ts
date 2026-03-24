@@ -378,8 +378,8 @@ export class GameApp {
       }),
       this.deps.clientAdapter.eventBus.on(
         "inventoryUpdated",
-        ({ playerName, inventory }) => {
-          if (playerName !== this.deps.clientWorldRuntime.clientPlayerName) {
+        ({ playerEntityId, inventory }) => {
+          if (playerEntityId !== this.deps.clientWorldRuntime.clientPlayerEntityId) {
             return;
           }
 
@@ -394,12 +394,12 @@ export class GameApp {
       }),
       this.deps.clientAdapter.eventBus.on("playerUpdated", ({ player }) => {
         this.deps.clientWorldRuntime.applyPlayer(player);
-        if (player.name === this.deps.clientWorldRuntime.clientPlayerName) {
+        if (player.entityId === this.deps.clientWorldRuntime.clientPlayerEntityId) {
           this.deps.player.syncFromSnapshot(player);
         }
       }),
-      this.deps.clientAdapter.eventBus.on("playerLeft", ({ playerName }) => {
-        this.deps.clientWorldRuntime.removePlayer(playerName);
+      this.deps.clientAdapter.eventBus.on("playerLeft", ({ playerEntityId, playerName }) => {
+        this.deps.clientWorldRuntime.removePlayer(playerEntityId, playerName);
       }),
       this.deps.clientAdapter.eventBus.on("chatMessage", ({ entry }) => {
         this.deps.clientWorldRuntime.appendChatMessage(entry);

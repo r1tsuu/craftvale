@@ -64,6 +64,7 @@ export interface InventorySnapshot {
   cursor: InventorySlot | null;
 }
 
+export type EntityId = string;
 export type PlayerName = string;
 export type PlayerGamemode = 0 | 1;
 
@@ -89,6 +90,7 @@ export interface ClientSettings {
 }
 
 export interface PlayerSnapshot {
+  entityId: EntityId;
   name: PlayerName;
   state: PlayerState;
   active: boolean;

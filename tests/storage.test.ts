@@ -48,6 +48,7 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
 
     await storage.savePlayer("Alpha", {
       snapshot: {
+        entityId: "player:7",
         name: PLAYER_A,
         active: true,
         gamemode: 1,
@@ -74,6 +75,7 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
 
     await storage.savePlayer("Alpha", {
       snapshot: {
+        entityId: "player:8",
         name: PLAYER_B,
         active: true,
         gamemode: 0,
@@ -94,6 +96,7 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
 
     const loadedPlayerA = await storage.loadPlayer("Alpha", PLAYER_A);
     expect(loadedPlayerA).not.toBeNull();
+    expect(loadedPlayerA?.snapshot.entityId).toBe("player:7");
     expect(loadedPlayerA?.snapshot.name).toBe(PLAYER_A);
     expect(loadedPlayerA?.snapshot.active).toBe(false);
     expect(loadedPlayerA?.snapshot.gamemode).toBe(1);
@@ -108,6 +111,7 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
 
     const loadedPlayerB = await storage.loadPlayer("Alpha", PLAYER_B);
     expect(loadedPlayerB).not.toBeNull();
+    expect(loadedPlayerB?.snapshot.entityId).toBe("player:8");
     expect(loadedPlayerB?.snapshot.gamemode).toBe(0);
     expect(loadedPlayerB?.snapshot.state.position).toEqual([1, 2, 3]);
     expect(loadedPlayerB?.inventory.hotbar.find((slot) => slot.blockId === 4)?.count).toBe(9);

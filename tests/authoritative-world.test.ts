@@ -20,10 +20,11 @@ test("authoritative world keeps per-player state separate and persists it by pla
     expect(joinedA.clientPlayer.name).toBe(PLAYER_A);
     expect(joinedA.players).toEqual([]);
     expect(joinedA.clientPlayer.gamemode).toBe(0);
+    expect(joinedA.clientPlayer.entityId).toMatch(/^player:/);
 
-    await world.setPlayerGamemode(PLAYER_A, 1);
+    await world.setPlayerGamemode(joinedA.clientPlayer.entityId, 1);
     await world.updatePlayerState(
-      PLAYER_A,
+      joinedA.clientPlayer.entityId,
       {
         position: [20, 80, -4],
         yaw: 0.75,
@@ -31,11 +32,11 @@ test("authoritative world keeps per-player state separate and persists it by pla
       },
       true,
     );
-    const playerAInventory = await world.selectInventorySlot(PLAYER_A, 4);
+    const playerAInventory = await world.selectInventorySlot(joinedA.clientPlayer.entityId, 4);
     expect(playerAInventory.selectedSlot).toBe(4);
-    const liftedStack = await world.interactInventorySlot(PLAYER_A, "hotbar", 8);
+    const liftedStack = await world.interactInventorySlot(joinedA.clientPlayer.entityId, "hotbar", 8);
     expect(liftedStack.cursor).toEqual({ blockId: 9, count: 64 });
-    const placedStack = await world.interactInventorySlot(PLAYER_A, "main", 0);
+    const placedStack = await world.interactInventorySlot(joinedA.clientPlayer.entityId, "main", 0);
     expect(placedStack.cursor).toBeNull();
     expect(placedStack.main[0]).toEqual({ blockId: 9, count: 64 });
 
@@ -43,16 +44,18 @@ test("authoritative world keeps per-player state separate and persists it by pla
     expect(joinedB.clientPlayer.name).toBe(PLAYER_B);
     expect(joinedB.players.map((player) => player.name)).toEqual([PLAYER_A]);
     expect(joinedB.inventory.selectedSlot).toBe(0);
+    expect(joinedB.clientPlayer.entityId).not.toBe(joinedA.clientPlayer.entityId);
 
     await world.save();
-    await world.leavePlayer(PLAYER_A);
-    await world.leavePlayer(PLAYER_B);
+    await world.leavePlayer(joinedA.clientPlayer.entityId);
+    await world.leavePlayer(joinedB.clientPlayer.entityId);
 
     const reloadedRecord = await storage.getWorld("Alpha");
     expect(reloadedRecord).not.toBeNull();
     const reloadedWorld = new AuthoritativeWorld(reloadedRecord!, storage);
 
     const rejoinedA = await reloadedWorld.joinPlayer(PLAYER_A);
+    expect(rejoinedA.clientPlayer.entityId).toBe(joinedA.clientPlayer.entityId);
     expect(rejoinedA.clientPlayer.state.position).toEqual([20, 80, -4]);
     expect(rejoinedA.clientPlayer.state.yaw).toBe(0.75);
     expect(rejoinedA.clientPlayer.gamemode).toBe(1);
@@ -61,6 +64,7 @@ test("authoritative world keeps per-player state separate and persists it by pla
     expect(rejoinedA.inventory.main[0]).toEqual({ blockId: 9, count: 64 });
 
     const rejoinedB = await reloadedWorld.joinPlayer(PLAYER_B);
+    expect(rejoinedB.clientPlayer.entityId).toBe(joinedB.clientPlayer.entityId);
     expect(rejoinedB.clientPlayer.state.position).not.toEqual([20, 80, -4]);
     expect(rejoinedB.inventory.selectedSlot).toBe(0);
     expect(rejoinedB.players.map((player) => player.name)).toEqual([PLAYER_A]);

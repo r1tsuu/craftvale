@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { type JoinedWorldPayload, type SaveStatusPayload } from "../shared/messages.ts";
-import type { ChatEntry, PlayerGamemode, PlayerName } from "../types.ts";
+import type { ChatEntry, EntityId, PlayerGamemode, PlayerName } from "../types.ts";
 import { AuthoritativeWorld } from "./authoritative-world.ts";
 import { BinaryWorldStorage, type WorldStorage } from "./world-storage.ts";
 import type { IServerAdapter } from "./server-adapter.ts";
@@ -13,7 +13,7 @@ export const DEFAULT_WORLD_STORAGE_ROOT = join(projectRoot, "data");
 
 export class ServerRuntime {
   private activeWorld: AuthoritativeWorld | null = null;
-  private currentPlayerName: PlayerName | null = null;
+  private currentPlayerEntityId: EntityId | null = null;
 
   public constructor(
     private readonly adapter: Pick<IServerAdapter, "eventBus" | "close">,
@@ -53,7 +53,7 @@ export class ServerRuntime {
       }
 
       const joinedPlayer = await this.activeWorld.joinPlayer(playerName);
-      this.currentPlayerName = playerName;
+      this.currentPlayerEntityId = joinedPlayer.clientPlayer.entityId;
       const payload: JoinedWorldPayload = {
         world: this.activeWorld.summary,
         clientPlayerName: playerName,
@@ -135,11 +135,13 @@ export class ServerRuntime {
     });
 
     this.adapter.eventBus.on("mutateBlock", async ({ x, y, z, blockId }) => {
-      if (!this.activeWorld || !this.currentPlayerName) {
+      if (!this.activeWorld || !this.currentPlayerEntityId) {
         throw new Error("Join a world before mutating blocks.");
       }
 
-      const result = await this.activeWorld.applyBlockMutation(this.currentPlayerName, x, y, z, blockId);
+      const playerEntityId = this.currentPlayerEntityId;
+      const playerName = this.requireCurrentPlayerName();
+      const result = await this.activeWorld.applyBlockMutation(playerEntityId, x, y, z, blockId);
       for (const chunk of result.changedChunks) {
         this.adapter.eventBus.send({
           type: "chunkChanged",
@@ -151,7 +153,8 @@ export class ServerRuntime {
         this.adapter.eventBus.send({
           type: "inventoryUpdated",
           payload: {
-            playerName: this.currentPlayerName,
+            playerEntityId,
+            playerName,
             inventory: result.inventory,
           },
         });
@@ -159,46 +162,50 @@ export class ServerRuntime {
     });
 
     this.adapter.eventBus.on("selectInventorySlot", async ({ slot }) => {
-      if (!this.activeWorld || !this.currentPlayerName) {
+      if (!this.activeWorld || !this.currentPlayerEntityId) {
         throw new Error("Join a world before selecting inventory.");
       }
 
-      const inventory = await this.activeWorld.selectInventorySlot(this.currentPlayerName, slot);
+      const playerEntityId = this.currentPlayerEntityId;
+      const inventory = await this.activeWorld.selectInventorySlot(playerEntityId, slot);
       this.adapter.eventBus.send({
         type: "inventoryUpdated",
         payload: {
-          playerName: this.currentPlayerName,
+          playerEntityId,
+          playerName: this.requireCurrentPlayerName(),
           inventory,
         },
       });
     });
 
     this.adapter.eventBus.on("interactInventorySlot", async ({ section, slot }) => {
-      if (!this.activeWorld || !this.currentPlayerName) {
+      if (!this.activeWorld || !this.currentPlayerEntityId) {
         throw new Error("Join a world before interacting with inventory.");
       }
 
+      const playerEntityId = this.currentPlayerEntityId;
       const inventory = await this.activeWorld.interactInventorySlot(
-        this.currentPlayerName,
+        playerEntityId,
         section,
         slot,
       );
       this.adapter.eventBus.send({
         type: "inventoryUpdated",
         payload: {
-          playerName: this.currentPlayerName,
+          playerEntityId,
+          playerName: this.requireCurrentPlayerName(),
           inventory,
         },
       });
     });
 
     this.adapter.eventBus.on("updatePlayerState", async ({ state, flying }) => {
-      if (!this.activeWorld || !this.currentPlayerName) {
+      if (!this.activeWorld || !this.currentPlayerEntityId) {
         throw new Error("Join a world before updating player state.");
       }
 
       const player = await this.activeWorld.updatePlayerState(
-        this.currentPlayerName,
+        this.currentPlayerEntityId,
         state,
         flying,
       );
@@ -209,7 +216,7 @@ export class ServerRuntime {
     });
 
     this.adapter.eventBus.on("submitChat", async ({ text }) => {
-      if (!this.activeWorld || !this.currentPlayerName) {
+      if (!this.activeWorld || !this.currentPlayerEntityId) {
         throw new Error("Join a world before chatting.");
       }
 
@@ -219,13 +226,13 @@ export class ServerRuntime {
       }
 
       if (trimmed.startsWith("/")) {
-        await this.handleCommand(trimmed.slice(1), this.currentPlayerName);
+        await this.handleCommand(trimmed.slice(1));
         return;
       }
 
       this.emitChatMessage({
         kind: "player",
-        senderName: this.currentPlayerName,
+        senderName: this.requireCurrentPlayerName(),
         text: trimmed,
         receivedAt: Date.now(),
       });
@@ -246,7 +253,7 @@ export class ServerRuntime {
     });
   }
 
-  private async handleCommand(commandLine: string, playerName: PlayerName): Promise<void> {
+  private async handleCommand(commandLine: string): Promise<void> {
     const parts = commandLine
       .split(/\s+/)
       .map((part) => part.trim())
@@ -260,17 +267,14 @@ export class ServerRuntime {
     const [commandName, ...args] = parts;
     switch (commandName.toLowerCase()) {
       case "gamemode":
-        await this.handleGamemodeCommand(playerName, args);
+        await this.handleGamemodeCommand(args);
         return;
       default:
         this.emitSystemMessage(`Unknown command: ${commandName}`);
     }
   }
 
-  private async handleGamemodeCommand(
-    playerName: PlayerName,
-    args: string[],
-  ): Promise<void> {
+  private async handleGamemodeCommand(args: string[]): Promise<void> {
     if (!this.activeWorld) {
       return;
     }
@@ -282,7 +286,8 @@ export class ServerRuntime {
     }
 
     const gamemode = Number(modeToken) as PlayerGamemode;
-    const player = await this.activeWorld.setPlayerGamemode(playerName, gamemode);
+    const playerEntityId = this.requireCurrentPlayerEntityId();
+    const player = await this.activeWorld.setPlayerGamemode(playerEntityId, gamemode);
     this.adapter.eventBus.send({
       type: "playerUpdated",
       payload: { player },
@@ -313,20 +318,44 @@ export class ServerRuntime {
   }
 
   private async releaseCurrentPlayer(): Promise<void> {
-    if (!this.activeWorld || !this.currentPlayerName) {
+    if (!this.activeWorld || !this.currentPlayerEntityId) {
       return;
     }
 
-    const playerName = this.currentPlayerName;
-    const leftPlayer = await this.activeWorld.leavePlayer(playerName);
-    this.currentPlayerName = null;
+    const playerEntityId = this.currentPlayerEntityId;
+    const leftPlayer = await this.activeWorld.leavePlayer(playerEntityId);
+    this.currentPlayerEntityId = null;
     if (!leftPlayer) {
       return;
     }
 
     this.adapter.eventBus.send({
       type: "playerLeft",
-      payload: { playerName },
+      payload: {
+        playerEntityId,
+        playerName: leftPlayer.name,
+      },
     });
+  }
+
+  private requireCurrentPlayerEntityId(): EntityId {
+    if (!this.currentPlayerEntityId) {
+      throw new Error("Join a world before acting as a player.");
+    }
+
+    return this.currentPlayerEntityId;
+  }
+
+  private requireCurrentPlayerName(): PlayerName {
+    if (!this.activeWorld) {
+      throw new Error("Join a world before acting as a player.");
+    }
+
+    const playerName = this.activeWorld.getPlayerName(this.requireCurrentPlayerEntityId());
+    if (!playerName) {
+      throw new Error("Current player session is missing its authoritative entity.");
+    }
+
+    return playerName;
   }
 }

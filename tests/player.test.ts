@@ -52,6 +52,7 @@ const createSnapshot = (
   player: PlayerController,
   overrides: Partial<Pick<PlayerSnapshot, "gamemode" | "flying">> = {},
 ): PlayerSnapshot => ({
+  entityId: "player:1",
   name: "Alice",
   active: true,
   gamemode: overrides.gamemode ?? player.gamemode,
@@ -133,6 +134,7 @@ test("creative mode toggles flight on double-space and allows vertical movement"
   addFloor(world);
   const player = new PlayerController();
   player.resetFromSnapshot({
+    entityId: "player:1",
     name: "Alice",
     active: true,
     gamemode: 1,
@@ -163,6 +165,7 @@ test("normal mode sync disables creative flight immediately", () => {
   addFloor(world);
   const player = new PlayerController();
   player.resetFromSnapshot({
+    entityId: "player:1",
     name: "Alice",
     active: true,
     gamemode: 1,
@@ -175,6 +178,7 @@ test("normal mode sync disables creative flight immediately", () => {
   });
 
   player.syncFromSnapshot({
+    entityId: "player:1",
     name: "Alice",
     active: true,
     gamemode: 0,
@@ -197,6 +201,7 @@ test("disabling flight preserves normal gravity acceleration across syncs", () =
   addFloor(world);
   const player = new PlayerController();
   player.resetFromSnapshot({
+    entityId: "player:1",
     name: "Alice",
     active: true,
     gamemode: 1,

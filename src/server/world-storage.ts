@@ -16,7 +16,7 @@ const CHUNK_MAGIC = "VCHK";
 const PLAYER_MAGIC = "VPLY";
 const REGISTRY_VERSION = 1;
 const CHUNK_VERSION = 1;
-const PLAYER_VERSION = 3;
+const PLAYER_VERSION = 4;
 
 export interface StoredWorldRecord extends WorldSummary {
   directoryName: string;
@@ -187,7 +187,10 @@ const decodeChunk = (bytes: Uint8Array): StoredChunkRecord => {
 
 const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
   const inventory = normalizeInventorySnapshot(record.inventory);
-  const bytes = new Uint8Array(72 + (inventory.hotbar.length + inventory.main.length) * 8);
+  const entityIdBytes = textEncoder.encode(record.snapshot.entityId);
+  const bytes = new Uint8Array(
+    72 + (inventory.hotbar.length + inventory.main.length) * 8 + 2 + entityIdBytes.length,
+  );
   const view = new DataView(bytes.buffer);
   bytes.set(textEncoder.encode(PLAYER_MAGIC), 0);
   view.setUint32(4, PLAYER_VERSION, true);
@@ -209,6 +212,8 @@ const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
     view.setUint32(offset + 4, Math.max(0, Math.trunc(slot.count)) >>> 0, true);
     offset += 8;
   }
+
+  writeString(bytes, offset, record.snapshot.entityId);
 
   return bytes;
 };
@@ -255,6 +260,8 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
     offset += 8;
   }
 
+  const entityId = readString(bytes, offset).value;
+
   const inventory = normalizeInventorySnapshot({
     hotbar,
     main,
@@ -269,6 +276,7 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
 
   return {
     snapshot: {
+      entityId,
       name: playerName,
       active: false,
       gamemode,

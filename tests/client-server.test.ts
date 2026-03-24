@@ -46,8 +46,8 @@ const createHarness = async (): Promise<{
   client.eventBus.on("chunkChanged", ({ chunk }) => {
     worldRuntime.applyChunk(chunk);
   });
-  client.eventBus.on("inventoryUpdated", ({ playerName, inventory }) => {
-    if (playerName === worldRuntime.clientPlayerName) {
+  client.eventBus.on("inventoryUpdated", ({ playerEntityId, inventory }) => {
+    if (playerEntityId === worldRuntime.clientPlayerEntityId) {
       worldRuntime.applyInventory(inventory);
     }
   });
@@ -57,8 +57,8 @@ const createHarness = async (): Promise<{
   client.eventBus.on("playerUpdated", ({ player }) => {
     worldRuntime.applyPlayer(player);
   });
-  client.eventBus.on("playerLeft", ({ playerName }) => {
-    worldRuntime.removePlayer(playerName);
+  client.eventBus.on("playerLeft", ({ playerEntityId, playerName }) => {
+    worldRuntime.removePlayer(playerEntityId, playerName);
   });
   client.eventBus.on("chatMessage", ({ entry }) => {
     worldRuntime.appendChatMessage(entry);
@@ -139,8 +139,11 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
 
     expect(harness.worldRuntime.world.hasChunk(coords[0]!)).toBe(true);
     expect(joined.clientPlayerName).toBe(PLAYER_NAME);
+    expect(joined.clientPlayer.entityId).toMatch(/^player:/);
     expect(harness.worldRuntime.clientPlayerName).toBe(PLAYER_NAME);
+    expect(harness.worldRuntime.clientPlayerEntityId).toBe(joined.clientPlayer.entityId);
     expect(harness.worldRuntime.getClientPlayer()?.name).toBe(PLAYER_NAME);
+    expect(harness.worldRuntime.getClientPlayer()?.entityId).toBe(joined.clientPlayer.entityId);
     expect(harness.worldRuntime.inventory.selectedSlot).toBe(0);
     expect(
       harness.worldRuntime.inventory.hotbar.every(

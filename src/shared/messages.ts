@@ -2,6 +2,7 @@ import type {
   BlockId,
   ChatEntry,
   ChunkCoord,
+  EntityId,
   InventorySection,
   InventorySnapshot,
   PlayerName,
@@ -110,10 +111,14 @@ export interface ServerEventMap {
   joinedWorld: JoinedWorldPayload;
   chunkDelivered: { chunk: ChunkPayload };
   chunkChanged: { chunk: ChunkPayload };
-  inventoryUpdated: { playerName: PlayerName; inventory: InventorySnapshot };
+  inventoryUpdated: {
+    playerEntityId: EntityId;
+    playerName: PlayerName;
+    inventory: InventorySnapshot;
+  };
   playerJoined: { player: PlayerSnapshot };
   playerUpdated: { player: PlayerSnapshot };
-  playerLeft: { playerName: PlayerName };
+  playerLeft: { playerEntityId: EntityId; playerName: PlayerName };
   chatMessage: { entry: ChatEntry };
   saveStatus: SaveStatusPayload;
   worldDeleted: { name: string };
