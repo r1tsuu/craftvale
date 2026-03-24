@@ -35,7 +35,7 @@ The worker hosts the authoritative server:
 - is attached to a `WorkerServerHost`
 - constructs a `ServerRuntime`
 - loads/saves worlds through `BinaryWorldStorage`
-- generates chunks, applies block mutations, and owns inventory state
+- generates chunks, applies block mutations, and owns the authoritative world/session state
 
 This separation means the client never directly mutates authoritative world state. It asks the server to do so and then applies the resulting authoritative updates.
 
@@ -105,7 +105,7 @@ Because the transport abstraction is explicit, the current worker-backed single-
 - loaded chunk cache
 - pending chunk requests
 - chunk waiters for async loading
-- `clientPlayerName` plus replicated player snapshots
+- `clientPlayerName` and `clientPlayerEntityId` plus replicated player snapshots
 - replicated local-player inventory snapshot
 - recent replicated chat/system messages
 
@@ -132,6 +132,12 @@ This local world is used for:
 - allocates and restores player entities from the shared world registry
 - owns player-specific component mutation and snapshot assembly
 - persists per-player position/rotation, gamemode, and inventory state
+
+The shared world entity state currently includes:
+
+- one `EntityRegistry` for actor ids in the active world
+- world-owned component stores for player identity, transform, mode, movement, inventory, session presence, and persistence
+- a boundary that future actor systems can share without making chunks into entities
 
 Chunks still are not entities:
 
@@ -225,11 +231,12 @@ Player identity is separate from world identity:
 - a launch can temporarily override that name with `--player-name`
 - the effective player name is sent explicitly when joining a world
 
-Inventory is modeled as a hotbar-oriented snapshot:
+Inventory is modeled as a fuller player inventory snapshot:
 
-- fixed slot list
-- selected slot index
-- per-slot block id and count
+- hotbar slot list
+- main inventory slot list
+- selected hotbar index
+- optional carried cursor stack
 
 The current default setup is a nine-slot hotbar with starter stacks for newly seen players.
 
@@ -245,6 +252,12 @@ The server owns the real counts and persists them per player name inside each wo
 - successful placement decrements counts
 - invalid placement does not consume inventory
 - joining the same world with the same player name restores that player’s inventory and position/rotation
+
+Within the current server architecture, inventory still belongs to the player entity/component model:
+
+- inventory is player-owned state, not a standalone entity
+- inventory mutation is routed through `PlayerSystem`
+- inventory replication still stays separate from chunk replication
 
 ## Chat And Commands
 
@@ -262,7 +275,7 @@ The first command path is `/gamemode`:
 - double-tapping `Space` toggles flying while in creative mode
 - `Shift` descends while flight is active
 
-Inventory normalization also acts as a compatibility layer for older persisted snapshots when the hotbar/block catalog grows.
+Inventory normalization also keeps persisted snapshots structurally safe when slot layouts or block catalogs grow.
 
 ## Persistence
 
@@ -272,7 +285,7 @@ Current persisted data:
 
 - world registry metadata
 - per-world chunk override files
-- per-world inventory file
+- per-world per-player files containing player snapshot and inventory data
 
 The save model is baseline-aware:
 
@@ -304,6 +317,7 @@ The test suite covers the main architectural seams:
 - client/server request-response behavior
 - authoritative chunk/inventory replication
 - storage round-trips
+- shared world entity ownership for player allocation
 - terrain and biome determinism
 - meshing and atlas behavior
 - hotbar normalization and HUD composition
