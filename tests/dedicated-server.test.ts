@@ -5,13 +5,16 @@ import { join } from "node:path";
 import { PortClientAdapter } from "../apps/client/src/client/client-adapter.ts";
 import { ClientWorldRuntime } from "../apps/client/src/client/world-runtime.ts";
 import {
+  WorldSessionController,
+  type WorldSessionPeer,
+} from "../packages/core/src/server/world-session-controller.ts";
+import {
   loadOrCreateDedicatedWorld,
   type DedicatedServerSessionHost,
 } from "../apps/dedicated-server/src/dedicated-server.ts";
 import { PortServerAdapter } from "../packages/core/src/server/server-adapter.ts";
 import type { ClientToServerMessage, ServerToClientMessage } from "../packages/core/src/shared/messages.ts";
 import { createInMemoryTransportPair } from "../packages/core/src/shared/transport.ts";
-import { WorldSessionController, type WorldSessionPeer } from "../apps/dedicated-server/src/world-session-controller.ts";
 import {
   DedicatedWorldStorage,
   DEDICATED_WORLD_DIRECTORY_NAME,

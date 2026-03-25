@@ -2,14 +2,15 @@ import { join } from "node:path";
 import { decodeClientToServerMessage, encodeTransportMessage } from "./shared/message-codec.ts";
 import { type ServerEventMap } from "./shared/messages.ts";
 import type { EntityId, PlayerSnapshot } from "./types.ts";
-import { AuthoritativeWorld } from "./authoritative-world.ts";
-import { PortServerAdapter } from "./server-adapter.ts";
 import {
+  AuthoritativeWorld,
+  DedicatedWorldStorage,
+  PortServerAdapter,
   WorldSessionController,
+  type WorldStorage,
   type WorldSessionPeer,
-} from "./world-session-controller.ts";
+} from "@voxel/core/server";
 import { createLogger } from "./utils/logger.ts";
-import { DedicatedWorldStorage, type WorldStorage } from "./world-storage.ts";
 import type { TransportPort } from "./shared/transport.ts";
 
 const appRoot = import.meta.dir.endsWith("/apps/dedicated-server/src")
