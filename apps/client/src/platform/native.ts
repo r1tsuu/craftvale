@@ -32,6 +32,7 @@ const library = dlopen(libraryPath, {
   bridge_set_cursor_disabled: { args: [FFIType.i32], returns: FFIType.void },
   bridge_is_key_down: { args: [FFIType.i32], returns: FFIType.i32 },
   bridge_is_mouse_button_down: { args: [FFIType.i32], returns: FFIType.i32 },
+  bridge_consume_mouse_button_press: { args: [FFIType.i32], returns: FFIType.i32 },
   bridge_get_cursor_x: { args: [], returns: FFIType.f64 },
   bridge_get_cursor_y: { args: [], returns: FFIType.f64 },
   bridge_get_typed_text: { args: [], returns: FFIType.cstring },
@@ -284,8 +285,14 @@ export class NativeBridge {
       breakBlock: Boolean(
         library.symbols.bridge_is_mouse_button_down(GLFW_MOUSE_BUTTON_LEFT),
       ),
+      breakBlockPressed: Boolean(
+        library.symbols.bridge_consume_mouse_button_press(GLFW_MOUSE_BUTTON_LEFT),
+      ),
       placeBlock: Boolean(
         library.symbols.bridge_is_mouse_button_down(GLFW_MOUSE_BUTTON_RIGHT),
+      ),
+      placeBlockPressed: Boolean(
+        library.symbols.bridge_consume_mouse_button_press(GLFW_MOUSE_BUTTON_RIGHT),
       ),
       exitPressed: Boolean(
         library.symbols.bridge_consume_key_press(GLFW_KEY_ESCAPE),

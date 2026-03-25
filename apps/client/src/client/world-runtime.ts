@@ -16,6 +16,7 @@ import {
   VoxelWorld,
   createDefaultInventory,
   getChunkCoordsAroundPosition,
+  isBreakableBlock,
   normalizeInventorySnapshot,
 } from "@voxel/core/shared";
 import type { IClientAdapter } from "./client-adapter.ts";
@@ -60,6 +61,25 @@ export class ClientWorldRuntime {
 
   public applyInventory(inventory: InventorySnapshot): void {
     this.inventory = normalizeInventorySnapshot(inventory);
+  }
+
+  public applyPredictedBreak(
+    worldX: number,
+    worldY: number,
+    worldZ: number,
+    gamemode: PlayerGamemode,
+  ): boolean {
+    const current = this.world.getBlock(worldX, worldY, worldZ);
+    if (current === 0) {
+      return false;
+    }
+
+    if (!isBreakableBlock(current) && gamemode !== 1) {
+      return false;
+    }
+
+    this.world.setBlock(worldX, worldY, worldZ, 0);
+    return true;
   }
 
   public applyJoinedWorld(joined: JoinedWorldPayload): void {

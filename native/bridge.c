@@ -17,6 +17,7 @@ static char g_info_log[4096];
 static char g_typed_text[256];
 static int g_typed_text_length = 0;
 static int g_pressed_keys[GLFW_KEY_LAST + 1];
+static int g_pressed_mouse_buttons[GLFW_MOUSE_BUTTON_LAST + 1];
 
 static void window_size_callback(GLFWwindow *window, int width, int height) {
   (void)window;
@@ -49,6 +50,19 @@ static void key_callback(
 
   if (action == GLFW_PRESS && key >= 0 && key <= GLFW_KEY_LAST) {
     g_pressed_keys[key] = 1;
+  }
+}
+
+static void mouse_button_callback(
+    GLFWwindow *window,
+    int button,
+    int action,
+    int mods) {
+  (void)window;
+  (void)mods;
+
+  if (action == GLFW_PRESS && button >= 0 && button <= GLFW_MOUSE_BUTTON_LAST) {
+    g_pressed_mouse_buttons[button] = 1;
   }
 }
 
@@ -105,11 +119,13 @@ int bridge_init_window(int width, int height, const char *title) {
   glfwSetFramebufferSizeCallback(g_window, framebuffer_size_callback);
   glfwSetCursorPosCallback(g_window, cursor_position_callback);
   glfwSetKeyCallback(g_window, key_callback);
+  glfwSetMouseButtonCallback(g_window, mouse_button_callback);
   glfwSetCharCallback(g_window, char_callback);
   glfwGetWindowSize(g_window, &g_window_width, &g_window_height);
   glfwGetFramebufferSize(g_window, &g_framebuffer_width, &g_framebuffer_height);
   glfwGetCursorPos(g_window, &g_cursor_x, &g_cursor_y);
   memset(g_pressed_keys, 0, sizeof(g_pressed_keys));
+  memset(g_pressed_mouse_buttons, 0, sizeof(g_pressed_mouse_buttons));
   g_typed_text[0] = '\0';
   g_typed_text_length = 0;
   g_resized = 1;
@@ -191,6 +207,16 @@ int bridge_consume_key_press(int key) {
 
   int pressed = g_pressed_keys[key];
   g_pressed_keys[key] = 0;
+  return pressed;
+}
+
+int bridge_consume_mouse_button_press(int button) {
+  if (button < 0 || button > GLFW_MOUSE_BUTTON_LAST) {
+    return 0;
+  }
+
+  int pressed = g_pressed_mouse_buttons[button];
+  g_pressed_mouse_buttons[button] = 0;
   return pressed;
 }
 

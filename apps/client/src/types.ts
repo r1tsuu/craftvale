@@ -12,7 +12,9 @@ export interface InputState {
   moveUp: boolean;
   moveDown: boolean;
   breakBlock: boolean;
+  breakBlockPressed: boolean;
   placeBlock: boolean;
+  placeBlockPressed: boolean;
   exitPressed: boolean;
   mouseDeltaX: number;
   mouseDeltaY: number;

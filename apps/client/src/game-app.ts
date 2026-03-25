@@ -35,6 +35,12 @@ import {
   shouldLockCursor,
   type PauseScreen,
 } from "./game/play-overlay.ts";
+import {
+  applyFixedStepInputEdges,
+  createPendingFixedStepInputEdges,
+  queueFixedStepInputEdges,
+  type PendingFixedStepInputEdges,
+} from "./game/fixed-step-input.ts";
 import { PlayerController } from "./game/player.ts";
 import { NativeBridge } from "./platform/native.ts";
 import { VoxelRenderer } from "./render/renderer.ts";
@@ -81,8 +87,7 @@ export interface GameAppState {
   previousTime: number;
   accumulator: number;
   smoothedFps: number;
-  previousPrimaryDown: boolean;
-  previousSecondaryDown: boolean;
+  pendingFixedStepInputEdges: PendingFixedStepInputEdges;
   firstPersonSwingRemaining: number;
   appMode: AppMode;
   menuState: MenuState;
@@ -128,8 +133,7 @@ export class GameApp {
       previousTime: 0,
       accumulator: 0,
       smoothedFps: 60,
-      previousPrimaryDown: false,
-      previousSecondaryDown: false,
+      pendingFixedStepInputEdges: createPendingFixedStepInputEdges(),
       firstPersonSwingRemaining: 0,
       appMode: "menu",
       menuState: createMenuState(),
@@ -188,7 +192,11 @@ export class GameApp {
 
   private async tick(): Promise<void> {
     const input = this.deps.nativeBridge.pollInput();
-    const primaryPressed = input.breakBlock && !this.state.previousPrimaryDown;
+    const primaryPressed = input.breakBlockPressed;
+    this.state.pendingFixedStepInputEdges = queueFixedStepInputEdges(
+      this.state.pendingFixedStepInputEdges,
+      input,
+    );
     const currentTime = this.deps.nativeBridge.getTime();
     const deltaTime = Math.min(currentTime - this.state.previousTime, 0.25);
     this.state.previousTime = currentTime;
@@ -269,7 +277,7 @@ export class GameApp {
       const worldRuntime = this.getWorldRuntime();
       this.handlePlayOverlayInput(input);
       if (
-        (primaryPressed || (input.placeBlock && !this.state.previousSecondaryDown)) &&
+        (primaryPressed || input.placeBlockPressed) &&
         !isGameplaySuppressed({
           chatOpen: this.state.chatOpen,
           inventoryOpen: this.state.inventoryOpen,
@@ -287,7 +295,12 @@ export class GameApp {
       }
 
       while (this.state.accumulator >= FIXED_TIMESTEP) {
-        this.updateGame(input, FIXED_TIMESTEP);
+        const stepInput = applyFixedStepInputEdges(
+          input,
+          this.state.pendingFixedStepInputEdges,
+        );
+        this.state.pendingFixedStepInputEdges = createPendingFixedStepInputEdges();
+        this.updateGame(stepInput, FIXED_TIMESTEP);
         this.state.accumulator -= FIXED_TIMESTEP;
       }
 
@@ -355,8 +368,6 @@ export class GameApp {
       overlayText,
       uiComponents,
     );
-    this.state.previousPrimaryDown = input.breakBlock;
-    this.state.previousSecondaryDown = input.placeBlock;
     await Bun.sleep(0);
   }
 
@@ -1191,7 +1202,14 @@ export class GameApp {
       8,
     );
 
-    if (hit && input.breakBlock && !this.state.previousPrimaryDown) {
+    if (hit && input.breakBlockPressed) {
+      const localGamemode = worldRuntime.getClientPlayer()?.gamemode ?? this.deps.player.gamemode;
+      worldRuntime.applyPredictedBreak(
+        hit.hit.x,
+        hit.hit.y,
+        hit.hit.z,
+        localGamemode,
+      );
       adapter.eventBus.send({
         type: "mutateBlock",
         payload: {
@@ -1203,7 +1221,7 @@ export class GameApp {
       });
     }
 
-    if (hit && input.placeBlock && !this.state.previousSecondaryDown) {
+    if (hit && input.placeBlockPressed) {
       const selectedSlot = getSelectedInventorySlot(
         worldRuntime.inventory,
       );
