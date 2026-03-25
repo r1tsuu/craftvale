@@ -325,15 +325,10 @@ export class VoxelRenderer {
     this.nativeBridge.gl.viewport(0, 0, width, height);
     this.nativeBridge.gl.clearColor(0.56, 0.76, 0.94, 1);
     this.nativeBridge.gl.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
-    this.nativeBridge.gl.useProgram(this.program);
-    this.nativeBridge.gl.activeTexture(GL.TEXTURE0);
-    this.nativeBridge.gl.bindTexture(GL.TEXTURE_2D, this.atlasTexture);
-    this.nativeBridge.gl.uniform1i(this.atlasSamplerLocation, 0);
 
     const aspect = Math.max(width / Math.max(height, 1), 0.01);
     const viewProjection = player.getViewProjection(aspect);
-    this.nativeBridge.gl.uniformMatrix4fv(this.viewProjectionLocation, viewProjection);
-    this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL);
+    this.prepareVoxelProgram(viewProjection);
 
     const playerChunkX = Math.floor(player.state.position[0] / CHUNK_SIZE);
     const playerChunkZ = Math.floor(player.state.position[2] / CHUNK_SIZE);
@@ -398,6 +393,7 @@ export class VoxelRenderer {
 
     this.nativeBridge.gl.bindVertexArray(0);
     this.focusHighlightRenderer.render(focusedBlock, viewProjection);
+    this.prepareVoxelProgram(viewProjection);
     this.nativeBridge.gl.disable(GL.DEPTH_TEST);
     this.playerRenderer.renderFirstPersonViewModel(
       player,
@@ -414,6 +410,15 @@ export class VoxelRenderer {
       height,
     );
     this.uiRenderer.render(uiComponents, uiWidth, uiHeight);
+  }
+
+  private prepareVoxelProgram(viewProjection: Float32Array): void {
+    this.nativeBridge.gl.useProgram(this.program);
+    this.nativeBridge.gl.activeTexture(GL.TEXTURE0);
+    this.nativeBridge.gl.bindTexture(GL.TEXTURE_2D, this.atlasTexture);
+    this.nativeBridge.gl.uniform1i(this.atlasSamplerLocation, 0);
+    this.nativeBridge.gl.uniformMatrix4fv(this.viewProjectionLocation, viewProjection);
+    this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL);
   }
 
   private buildPlayerNameplateCommands(
