@@ -6,7 +6,7 @@ import {
   JsonPlayerProfileStorage,
   parsePlayerNameOverride,
   resolvePlayerIdentity,
-} from "../src/client/player-profile.ts";
+} from "../apps/client/src/client/player-profile.ts";
 
 const OVERRIDE_PLAYER_NAME = "Debug Player";
 

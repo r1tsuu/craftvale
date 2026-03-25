@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { getAtlasUvRect } from "../src/world/atlas.ts";
-import { buildChunkMesh } from "../src/world/mesher.ts";
-import type { MeshData } from "../src/types.ts";
-import { VoxelWorld } from "../src/world/world.ts";
+import { getAtlasUvRect } from "../apps/client/src/world/atlas.ts";
+import { buildChunkMesh } from "../packages/core/src/world/mesher.ts";
+import type { MeshData } from "../packages/core/src/types.ts";
+import { VoxelWorld } from "../packages/core/src/world/world.ts";
 
 const FLOATS_PER_VERTEX = 6;
 const VERTICES_PER_FACE = 4;

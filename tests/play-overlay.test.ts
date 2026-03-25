@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   resolvePlayEscapeAction,
   shouldLockCursor,
-} from "../src/game/play-overlay.ts";
+} from "../apps/client/src/game/play-overlay.ts";
 
 test("escape closes the most local play overlay first", () => {
   expect(

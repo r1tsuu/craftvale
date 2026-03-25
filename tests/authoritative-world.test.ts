@@ -2,12 +2,12 @@ import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AuthoritativeWorld } from "../src/server/authoritative-world.ts";
-import { BinaryWorldStorage } from "../src/server/world-storage.ts";
-import { getDroppedItemIdForBlock } from "../src/world/blocks.ts";
-import { CHUNK_SIZE } from "../src/world/constants.ts";
-import { getTerrainHeight } from "../src/world/terrain.ts";
-import type { BlockId } from "../src/types.ts";
+import { AuthoritativeWorld } from "../packages/core/src/server/authoritative-world.ts";
+import { BinaryWorldStorage } from "../packages/core/src/server/world-storage.ts";
+import { getDroppedItemIdForBlock } from "../packages/core/src/world/blocks.ts";
+import { CHUNK_SIZE } from "../packages/core/src/world/constants.ts";
+import { getTerrainHeight } from "../packages/core/src/world/terrain.ts";
+import type { BlockId } from "../packages/core/src/types.ts";
 
 const PLAYER_A = "Alice";
 const PLAYER_B = "Bob";

@@ -1,7 +1,6 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import { parseClientDir, parseServerDir } from "../src/utils/cli.ts";
-import { createLogger } from "../src/utils/logger.ts";
+import { parseClientDir, parseServerDir, createLogger } from "@voxel/core/shared";
 
 const projectRoot = import.meta.dir.endsWith("/scripts")
   ? import.meta.dir.slice(0, -"/scripts".length)

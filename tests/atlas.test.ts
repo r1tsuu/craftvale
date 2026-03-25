@@ -7,7 +7,7 @@ import {
   VOXEL_ATLAS_ASSET_PATH,
   getAtlasUvRect,
   loadVoxelAtlasImageData,
-} from "../src/world/atlas.ts";
+} from "../apps/client/src/world/atlas.ts";
 
 test("atlas PNG image data has the expected dimensions and byte size", () => {
   const atlas = loadVoxelAtlasImageData();

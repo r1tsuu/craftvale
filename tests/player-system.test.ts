@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PlayerSystem } from "../src/server/player-system.ts";
-import { BinaryWorldStorage } from "../src/server/world-storage.ts";
-import { WorldEntityState } from "../src/server/world-entity-state.ts";
+import { PlayerSystem } from "../packages/core/src/server/player-system.ts";
+import { BinaryWorldStorage } from "../packages/core/src/server/world-storage.ts";
+import { WorldEntityState } from "../packages/core/src/server/world-entity-state.ts";
 
 test("player system allocates player entities from the shared world entity registry", async () => {
   const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-player-system-"));

@@ -4,7 +4,7 @@ import {
   parseCliFlagValue,
   parseClientDir,
   parseServerDir,
-} from "../src/utils/cli.ts";
+} from "../packages/core/src/utils/cli.ts";
 
 test("parseCliFlagValue supports separated and inline values", () => {
   expect(parseCliFlagValue(["--port", "3210"], "port")).toBe("3210");

@@ -1,0 +1,13 @@
+{
+  "name": "@voxel/core",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./shared": "./src/shared/index.ts",
+    "./client": "./src/client/index.ts",
+    "./server": "./src/server/index.ts"
+  },
+  "scripts": {
+    "typecheck": "bunx tsc --noEmit -p ../../tsconfig.json"
+  }
+}

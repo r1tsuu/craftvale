@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { CHUNK_SIZE } from "../src/world/constants.ts";
-import { VoxelWorld, worldToChunkCoord } from "../src/world/world.ts";
+import { CHUNK_SIZE } from "../packages/core/src/world/constants.ts";
+import { VoxelWorld, worldToChunkCoord } from "../packages/core/src/world/world.ts";
 
 test("worldToChunkCoord handles negative coordinates", () => {
   const coords = worldToChunkCoord(-1, 0, -17);

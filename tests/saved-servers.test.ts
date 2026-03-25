@@ -8,7 +8,7 @@ import {
   BUILTIN_LOCAL_SERVER_NAME,
   JsonSavedServerStorage,
   createSavedServerRecord,
-} from "../src/client/saved-servers.ts";
+} from "../apps/client/src/client/saved-servers.ts";
 
 const createStorage = async (): Promise<{
   rootDir: string;

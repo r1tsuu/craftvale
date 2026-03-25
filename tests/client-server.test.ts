@@ -2,21 +2,21 @@ import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PortClientAdapter } from "../src/client/client-adapter.ts";
-import { ClientWorldRuntime } from "../src/client/world-runtime.ts";
+import { PortClientAdapter } from "../apps/client/src/client/client-adapter.ts";
+import { ClientWorldRuntime } from "../apps/client/src/client/world-runtime.ts";
 import type {
   ClientToServerMessage,
   LoadingProgressPayload,
   ServerToClientMessage,
-} from "../src/shared/messages.ts";
-import { createInMemoryTransportPair } from "../src/shared/transport.ts";
-import { AuthoritativeWorld } from "../src/server/authoritative-world.ts";
-import { PortServerAdapter } from "../src/server/server-adapter.ts";
-import { ServerRuntime } from "../src/server/runtime.ts";
-import { BinaryWorldStorage } from "../src/server/world-storage.ts";
-import { DEFAULT_INVENTORY_STACK_SIZE } from "../src/world/inventory.ts";
-import { getDroppedItemIdForBlock } from "../src/world/blocks.ts";
-import { getTerrainHeight } from "../src/world/terrain.ts";
+} from "../packages/core/src/shared/messages.ts";
+import { createInMemoryTransportPair } from "../packages/core/src/shared/transport.ts";
+import { AuthoritativeWorld } from "../packages/core/src/server/authoritative-world.ts";
+import { PortServerAdapter } from "../packages/core/src/server/server-adapter.ts";
+import { ServerRuntime } from "../packages/core/src/server/runtime.ts";
+import { BinaryWorldStorage } from "../packages/core/src/server/world-storage.ts";
+import { DEFAULT_INVENTORY_STACK_SIZE } from "../packages/core/src/world/inventory.ts";
+import { getDroppedItemIdForBlock } from "../packages/core/src/world/blocks.ts";
+import { getTerrainHeight } from "../packages/core/src/world/terrain.ts";
 
 const PLAYER_NAME = "Alice";
 

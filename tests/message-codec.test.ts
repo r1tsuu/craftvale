@@ -3,7 +3,7 @@ import {
   decodeClientToServerMessage,
   decodeServerToClientMessage,
   encodeTransportMessage,
-} from "../src/shared/message-codec.ts";
+} from "../packages/core/src/shared/message-codec.ts";
 
 test("transport codec round-trips chunk payload bytes for server messages", () => {
   const encoded = encodeTransportMessage({

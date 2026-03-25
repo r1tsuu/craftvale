@@ -1,9 +1,8 @@
 import {
   ensurePortAvailable,
   forceReleasePort,
-} from "../src/server/port-availability.ts";
-import { parseClientDir, parseServerDir } from "../src/utils/cli.ts";
-import { createLogger } from "../src/utils/logger.ts";
+} from "../apps/dedicated-server/src/port-availability.ts";
+import { parseClientDir, parseServerDir, createLogger } from "@voxel/core/shared";
 import { fileURLToPath } from "node:url";
 
 const SERVER_PORT = 3210;
@@ -117,7 +116,7 @@ logInfo(`ensuring port ${SERVER_PORT} is available`);
 await ensurePortAvailable(SERVER_PORT);
 
 logInfo(`spawning dedicated server on port ${SERVER_PORT}`);
-const server = spawnRuntimeProcess("src/server/standalone-entry.ts", {
+const server = spawnRuntimeProcess("apps/dedicated-server/src/index.ts", {
   stdin: "ignore",
   extraArgs: [...serverRuntimeArgs, `--port=${SERVER_PORT}`],
   env: {
@@ -129,7 +128,7 @@ const server = spawnRuntimeProcess("src/server/standalone-entry.ts", {
 await waitForServerReady(server, SERVER_ADDRESS, SERVER_READY_TIMEOUT_MS);
 
 logInfo("spawning desktop client");
-const client = spawnRuntimeProcess("src/index.ts", {
+const client = spawnRuntimeProcess("apps/client/src/index.ts", {
   stdin: "inherit",
   extraArgs: clientRuntimeArgs,
   env: {

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { getHeldItemBlockId, collectVisibleRemotePlayers } from "../src/render/player-model.ts";
-import type { PlayerSnapshot } from "../src/types.ts";
-import { createDefaultInventory, setSelectedInventorySlot } from "../src/world/inventory.ts";
+import { getHeldItemBlockId, collectVisibleRemotePlayers } from "../apps/client/src/render/player-model.ts";
+import type { PlayerSnapshot } from "../packages/core/src/types.ts";
+import { createDefaultInventory, setSelectedInventorySlot } from "../packages/core/src/world/inventory.ts";
 
 const createPlayerSnapshot = (
   entityId: string,

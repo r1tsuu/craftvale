@@ -7,8 +7,8 @@ import {
   setMenuServers,
   setMenuWorlds,
   suggestWorldName,
-} from "../src/client/menu-state.ts";
-import type { InputState } from "../src/types.ts";
+} from "../apps/client/src/client/menu-state.ts";
+import type { InputState } from "../packages/core/src/types.ts";
 
 const createInput = (overrides: Partial<InputState> = {}): InputState => ({
   moveForward: false,

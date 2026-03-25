@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { vec3 } from "../src/math/vec3.ts";
-import { raycastVoxel } from "../src/world/raycast.ts";
-import { VoxelWorld } from "../src/world/world.ts";
+import { vec3 } from "../packages/core/src/math/vec3.ts";
+import { raycastVoxel } from "../packages/core/src/world/raycast.ts";
+import { VoxelWorld } from "../packages/core/src/world/world.ts";
 
 test("raycast returns the hit block and placement position", () => {
   const world = new VoxelWorld();

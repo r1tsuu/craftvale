@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createDefaultClientSettings } from "../src/client/client-settings.ts";
-import { buildMainMenu } from "../src/ui/menu.ts";
+import { createDefaultClientSettings } from "../apps/client/src/client/client-settings.ts";
+import { buildMainMenu } from "../apps/client/src/ui/menu.ts";
 
 const createViewModel = (overrides: Partial<Parameters<typeof buildMainMenu>[2]> = {}) => ({
   activeScreen: "play" as const,

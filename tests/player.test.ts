@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { createDefaultClientSettings } from "../src/client/client-settings.ts";
-import { PlayerController } from "../src/game/player.ts";
-import type { InputState, PlayerSnapshot } from "../src/types.ts";
-import { VoxelWorld } from "../src/world/world.ts";
+import { createDefaultClientSettings } from "../apps/client/src/client/client-settings.ts";
+import { PlayerController } from "../apps/client/src/game/player.ts";
+import type { InputState, PlayerSnapshot } from "../packages/core/src/types.ts";
+import { VoxelWorld } from "../packages/core/src/world/world.ts";
 
 const createInput = (overrides: Partial<InputState> = {}): InputState => ({
   moveForward: false,

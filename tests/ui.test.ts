@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createButton, createSlider, evaluateUi } from "../src/ui/components.ts";
+import { createButton, createSlider, evaluateUi } from "../apps/client/src/ui/components.ts";
 
 test("button triggers action when primary press lands inside bounds", () => {
   const button = createButton({

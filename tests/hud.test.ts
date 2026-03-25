@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { buildPlayHud } from "../src/ui/hud.ts";
+import { buildPlayHud } from "../apps/client/src/ui/hud.ts";
 import {
   createDefaultInventory,
   setSelectedInventorySlot,
-} from "../src/world/inventory.ts";
+} from "../packages/core/src/world/inventory.ts";
 
 test("play HUD includes a centered crosshair", () => {
   const hud = buildPlayHud(1280, 720, {

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { buildLoadingScreen } from "../src/ui/loading.ts";
+import { buildLoadingScreen } from "../apps/client/src/ui/loading.ts";
 
 test("loading screen shows target, status, and numeric progress when available", () => {
   const components = buildLoadingScreen(

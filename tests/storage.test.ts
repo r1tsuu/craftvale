@@ -6,8 +6,8 @@ import {
   BinaryWorldStorage,
   DedicatedWorldStorage,
   DEDICATED_WORLD_DIRECTORY_NAME,
-} from "../src/server/world-storage.ts";
-import { CHUNK_VOLUME } from "../src/world/constants.ts";
+} from "../packages/core/src/server/world-storage.ts";
+import { CHUNK_VOLUME } from "../packages/core/src/world/constants.ts";
 
 const PLAYER_A = "Alice";
 const PLAYER_B = "Bob Builder";

@@ -1,0 +1,12 @@
+{
+  "name": "@voxel/dedicated-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "APP_ENV=development bun run src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@voxel/core": "workspace:*"
+  }
+}

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { InventorySlot } from "../src/types.ts";
+import type { InventorySlot } from "../packages/core/src/types.ts";
 import {
   DEFAULT_INVENTORY_STACK_SIZE,
   MAIN_INVENTORY_SLOT_COUNT,
@@ -8,8 +8,8 @@ import {
   interactInventorySlot,
   normalizeInventorySnapshot,
   setSelectedInventorySlot,
-} from "../src/world/inventory.ts";
-import { HOTBAR_ITEM_IDS } from "../src/world/items.ts";
+} from "../packages/core/src/world/inventory.ts";
+import { HOTBAR_ITEM_IDS } from "../packages/core/src/world/items.ts";
 
 test("default inventory creates a full hotbar plus empty main inventory", () => {
   const inventory = createDefaultInventory();

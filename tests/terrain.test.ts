@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { getBiomeAt } from "../src/world/biomes.ts";
-import { createGeneratedChunk, getTerrainHeight } from "../src/world/terrain.ts";
+import { getBiomeAt } from "../packages/core/src/world/biomes.ts";
+import { createGeneratedChunk, getTerrainHeight } from "../packages/core/src/world/terrain.ts";
 
 test("terrain remains locally smooth between adjacent columns", () => {
   const seed = 123456789;

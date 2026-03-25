@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { LoadingProgressPayload, ServerToClientMessage } from "../src/shared/messages.ts";
-import { WorkerServerHost, type WorkerInboundMessage } from "../src/server/worker-host.ts";
-import { BinaryWorldStorage } from "../src/server/world-storage.ts";
+import type { LoadingProgressPayload, ServerToClientMessage } from "../packages/core/src/shared/messages.ts";
+import { WorkerServerHost, type WorkerInboundMessage } from "../packages/core/src/server/worker-host.ts";
+import { BinaryWorldStorage } from "../packages/core/src/server/world-storage.ts";
 
 const isLoadingProgressEvent = (
   message: ServerToClientMessage,
