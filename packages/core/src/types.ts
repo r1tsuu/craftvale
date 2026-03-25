@@ -1,36 +1,3 @@
-export interface WindowConfig {
-  width: number;
-  height: number;
-  title: string;
-}
-
-export interface InputState {
-  moveForward: boolean;
-  moveBackward: boolean;
-  moveLeft: boolean;
-  moveRight: boolean;
-  moveUp: boolean;
-  moveDown: boolean;
-  breakBlock: boolean;
-  placeBlock: boolean;
-  exit: boolean;
-  mouseDeltaX: number;
-  mouseDeltaY: number;
-  cursorX: number;
-  cursorY: number;
-  typedText: string;
-  backspacePressed: boolean;
-  enterPressed: boolean;
-  tabPressed: boolean;
-  inventoryToggle: boolean;
-  hotbarSelection: number | null;
-  windowWidth: number;
-  windowHeight: number;
-  framebufferWidth: number;
-  framebufferHeight: number;
-  resized: boolean;
-}
-
 export type BlockId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 export type ItemId = 0 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109;
 
@@ -75,21 +42,6 @@ export interface PlayerState {
   pitch: number;
 }
 
-export interface PlayerProfile {
-  version: 1;
-  playerName: PlayerName;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface ClientSettings {
-  fovDegrees: number;
-  mouseSensitivity: number;
-  renderDistance: number;
-  showDebugOverlay: boolean;
-  showCrosshair: boolean;
-}
-
 export interface PlayerSnapshot {
   entityId: EntityId;
   name: PlayerName;
@@ -113,12 +65,4 @@ export interface ChatEntry {
   text: string;
   senderName?: PlayerName;
   receivedAt: number;
-}
-
-export interface SavedServerRecord {
-  id: string;
-  name: string;
-  address: string;
-  createdAt: number;
-  updatedAt: number;
 }

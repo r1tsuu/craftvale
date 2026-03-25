@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { SavedServerRecord } from "@voxel/core/shared";
 import { DEFAULT_CLIENT_STORAGE_ROOT } from "./player-profile.ts";
+import type { SavedServerRecord } from "../types.ts";
 
 const SAVED_SERVERS_VERSION = 1;
 const SAVED_SERVERS_FILENAME = "saved-servers.json";

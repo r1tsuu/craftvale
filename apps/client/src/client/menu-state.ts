@@ -1,5 +1,5 @@
 import type { WorldSummary } from "@voxel/core/shared";
-import type { InputState, SavedServerRecord } from "@voxel/core/shared";
+import type { InputState, SavedServerRecord } from "../types.ts";
 
 export type MenuScreen =
   | "play"

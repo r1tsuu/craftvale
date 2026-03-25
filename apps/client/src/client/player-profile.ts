@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { parseCliFlagValue, type PlayerName, type PlayerProfile } from "@voxel/core/shared";
+import { parseCliFlagValue, type PlayerName } from "@voxel/core/shared";
+import type { PlayerProfile } from "../types.ts";
 
 const PROFILE_VERSION = 1;
 const PROFILE_FILENAME = "player-profile.json";

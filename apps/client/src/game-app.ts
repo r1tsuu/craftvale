@@ -40,9 +40,9 @@ import type { TextDrawCommand } from "./render/text.ts";
 import type {
   JoinedWorldPayload,
   LoadingProgressPayload,
-  ClientSettings,
   PlayerName,
 } from "@voxel/core/shared";
+import type { ClientSettings } from "./types.ts";
 import { evaluateUi, type UiResolvedComponent } from "./ui/components.ts";
 import { buildPlayHud } from "./ui/hud.ts";
 import { buildLoadingScreen } from "./ui/loading.ts";

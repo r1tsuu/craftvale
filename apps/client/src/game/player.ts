@@ -8,15 +8,14 @@ import {
   normalizeVec3,
   scaleVec3,
   vec3,
-  type ClientSettings,
-  type InputState,
   type PlayerGamemode,
   type PlayerSnapshot,
-  type PlayerState,
   type Vec3,
   VoxelWorld,
   isSolidBlock,
 } from "@voxel/core/shared";
+import type { ClientSettings, InputState } from "../types.ts";
+import type { PlayerState } from "@voxel/core/shared";
 
 const WORLD_UP = vec3(0, 1, 0);
 const MOVE_SPEED = 4.75;
