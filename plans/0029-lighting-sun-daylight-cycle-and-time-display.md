@@ -1,7 +1,7 @@
 # Lighting, Sun, Daylight Cycle, And Time Display
 
 ## Summary
-Introduce a first-pass world lighting model with a moving sun and authoritative day/night time progression, then expose that time through a server-authoritative `/timeset` command and a simple HUD clock. This milestone should also introduce one concrete emissive block, `glowstone`, so the lighting system covers both daylight and block-emitted light in a real gameplay path. The first implementation should stay disciplined: use a Minecraft-like global daylight cycle, support sun-driven outdoor brightness plus chunk-level propagated light data, keep time ownership on the server, include `glowstone` as the only placeable emitted-light source in v1, and avoid pulling torches, colored lights, weather, moon phases, or full sky rendering into the same milestone unless they are required to make the daylight system coherent.
+Introduce a first-pass world lighting model with a moving sun and authoritative day/night time progression, then expose that time through a server-authoritative `/timeset` command and a simple HUD clock. This milestone should also introduce one concrete emissive block, `glowstone`, so the lighting system covers both daylight and block-emitted light in a real gameplay path. Architecturally, this should land as an explicit world-owned system, parallel to `PlayerSystem` and `DroppedItemSystem`, rather than as scattered chunk helpers or renderer-owned logic. The first implementation should stay disciplined: use a Minecraft-like global daylight cycle, support sun-driven outdoor brightness plus chunk-level propagated light data, keep time ownership on the server, include `glowstone` as the only placeable emitted-light source in v1, and avoid pulling torches, colored lights, weather, moon phases, or full sky rendering into the same milestone unless they are required to make the daylight system coherent.
 
 ## Key Changes
 
@@ -31,6 +31,21 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - use one directional sun light for terrain shading
   - reserve moonlight, stars, and weather-tinted sky for later plans
 - The client renderer should consume the derived sun state rather than own its own clock.
+
+### Add an explicit world lighting system boundary
+- Introduce a dedicated server-side lighting system, for example `LightingSystem` or `WorldLightingSystem`, owned by `AuthoritativeWorld`.
+- This system should be treated like the other world-owned subsystems:
+  - `PlayerSystem` owns player-specific authoritative state and persistence
+  - `DroppedItemSystem` owns dropped-item simulation and persistence
+  - the lighting system should own world time progression, light-level storage, relight queues, propagation, and any lighting-specific save/load behavior
+- Strong recommendation:
+  - do not spread lighting rules across `AuthoritativeWorld`, terrain generation, chunk classes, and renderer code without a clear owner
+  - let `AuthoritativeWorld` orchestrate the system, but keep the lighting rules and queues behind an explicit subsystem boundary
+  - keep renderer code as a consumer of replicated lighting outputs, not the owner of propagation behavior
+- Good first-pass ownership split:
+  - shared helpers define time-of-day math and pure light-propagation utilities
+  - `LightingSystem` owns mutable authoritative light/time state for one world
+  - `AuthoritativeWorld` coordinates the lighting system with chunk load/save, mutation, and replication
 
 ### Add chunk/block lighting data suitable for sunlight and block-light propagation
 - Introduce explicit light storage in chunk/world data so outdoor spaces respond to sunlight, underground spaces darken correctly, and emissive blocks can light nearby terrain.
@@ -76,7 +91,8 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - block break/place on the server queues relighting work through the authoritative tick path
   - placing or removing `glowstone` updates local block-light propagation through that same authoritative path
 - Recommended implementation boundary:
-  - the server owns block light level calculation and propagation queues
+  - the lighting system owns block light level calculation and propagation queues
+  - the lighting system advances authoritative world time on ticks or through a world-owned tick callback
   - clients consume replicated light levels as render/input data only
 - Recommended default:
   - persist computed light levels with each saved chunk
@@ -86,7 +102,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - they avoid large relight spikes when loading explored worlds
   - they fit the current authoritative save model better than treating lighting as disposable client-adjacent cache data
 - Strong recommendation:
-  - keep relighting jobs world-owned, not renderer-owned
+  - keep relighting jobs owned by the lighting system, not by the renderer or ad hoc world helpers
   - batch lighting updates into the existing tick/result flow so replication remains coherent
 - This plan should explicitly account for cross-chunk boundaries so skylight changes near chunk edges do not become visually inconsistent.
 
@@ -189,6 +205,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
 - `packages/core/src/server/runtime.ts`
 - `packages/core/src/server/world-session-controller.ts`
 - `packages/core/src/server/authoritative-world.ts`
+- `packages/core/src/server/*lighting*.ts` for the dedicated world lighting system
 - `packages/core/src/server/world-storage.ts`
 - `packages/core/src/server/world-tick.ts`
 - `packages/core/src/world/chunk.ts`
@@ -217,6 +234,9 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - join payloads include the current authoritative world time
   - world reload restores persisted time correctly
   - chunk reload restores persisted light levels without forcing a full relight in the common case
+- Lighting-system ownership tests:
+  - the dedicated lighting system owns time progression and relight queue processing for one world
+  - block mutations and `/timeset` feed the lighting system through explicit world/system boundaries instead of renderer-side logic
 - Lighting propagation tests:
   - server-side light-level propagation produces expected `0..15` values for representative layouts
   - open sky columns receive full sunlight
