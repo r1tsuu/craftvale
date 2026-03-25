@@ -156,3 +156,17 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Equipment systems including armor, durability, shields, and ranged combat
 - Richer inventory UX such as chest UI, shift-click transfer, and advanced stack shortcuts
 - Farming and food loops with crops, animals, cooking, and renewable resources
+
+## Code Size Snapshot
+
+Source-line snapshot as of 2026-03-25 using `wc -l` over TypeScript, C, and GLSL files. This excludes docs, JSON/package metadata, lockfiles, and binary assets.
+
+- `apps/client/src`: 8,379 lines of TypeScript
+- `apps/client/assets/shaders`: 78 lines of GLSL
+- `apps/dedicated-server`: 532 lines of TypeScript
+- `packages/core`: 5,677 lines of TypeScript
+- `scripts`: 684 lines of TypeScript
+- `native`: 429 lines of C
+- `tests`: 3,434 lines of TypeScript
+- Total source lines including tests: 19,213
+- Total source lines excluding tests: 15,779
