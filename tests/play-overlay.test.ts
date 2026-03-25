@@ -126,3 +126,17 @@ test("slash can still be typed manually after chat is already open", () => {
     }),
   ).toBe("hello");
 });
+
+test("chat preserves printable ASCII that was typed directly", () => {
+  const printableAscii = Array.from(
+    { length: 95 },
+    (_, index) => String.fromCharCode(32 + index),
+  ).join("");
+
+  expect(
+    resolvePlayChatTypedText({
+      slashPressed: false,
+      typedText: printableAscii,
+    }),
+  ).toBe(printableAscii);
+});
