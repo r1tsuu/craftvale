@@ -1,25 +1,36 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
-import { parseCliFlagValue, parseDataDir } from "../src/utils/cli.ts";
+import {
+  parseCliFlagValue,
+  parseClientDir,
+  parseServerDir,
+} from "../src/utils/cli.ts";
 
 test("parseCliFlagValue supports separated and inline values", () => {
   expect(parseCliFlagValue(["--port", "3210"], "port")).toBe("3210");
-  expect(parseCliFlagValue(["--data-dir=/tmp/saves"], "data-dir")).toBe("/tmp/saves");
+  expect(parseCliFlagValue(["--client-dir", "./client-data"], "client-dir")).toBe("./client-data");
+  expect(parseCliFlagValue(["--server-dir=./server-data"], "server-dir")).toBe("./server-data");
 });
 
 test("parseCliFlagValue fails fast on missing values", () => {
   expect(() => parseCliFlagValue(["--port"], "port")).toThrow("Missing value for --port");
-  expect(() => parseCliFlagValue(["--data-dir="], "data-dir")).toThrow(
-    "Missing value for --data-dir",
+  expect(() => parseCliFlagValue(["--client-dir"], "client-dir")).toThrow(
+    "Missing value for --client-dir",
   );
-  expect(() => parseCliFlagValue(["--data-dir", "--port=3210"], "data-dir")).toThrow(
-    "Missing value for --data-dir",
+  expect(() => parseCliFlagValue(["--server-dir", "--port=3210"], "server-dir")).toThrow(
+    "Missing value for --server-dir",
   );
 });
 
-test("parseDataDir resolves relative paths and returns undefined when absent", () => {
-  expect(parseDataDir([])).toBeUndefined();
-  expect(parseDataDir(["--data-dir", "tmp/custom-data"])).toBe(resolve("tmp/custom-data"));
-  expect(parseDataDir(["--data-dir", "./data-2"])).toBe(resolve("./data-2"));
-  expect(parseDataDir(["--data-dir=./data-2"])).toBe(resolve("./data-2"));
+test("parseClientDir and parseServerDir resolve explicit split roots", () => {
+  expect(parseClientDir(["--client-dir", "./client-data"])).toBe(
+    resolve("./client-data"),
+  );
+  expect(parseServerDir(["--server-dir=./server-data"])).toBe(
+    resolve("./server-data"),
+  );
+  expect(parseClientDir(["--client-dir=./client-2"])).toBe(resolve("./client-2"));
+  expect(parseServerDir(["--server-dir", "./server-2"])).toBe(resolve("./server-2"));
+  expect(parseClientDir([])).toBeUndefined();
+  expect(parseServerDir([])).toBeUndefined();
 });

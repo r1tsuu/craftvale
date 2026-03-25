@@ -47,17 +47,21 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 ## Commands
 
 - `bun run build:native` builds `native/libvoxel_bridge.dylib`
-- `bun run clean:data` removes the repo `data/` directory for a fresh local state
-- `bun run dev` builds the native bridge and starts the app
-- `bun run dev:clean` wipes `data/` and then starts the app
+- `bun run clean:data` removes the repo `client/` and `server/` directories for a fresh local state
+- `bun run dev:client` builds the native bridge and starts the desktop client
+- `bun run dev:client:clean` wipes `client/` and `server/` and then starts the desktop client
 - `bun run dev:server` starts the dedicated WebSocket server only
 - `bun run dev:full` starts the dedicated server and the desktop client together
-- `bun run dev:full:clean` wipes `data/` and then starts the full client-plus-server dev flow
+- `bun run dev:full:clean` wipes `client/` and `server/` and then starts the full client-plus-server dev flow
 - `bun run typecheck` runs TypeScript checks
 - `bun test` runs the automated tests
 - Launch options: `--player-name=<name>` or `--player-name <name>` overrides the local player name for that run
-- Launch options: `--data-dir=<path>` or `--data-dir <path>` moves local app data under a custom root
-- `bun run dev` runs with `APP_ENV=development` and defaults a fresh local player profile to `Developer`
+- Launch options: `--client-dir=<path>` or `--client-dir <path>` overrides the desktop app's client-local data root
+- Launch options: `--server-dir=<path>` or `--server-dir <path>` overrides the dedicated server data root
+- Example: `bun run dev:client -- --client-dir=./client-data`
+- Example: `bun run dev:server -- --server-dir=./server-data`
+- Example: `bun run dev:full -- --client-dir=./client-data --server-dir=./server-data`
+- `bun run dev:client` runs with `APP_ENV=development` and defaults a fresh local player profile to `Developer`
 
 ## Controls
 
@@ -119,8 +123,11 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Broken collectible blocks spawn dropped item actors in that same world-owned entity space, and players pick them up through a server-authoritative proximity check.
 - The client renders remote players as simple cube-based bodies and reuses that same cuboid visual language for the local first-person arm and held block.
 - Dedicated servers expose one generated world only; clients do not browse remote world lists.
-- Player identity is stored separately from world saves in `data/client/player-profile.json`.
-- `--data-dir` remaps that default layout, with desktop client state under `<data-dir>/client`, local worlds under `<data-dir>/`, and dedicated server state under `<data-dir>/server`.
+- Player identity is stored separately from world saves in `client/player-profile.json`.
+- The default layout separates desktop-client data under `client/` from dedicated-server data under `server/`.
+- Local singleplayer world saves now live under `client/worlds`.
+- `--client-dir` overrides the desktop app root, including local worlds under `<client-dir>/worlds`.
+- `--server-dir` overrides the dedicated server root.
 - Player gamemode persists per player/world; chat history is session-only in this first pass.
 - The menu background is seeded and stable for a given run.
 - The play HUD is built from lightweight rectangle/text overlays rather than a retained widget framework.

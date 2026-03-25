@@ -11,7 +11,7 @@ const projectRoot = import.meta.dir.endsWith("/src/client")
   ? import.meta.dir.slice(0, -"/src/client".length)
   : import.meta.dir;
 
-export const DEFAULT_CLIENT_STORAGE_ROOT = join(projectRoot, "data", "client");
+export const DEFAULT_CLIENT_STORAGE_ROOT = join(projectRoot, "client");
 
 export interface ResolvedPlayerIdentity {
   effectivePlayerName: PlayerName;

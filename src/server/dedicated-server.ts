@@ -3,7 +3,6 @@ import { decodeClientToServerMessage, encodeTransportMessage } from "../shared/m
 import { type ServerEventMap } from "../shared/messages.ts";
 import type { EntityId, PlayerSnapshot } from "../types.ts";
 import { AuthoritativeWorld } from "./authoritative-world.ts";
-import { DEFAULT_WORLD_STORAGE_ROOT } from "./runtime.ts";
 import { PortServerAdapter } from "./server-adapter.ts";
 import {
   WorldSessionController,
@@ -19,7 +18,7 @@ const projectRoot = import.meta.dir.endsWith("/src/server")
 
 export const DEFAULT_DEDICATED_SERVER_PORT = 3210;
 export const DEFAULT_DEDICATED_WORLD_NAME = "Server World";
-export const DEFAULT_DEDICATED_STORAGE_ROOT = join(projectRoot, "data", "server");
+export const DEFAULT_DEDICATED_STORAGE_ROOT = join(projectRoot, "server");
 const serverLogger = createLogger("server", "magenta");
 
 interface DedicatedSocketData {

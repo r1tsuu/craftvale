@@ -1,4 +1,5 @@
 /node_modules
 /native/libvoxel_bridge.dylib
-/data
+/client
+/server
 .DS_Store

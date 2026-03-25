@@ -7,13 +7,11 @@ import {
 } from "./client/player-profile.ts";
 import { JsonSavedServerStorage } from "./client/saved-servers.ts";
 import { createDefaultGameApp } from "./game-app.ts";
-import { BinaryWorldStorage } from "./server/world-storage.ts";
-import { parseDataDir } from "./utils/cli.ts";
+import { parseClientDir } from "./utils/cli.ts";
 
 const argv = Bun.argv.slice(2);
-const dataDir = parseDataDir(argv);
-const clientStorageRoot = dataDir ? join(dataDir, "client") : undefined;
-const worldStorageRoot = dataDir;
+const clientStorageRoot = parseClientDir(argv);
+const localWorldStorageRoot = clientStorageRoot ? join(clientStorageRoot, "worlds") : undefined;
 
 const identity = await resolvePlayerIdentity(argv, {
   storage: clientStorageRoot
@@ -22,8 +20,8 @@ const identity = await resolvePlayerIdentity(argv, {
 });
 const clientSettingsStorage = new JsonClientSettingsStorage(clientStorageRoot);
 const savedServerStorage = new JsonSavedServerStorage(clientStorageRoot);
-const localWorldStorage = worldStorageRoot
-  ? new LocalWorldStorage(new BinaryWorldStorage(worldStorageRoot))
+const localWorldStorage = localWorldStorageRoot
+  ? new LocalWorldStorage(localWorldStorageRoot)
   : new LocalWorldStorage();
 const { settings: clientSettings } = await clientSettingsStorage.getOrCreateSettings();
 

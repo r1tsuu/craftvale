@@ -10,7 +10,7 @@ const projectRoot = import.meta.dir.endsWith("/src/server")
   ? import.meta.dir.slice(0, -"/src/server".length)
   : import.meta.dir;
 
-export const DEFAULT_WORLD_STORAGE_ROOT = join(projectRoot, "data");
+export const DEFAULT_WORLD_STORAGE_ROOT = join(projectRoot, "client", "worlds");
 
 export class ServerRuntime {
   private readonly session: WorldSessionController;

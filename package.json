@@ -6,8 +6,8 @@
   "scripts": {
     "build:native": "bun run scripts/build-native.ts",
     "clean:data": "bun run scripts/clean-data.ts",
-    "dev": "bun run build:native && APP_ENV=development bun run src/index.ts",
-    "dev:clean": "bun run clean:data && bun run dev",
+    "dev:client": "bun run build:native && APP_ENV=development bun run src/index.ts",
+    "dev:client:clean": "bun run clean:data && bun run dev:client",
     "dev:server": "APP_ENV=development bun run src/server/standalone-entry.ts",
     "dev:full": "bun run build:native && bun run scripts/dev-full.ts",
     "dev:full:clean": "bun run clean:data && bun run dev:full",

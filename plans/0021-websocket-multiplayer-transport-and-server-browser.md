@@ -91,7 +91,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
 ### Add a persisted client-side saved-server store
 - Add a small storage module for saved multiplayer servers.
 - Suggested location:
-  - `data/client/saved-servers.json`
+  - `client/saved-servers.json`
 - Responsibilities:
   - create default empty list
   - validate and normalize stored entries
@@ -113,13 +113,14 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
 ### Add development scripts for dedicated and full-stack local multiplayer flow
 - Add `dev:server`:
   - starts only the dedicated server
+- Add `dev:client`:
+  - starts only the desktop client dev flow
 - Add `dev:full`:
   - starts the dedicated server plus the current desktop client dev flow together
-  - pre-fills the saved server list with one local entry for convenience
 - Strong recommendation:
-  - keep the current `dev` script unchanged for fast single-player iteration
+  - keep the local desktop-client iteration script simple
   - make `dev:full` additive rather than replacing the current local loop
-- The local prefilled server entry should be explicit and stable, for example:
+- The localhost multiplayer entry should be explicit and stable, for example:
   - name: `Local Server`
   - host: `127.0.0.1`
   - default dev port
@@ -203,7 +204,8 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
   - join button is gated correctly when nothing is selected
 - Script/manual smoke tests:
   - `bun run dev:server` starts only the dedicated server
-  - `bun run dev:full` starts server plus client flow and preloads one localhost server entry
+  - `bun run dev:client` starts only the desktop client
+  - `bun run dev:full` starts server plus client flow
   - joining the local dev server from the multiplayer menu enters a live session successfully
   - two clients can connect to the same dev server and see each other
 

@@ -1,8 +1,7 @@
 import { DedicatedServer, DEFAULT_DEDICATED_SERVER_PORT } from "./dedicated-server.ts";
 import { ensurePortAvailable } from "./port-availability.ts";
 import { createLogger } from "../utils/logger.ts";
-import { parseCliFlagValue, parseDataDir } from "../utils/cli.ts";
-import { join } from "node:path";
+import { parseCliFlagValue, parseServerDir } from "../utils/cli.ts";
 
 const serverLogger = createLogger("server", "magenta");
 
@@ -22,8 +21,7 @@ const parsePort = (argv: readonly string[]): number | undefined => {
 
 const argv = Bun.argv.slice(2);
 const port = parsePort(argv) ?? DEFAULT_DEDICATED_SERVER_PORT;
-const dataDir = parseDataDir(argv);
-const storageRoot = dataDir ? join(dataDir, "server") : undefined;
+const storageRoot = parseServerDir(argv);
 serverLogger.info(`starting dedicated server on port ${port}...`);
 await ensurePortAvailable(port);
 const server = await DedicatedServer.start({ port, storageRoot });

@@ -377,7 +377,10 @@ export class GameApp {
 
     this.logInfo(`connecting local singleplayer worker for "${worldName}"`);
     this.disconnectClient();
-    const adapter = new WorkerClientAdapter({ world });
+    const adapter = new WorkerClientAdapter({
+      storageRoot: this.deps.localWorldStorage.storageRoot,
+      world,
+    });
     this.clientAdapter = adapter;
     this.clientWorldRuntime = new ClientWorldRuntime(adapter);
     this.connectionMode = "local";

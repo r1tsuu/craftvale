@@ -27,16 +27,25 @@ export const parseCliFlagValue = (
   return null;
 };
 
-export const parseDataDir = (argv: readonly string[]): string | undefined => {
-  const value = parseCliFlagValue(argv, "data-dir");
+const parsePathFlag = (
+  argv: readonly string[],
+  flagName: string,
+): string | undefined => {
+  const value = parseCliFlagValue(argv, flagName);
   if (value === null) {
     return undefined;
   }
 
   const normalized = value.trim();
   if (!normalized) {
-    throw new Error("Missing value for --data-dir.");
+    throw new Error(`Missing value for --${flagName}.`);
   }
 
   return resolve(normalized);
 };
+
+export const parseClientDir = (argv: readonly string[]): string | undefined =>
+  parsePathFlag(argv, "client-dir");
+
+export const parseServerDir = (argv: readonly string[]): string | undefined =>
+  parsePathFlag(argv, "server-dir");

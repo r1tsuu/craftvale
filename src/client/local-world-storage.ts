@@ -7,11 +7,14 @@ import {
 import type { WorldSummary } from "../shared/messages.ts";
 
 export class LocalWorldStorage {
+  public readonly storageRoot: string;
+
   public constructor(
-    private readonly storage: WorldStorage = new BinaryWorldStorage(
-      DEFAULT_WORLD_STORAGE_ROOT,
-    ),
-  ) {}
+    storageRoot = DEFAULT_WORLD_STORAGE_ROOT,
+    private readonly storage: WorldStorage = new BinaryWorldStorage(storageRoot),
+  ) {
+    this.storageRoot = storageRoot;
+  }
 
   public async listWorlds(): Promise<WorldSummary[]> {
     return this.storage.listWorlds();
