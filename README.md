@@ -49,8 +49,9 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `bun run build:native` builds `native/libvoxel_bridge.dylib`
 - `bun run clean:data` removes the repo `client/` and `server/` directories for a fresh local state
 - `bun run dev:client` builds the native bridge and starts the desktop client
-- `bun run dev:client:clean` wipes `client/` and `server/` and then starts the desktop client
+- `bun run dev:client:clean` wipes only `client/` and then starts the desktop client
 - `bun run dev:server` starts the dedicated WebSocket server only
+- `bun run dev:server:clean` wipes only `server/` and then starts the dedicated server
 - `bun run dev:full` starts the dedicated server and the desktop client together
 - `bun run dev:full:clean` wipes `client/` and `server/` and then starts the full client-plus-server dev flow
 - `bun run typecheck` runs TypeScript checks
