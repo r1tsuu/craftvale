@@ -54,6 +54,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `bun run typecheck` runs TypeScript checks
 - `bun test` runs the automated tests
 - Launch options: `--player-name=<name>` or `--player-name <name>` overrides the local player name for that run
+- Launch options: `--data-dir=<path>` or `--data-dir <path>` moves local app data under a custom root
 - `bun run dev` runs with `APP_ENV=development` and defaults a fresh local player profile to `Developer`
 
 ## Controls
@@ -116,6 +117,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Broken collectible blocks spawn dropped item actors in that same world-owned entity space, and players pick them up through a server-authoritative proximity check.
 - Dedicated servers expose one generated world only; clients do not browse remote world lists.
 - Player identity is stored separately from world saves in `data/client/player-profile.json`.
+- `--data-dir` remaps that default layout, with desktop client state under `<data-dir>/client`, local worlds under `<data-dir>/`, and dedicated server state under `<data-dir>/server`.
 - Player gamemode persists per player/world; chat history is session-only in this first pass.
 - The menu background is seeded and stable for a given run.
 - The play HUD is built from lightweight rectangle/text overlays rather than a retained widget framework.

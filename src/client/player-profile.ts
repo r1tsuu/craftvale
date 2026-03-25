@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { PlayerName, PlayerProfile } from "../types.ts";
+import { parseCliFlagValue } from "../utils/cli.ts";
 
 const PROFILE_VERSION = 1;
 const PROFILE_FILENAME = "player-profile.json";
@@ -51,34 +52,19 @@ const createDefaultPlayerName = (): PlayerName => {
 };
 
 export const parsePlayerNameOverride = (argv: readonly string[]): PlayerName | null => {
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index];
-    if (argument === "--player-name") {
-      const value = argv[index + 1];
-      if (!value) {
-        throw new Error("Missing value for --player-name.");
-      }
-      const normalized = normalizePlayerName(value);
-      if (!isValidPlayerName(normalized)) {
-        throw new Error(
-          `Invalid player name "${value}". Use 1-24 letters, numbers, spaces, "-" or "_", starting with a letter or number.`,
-        );
-      }
-      return normalized;
-    }
-
-    if (argument.startsWith("--player-name=")) {
-      const value = normalizePlayerName(argument.slice("--player-name=".length));
-      if (!isValidPlayerName(value)) {
-        throw new Error(
-          `Invalid player name "${value}". Use 1-24 letters, numbers, spaces, "-" or "_", starting with a letter or number.`,
-        );
-      }
-      return value;
-    }
+  const value = parseCliFlagValue(argv, "player-name");
+  if (value === null) {
+    return null;
   }
 
-  return null;
+  const normalized = normalizePlayerName(value);
+  if (!isValidPlayerName(normalized)) {
+    throw new Error(
+      `Invalid player name "${value}". Use 1-24 letters, numbers, spaces, "-" or "_", starting with a letter or number.`,
+    );
+  }
+
+  return normalized;
 };
 
 export class JsonPlayerProfileStorage {

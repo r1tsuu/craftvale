@@ -2,6 +2,7 @@ import {
   ensurePortAvailable,
   forceReleasePort,
 } from "../src/server/port-availability.ts";
+import { parseDataDir } from "../src/utils/cli.ts";
 import { createLogger } from "../src/utils/logger.ts";
 import { fileURLToPath } from "node:url";
 
@@ -39,6 +40,10 @@ const spawnRuntimeProcess = (
 const logInfo = (message: string): void => {
   devFullLogger.info(message);
 };
+
+const argv = Bun.argv.slice(2);
+const dataDir = parseDataDir(argv);
+const sharedRuntimeArgs = dataDir ? [`--data-dir=${dataDir}`] : [];
 
 const waitForServerReady = async (
   process: Bun.Subprocess,
@@ -113,7 +118,7 @@ await ensurePortAvailable(SERVER_PORT);
 logInfo(`spawning dedicated server on port ${SERVER_PORT}`);
 const server = spawnRuntimeProcess("src/server/standalone-entry.ts", {
   stdin: "ignore",
-  extraArgs: [`--port=${SERVER_PORT}`],
+  extraArgs: [...sharedRuntimeArgs, `--port=${SERVER_PORT}`],
   env: {
     ...Bun.env,
     APP_ENV: "development",
@@ -125,6 +130,7 @@ await waitForServerReady(server, SERVER_ADDRESS, SERVER_READY_TIMEOUT_MS);
 logInfo("spawning desktop client");
 const client = spawnRuntimeProcess("src/index.ts", {
   stdin: "inherit",
+  extraArgs: sharedRuntimeArgs,
   env: {
     ...Bun.env,
     APP_ENV: "development",

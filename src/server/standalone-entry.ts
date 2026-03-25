@@ -1,35 +1,32 @@
 import { DedicatedServer, DEFAULT_DEDICATED_SERVER_PORT } from "./dedicated-server.ts";
 import { ensurePortAvailable } from "./port-availability.ts";
 import { createLogger } from "../utils/logger.ts";
+import { parseCliFlagValue, parseDataDir } from "../utils/cli.ts";
+import { join } from "node:path";
 
 const serverLogger = createLogger("server", "magenta");
 
 const parsePort = (argv: readonly string[]): number | undefined => {
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === "--port") {
-      const next = argv[index + 1];
-      const parsed = Number(next);
-      if (Number.isFinite(parsed) && parsed > 0) {
-        return Math.trunc(parsed);
-      }
-    }
-
-    if (arg.startsWith("--port=")) {
-      const parsed = Number(arg.slice("--port=".length));
-      if (Number.isFinite(parsed) && parsed > 0) {
-        return Math.trunc(parsed);
-      }
-    }
+  const value = parseCliFlagValue(argv, "port");
+  if (value === null) {
+    return undefined;
   }
 
-  return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Invalid port "${value}".`);
+  }
+
+  return Math.trunc(parsed);
 };
 
-const port = parsePort(Bun.argv.slice(2)) ?? DEFAULT_DEDICATED_SERVER_PORT;
+const argv = Bun.argv.slice(2);
+const port = parsePort(argv) ?? DEFAULT_DEDICATED_SERVER_PORT;
+const dataDir = parseDataDir(argv);
+const storageRoot = dataDir ? join(dataDir, "server") : undefined;
 serverLogger.info(`starting dedicated server on port ${port}...`);
 await ensurePortAvailable(port);
-const server = await DedicatedServer.start({ port });
+const server = await DedicatedServer.start({ port, storageRoot });
 
 server.logInfo(
   `started on ws://127.0.0.1:${server.socketServer.port}/ws for world "${server.world.summary.name}" (seed ${server.world.summary.seed})`,
