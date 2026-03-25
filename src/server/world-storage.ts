@@ -659,6 +659,7 @@ export class DedicatedWorldStorage implements WorldStorage {
   private readonly metadataPath: string;
   private readonly playersRoot: string;
   private operationChain: Promise<void> = Promise.resolve();
+  private cachedWorld: StoredWorldRecord | null = null;
 
   public constructor(private readonly rootDir: string) {
     this.worldRoot = join(rootDir, DEDICATED_WORLD_DIRECTORY_NAME);
@@ -668,7 +669,7 @@ export class DedicatedWorldStorage implements WorldStorage {
 
   public async listWorlds(): Promise<WorldSummary[]> {
     return this.enqueue(async () => {
-      const world = await this.readWorldMetadata();
+      const world = await this.readWorldRecord();
       if (!world) {
         return [];
       }
@@ -680,7 +681,7 @@ export class DedicatedWorldStorage implements WorldStorage {
 
   public async getWorld(name: string): Promise<StoredWorldRecord | null> {
     return this.enqueue(async () => {
-      const world = await this.readWorldMetadata();
+      const world = await this.readWorldRecord();
       if (!world || world.name !== name) {
         return null;
       }
@@ -696,7 +697,7 @@ export class DedicatedWorldStorage implements WorldStorage {
         throw new Error("World name is required.");
       }
 
-      const existing = await this.readWorldMetadata();
+      const existing = await this.readWorldRecord();
       if (existing) {
         throw new Error(`World "${existing.name}" already exists.`);
       }
@@ -718,12 +719,13 @@ export class DedicatedWorldStorage implements WorldStorage {
 
   public async deleteWorld(name: string): Promise<boolean> {
     return this.enqueue(async () => {
-      const world = await this.readWorldMetadata();
+      const world = await this.readWorldRecord();
       if (!world || world.name !== name) {
         return false;
       }
 
       await rm(this.worldRoot, { recursive: true, force: true });
+      this.cachedWorld = null;
       return true;
     });
   }
@@ -843,7 +845,7 @@ export class DedicatedWorldStorage implements WorldStorage {
   }
 
   private async getStoredWorld(worldName: string): Promise<StoredWorldRecord | null> {
-    const world = await this.readWorldMetadata();
+    const world = await this.readWorldRecord();
     if (!world || world.name !== worldName) {
       return null;
     }
@@ -865,6 +867,16 @@ export class DedicatedWorldStorage implements WorldStorage {
     await mkdir(this.playersRoot, { recursive: true });
   }
 
+  private async readWorldRecord(): Promise<StoredWorldRecord | null> {
+    const fromDisk = await this.readWorldMetadata();
+    if (fromDisk) {
+      this.cachedWorld = fromDisk;
+      return fromDisk;
+    }
+
+    return this.cachedWorld;
+  }
+
   private async readWorldMetadata(): Promise<StoredWorldRecord | null> {
     try {
       const bytes = new Uint8Array(await readFile(this.metadataPath));
@@ -884,6 +896,7 @@ export class DedicatedWorldStorage implements WorldStorage {
       ...world,
       directoryName: DEDICATED_WORLD_DIRECTORY_NAME,
     };
+    this.cachedWorld = normalizedWorld;
     await writeFile(this.metadataPath, encodeRegistry([normalizedWorld]));
   }
 

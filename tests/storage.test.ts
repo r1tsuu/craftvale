@@ -178,3 +178,24 @@ test("dedicated world storage uses one fixed world directory", async () => {
     await rm(rootDir, { recursive: true, force: true });
   }
 });
+
+test("dedicated world storage keeps the current world record available after metadata is removed", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-dedicated-storage-cache-"));
+  const storage = new DedicatedWorldStorage(rootDir);
+
+  try {
+    await storage.createWorld("Server World", 77);
+    await rm(join(rootDir, DEDICATED_WORLD_DIRECTORY_NAME, "metadata.bin"), {
+      force: true,
+    });
+
+    const touched = await storage.touchWorld("Server World", 1234);
+    expect(touched.name).toBe("Server World");
+    expect(touched.updatedAt).toBe(1234);
+
+    const worldDir = await stat(join(rootDir, DEDICATED_WORLD_DIRECTORY_NAME));
+    expect(worldDir.isDirectory()).toBe(true);
+  } finally {
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
