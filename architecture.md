@@ -2,18 +2,26 @@
 
 ## Overview
 
-This project is a Bun/TypeScript voxel sandbox with a macOS-first native bridge for GLFW and OpenGL. The runtime is split into a client side and an authoritative server side. The client runs the app shell, rendering, input, menu, and local replicated world cache. The authoritative server can run either inside a local Worker for singleplayer or as a dedicated WebSocket server for multiplayer, and it owns world generation, persistence, and all authoritative world mutations.
+This project is a Bun/TypeScript voxel sandbox with a macOS-first native bridge for GLFW and OpenGL. The repo is organized as a Bun workspaces monorepo with an explicit desktop client app, an explicit dedicated-server app, and a shared core package. The runtime is still split into a client side and an authoritative server side: the client runs the app shell, rendering, input, menu, and local replicated world cache, while the authoritative server runs either inside a local Worker for singleplayer or as a dedicated WebSocket server for multiplayer and owns world generation, persistence, and all authoritative world mutations.
 
 At a high level:
 
-- `src/index.ts` is a tiny bootstrap that creates and runs the app.
-- `src/game-app.ts` owns the main application state and loop.
-- `src/client/*` implements the client runtime, worker adapter, WebSocket adapter, and saved-server storage.
-- `src/server/*` implements authoritative world/session behavior and storage.
-- `src/shared/*` defines typed messaging, transport, and event-bus plumbing.
-- `src/world/*` contains deterministic worldgen, chunk data, meshing, atlas, item/inventory helpers, and raycasting.
-- `src/render/*` and `src/ui/*` handle rendering and menu/HUD presentation.
-- `src/platform/*` and `native/*` bridge Bun to GLFW/OpenGL.
+- `apps/client/src/index.ts` is the desktop-app bootstrap.
+- `apps/client/src/game-app.ts` owns the main application state and loop.
+- `apps/client/src/client/*`, `render/*`, `ui/*`, `game/*`, and `platform/*` implement client runtime behavior, rendering, input, menus, HUD, and native integration.
+- `apps/client/assets/*` contains runtime-loaded client shaders and textures.
+- `apps/dedicated-server/src/index.ts` is the dedicated WebSocket server bootstrap.
+- `packages/core/src/server/*` implements authoritative world/session behavior and storage.
+- `packages/core/src/shared/*` defines typed messaging, transport, and event-bus plumbing.
+- `packages/core/src/world/*` contains deterministic worldgen, chunk data, meshing, atlas metadata/UVs, item/inventory helpers, and raycasting.
+- `packages/core/src/math/*` and `packages/core/src/utils/*` provide shared helpers.
+- `native/*` bridges Bun to GLFW/OpenGL.
+
+The intended shared import surfaces are:
+
+- `@voxel/core/shared`
+- `@voxel/core/client`
+- `@voxel/core/server`
 
 ## Runtime Topology
 
@@ -31,11 +39,11 @@ The main thread hosts the playable client app:
 
 The local worker hosts the authoritative gameplay server for one selected world:
 
-- boots through `src/server/worker-entry.ts`
-- is attached to a `WorkerServerHost`
-- constructs a `ServerRuntime`
+- boots through `apps/client/src/worker-entry.ts`
+- is attached to a `WorkerServerHost` from `@voxel/core/server`
+- constructs a `ServerRuntime` from `@voxel/core/server`
 - is initialized with one chosen local world record
-- saves that world through `BinaryWorldStorage`
+- saves that world through `BinaryWorldStorage` from `@voxel/core/server`
 - generates chunks, applies block mutations, and owns the authoritative state for that one world
 
 This separation means the client never directly mutates authoritative world state. It asks the server to do so and then applies the resulting authoritative updates.
@@ -44,7 +52,7 @@ This separation means the client never directly mutates authoritative world stat
 
 The dedicated multiplayer path is hosted separately from the desktop app:
 
-- boots through `src/server/standalone-entry.ts`
+- boots through `apps/dedicated-server/src/index.ts`
 - starts a `DedicatedServer`
 - exposes a WebSocket endpoint at `/ws`
 - creates or loads exactly one world on startup
@@ -54,7 +62,7 @@ There is no remote world browser in this mode. A multiplayer client connects to 
 
 ## Main App Structure
 
-`GameApp` in `src/game-app.ts` is the top-level state owner for the client runtime.
+`GameApp` in `apps/client/src/game-app.ts` is the top-level state owner for the client runtime.
 
 It owns:
 
@@ -99,7 +107,7 @@ Shutdown is also instance-owned. `GameApp` saves the current world, closes the c
 
 ## Messaging And Adapters
 
-The client/server boundary is strongly typed through `src/shared/messages.ts`.
+The client/server boundary is strongly typed through `packages/core/src/shared/messages.ts` and re-exported at `@voxel/core/shared`.
 
 There are three main categories:
 
@@ -107,7 +115,7 @@ There are three main categories:
 - client events: one-way gameplay intents such as `mutateBlock`, `selectInventorySlot`, chat submission, and player-state updates
 - server events: one-way authoritative updates such as `chunkDelivered`, `chunkChanged`, `inventoryUpdated`, `playerUpdated`, chat/system messages, and `saveStatus`
 
-`src/shared/event-bus.ts` wraps raw transport messages with typed handlers and request correlation.
+`packages/core/src/shared/event-bus.ts` wraps raw transport messages with typed handlers and request correlation.
 
 Current transport layers:
 
@@ -117,7 +125,7 @@ Current transport layers:
 - `WebSocketClientAdapter` on the multiplayer client side
 - `DedicatedServerTransport` inside the dedicated server
 
-`src/shared/message-codec.ts` serializes typed transport messages for the WebSocket path, including chunk payload byte buffers.
+`packages/core/src/shared/message-codec.ts` serializes typed transport messages for the WebSocket path, including chunk payload byte buffers.
 
 Because the transport abstraction is explicit, local and remote play can share the same gameplay/message semantics even though their process boundaries differ.
 
@@ -212,7 +220,7 @@ The server is responsible for:
 
 World generation is deterministic and seed-driven.
 
-The worldgen pipeline currently lives under `src/world/*`:
+The worldgen pipeline currently lives under `packages/core/src/world/*`:
 
 - `noise.ts`: shared deterministic noise helpers
 - `biomes.ts`: biome sampling and biome definitions
@@ -231,7 +239,7 @@ Trees are not created by mutating neighboring chunks after the fact. Instead, de
 
 ## Rendering Pipeline
 
-Rendering is handled by `VoxelRenderer` in `src/render/renderer.ts`.
+Rendering is handled by `VoxelRenderer` in `apps/client/src/render/renderer.ts`.
 
 The pipeline is:
 
@@ -257,7 +265,7 @@ Important rendering details:
 - dropped items render as lightweight atlas-textured cubes outside terrain meshing
 - the play HUD is composed from lightweight rectangle/text overlays rather than a separate retained UI layer
 
-The native bridge in `src/platform/native.ts` and `native/bridge.c` exposes the minimal GLFW/OpenGL surface needed by the renderers.
+The native bridge in `apps/client/src/platform/native.ts` and `native/bridge.c` exposes the minimal GLFW/OpenGL surface needed by the renderers.
 
 ## Input, Player, And Gameplay Loop
 
@@ -342,7 +350,7 @@ Inventory normalization also keeps persisted snapshots structurally safe when sl
 
 ## Persistence
 
-Persistence is implemented in `src/server/world-storage.ts`.
+Persistence is implemented in `packages/core/src/server/world-storage.ts`.
 
 Current persisted data:
 
@@ -364,10 +372,10 @@ UI is intentionally lightweight and code-driven.
 
 The main pieces are:
 
-- `src/ui/menu.ts`: menu layout generation
-- `src/ui/hud.ts`: play HUD and crosshair composition
-- `src/ui/components.ts`: simple panel/label/button model plus hit evaluation
-- `src/ui/renderer.ts`: draws UI rectangles and text
+- `apps/client/src/ui/menu.ts`: menu layout generation
+- `apps/client/src/ui/hud.ts`: play HUD and crosshair composition
+- `apps/client/src/ui/components.ts`: simple panel/label/button model plus hit evaluation
+- `apps/client/src/ui/renderer.ts`: draws UI rectangles and text
 
 The menu is evaluated each frame from state plus pointer input rather than maintained through a retained widget tree.
 

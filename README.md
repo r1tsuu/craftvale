@@ -1,6 +1,6 @@
 # Minecraft Clone
 
-A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing and OpenGL rendering. Bun/TypeScript handles the client/server runtime split, world generation, meshing, player/controller logic, persistence, menu UI, HUD, and both local and WebSocket-backed multiplayer transport.
+A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing and OpenGL rendering. The repo now uses Bun workspaces so the desktop client, dedicated server, and shared gameplay/runtime code live in explicit packages instead of one flat source tree.
 
 ## Current Features
 
@@ -92,16 +92,16 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 
 ## Project Layout
 
-- `src/client` client runtime, local-world metadata/storage helpers, worker client adapter, WebSocket client adapter, and saved-server persistence
-- `src/server` authoritative world runtime, world-level entity state, player system, dropped item system, dedicated WebSocket server, and binary world storage
-- `src/shared` typed message schemas, transport, and event-bus plumbing
-- `src/platform` native bridge loading and GL bindings
-- `src/render` voxel rendering, text, UI rectangles, and highlight rendering
-- `src/world` chunks, biome/terrain generation, meshing, atlas data, inventory helpers, and raycasting
-- `src/game` player movement and physics
-- `src/ui` menu layout, HUD composition, UI components, and UI rendering
+- `apps/client` desktop app package with the app bootstrap, `GameApp`, client runtime, rendering, UI, input, singleplayer worker startup, and runtime assets under `apps/client/assets`
+- `apps/dedicated-server` dedicated WebSocket server package with process startup, port handling, and server lifecycle wiring
+- `packages/core` shared package published internally as `@voxel/core`, with stable export surfaces at `@voxel/core/shared`, `@voxel/core/client`, and `@voxel/core/server`
+- `packages/core/src/shared` typed message schemas, transport, event-bus plumbing, shared CLI parsing, and shared logging helpers
+- `packages/core/src/server` authoritative world runtime, world-level entity state, player system, dropped item system, worker host, world-session control, and binary world storage
+- `packages/core/src/world` chunks, biome/terrain generation, meshing, atlas metadata/UVs, inventory helpers, item/block registries, and raycasting
+- `packages/core/src/math` shared math helpers
 - `native` GLFW/OpenGL bridge in C
-- `assets/shaders` GLSL shaders
+- `apps/client/assets/shaders` client GLSL shaders
+- `apps/client/assets/textures` client runtime textures
 - `plans` implementation plans for major feature work
 - `tests` coverage for client/server flow, storage, terrain, meshing, raycast, player, highlight, text, and UI
 
@@ -117,6 +117,8 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 
 - Local singleplayer worlds are created from the menu. A dedicated multiplayer server creates or loads exactly one world when it starts.
 - In local singleplayer, world list/create/delete lives on the app side; the worker only boots for the selected world and runs gameplay for that one world.
+- The repo is organized as Bun workspaces: `@voxel/client`, `@voxel/dedicated-server`, and `@voxel/core`.
+- Shared imports should prefer the package export surfaces `@voxel/core/shared`, `@voxel/core/client`, and `@voxel/core/server` instead of deep relative cross-workspace imports.
 - Entering a world now follows a menu -> loading -> play flow instead of dropping straight into partially streamed terrain.
 - Biomes, terrain, and trees are all derived deterministically from the world seed.
 - World state is authoritative on the server side in both local worker mode and dedicated WebSocket mode.
