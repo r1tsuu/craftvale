@@ -88,6 +88,13 @@ export class Chunk {
     this.dirty = true;
   }
 
+  public setLighting(localX: number, localY: number, localZ: number, skyLight: number, blockLight: number): void {
+    const index = this.index(localX, localY, localZ);
+    this.skyLight[index] = Math.max(0, Math.min(15, Math.trunc(skyLight)));
+    this.blockLight[index] = Math.max(0, Math.min(15, Math.trunc(blockLight)));
+    this.dirty = true;
+  }
+
   private index(localX: number, localY: number, localZ: number): number {
     return localX + CHUNK_SIZE * (localZ + CHUNK_SIZE * localY);
   }

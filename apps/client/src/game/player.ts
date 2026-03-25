@@ -27,8 +27,12 @@ const PLAYER_RADIUS = 0.32;
 const PLAYER_HEIGHT = 1.8;
 const PLAYER_EYE_HEIGHT = 1.62;
 const COLLISION_STEP = 0.2;
+const EMBEDDED_RESOLVE_STEP = 0.05;
+const EMBEDDED_RESOLVE_HEIGHT = 1.25;
 const FLY_SPEED = 7;
 const DOUBLE_TAP_WINDOW_SECONDS = 0.32;
+const AUTHORITATIVE_POSITION_CORRECTION_DISTANCE = 0.35;
+const AUTHORITATIVE_LOOK_CORRECTION_RADIANS = 0.08;
 
 export class PlayerController {
   private verticalVelocity = 0;
@@ -66,6 +70,23 @@ export class PlayerController {
   public syncFromSnapshot(snapshot: PlayerSnapshot): void {
     this.setState(snapshot.state, false);
     this.setMovementState(snapshot.gamemode, snapshot.flying, false);
+  }
+
+  public reconcileFromSnapshot(snapshot: PlayerSnapshot): void {
+    const nextFlying = snapshot.gamemode === 1 ? snapshot.flying : false;
+    const positionDelta = this.getPositionDeltaSquared(snapshot.state.position);
+    const yawDelta = this.getAngleDelta(snapshot.state.yaw, this.state.yaw);
+    const pitchDelta = Math.abs(snapshot.state.pitch - this.state.pitch);
+    const requiresStateCorrection =
+      positionDelta > AUTHORITATIVE_POSITION_CORRECTION_DISTANCE ** 2 ||
+      yawDelta > AUTHORITATIVE_LOOK_CORRECTION_RADIANS ||
+      pitchDelta > AUTHORITATIVE_LOOK_CORRECTION_RADIANS;
+
+    if (requiresStateCorrection) {
+      this.setState(snapshot.state, false);
+    }
+
+    this.setMovementState(snapshot.gamemode, nextFlying, false);
   }
 
   private setState(state: PlayerState, resetMotion: boolean): void {
@@ -123,7 +144,7 @@ export class PlayerController {
     if (input.moveLeft) movement = addVec3(movement, scaleVec3(right, -1));
 
     const normalized = lengthVec3(movement) > 0 ? normalizeVec3(movement) : movement;
-    let position = this.getPositionVec3();
+    let position = this.resolveEmbeddedPosition(world, this.getPositionVec3());
     this.grounded = this.isStandingOnGround(world, position);
 
     if (input.moveUp && this.grounded) {
@@ -201,7 +222,7 @@ export class PlayerController {
     if (input.moveDown) movement = addVec3(movement, scaleVec3(WORLD_UP, -1));
 
     const normalized = lengthVec3(movement) > 0 ? normalizeVec3(movement) : movement;
-    let position = this.getPositionVec3();
+    let position = this.resolveEmbeddedPosition(world, this.getPositionVec3());
     position = this.moveAxis(world, position, "x", normalized.x * FLY_SPEED * deltaSeconds);
     position = this.moveAxis(world, position, "z", normalized.z * FLY_SPEED * deltaSeconds);
     position = this.moveAxis(world, position, "y", normalized.y * FLY_SPEED * deltaSeconds);
@@ -241,6 +262,37 @@ export class PlayerController {
 
   private isStandingOnGround(world: VoxelWorld, position: Vec3): boolean {
     return this.collidesAt(world, vec3(position.x, position.y - 0.05, position.z));
+  }
+
+  private resolveEmbeddedPosition(world: VoxelWorld, position: Vec3): Vec3 {
+    if (!this.collidesAt(world, position)) {
+      return position;
+    }
+
+    for (
+      let offset = EMBEDDED_RESOLVE_STEP;
+      offset <= EMBEDDED_RESOLVE_HEIGHT;
+      offset += EMBEDDED_RESOLVE_STEP
+    ) {
+      const candidate = vec3(position.x, position.y + offset, position.z);
+      if (!this.collidesAt(world, candidate)) {
+        return candidate;
+      }
+    }
+
+    return position;
+  }
+
+  private getPositionDeltaSquared(position: readonly [number, number, number]): number {
+    const dx = position[0] - this.state.position[0];
+    const dy = position[1] - this.state.position[1];
+    const dz = position[2] - this.state.position[2];
+    return dx * dx + dy * dy + dz * dz;
+  }
+
+  private getAngleDelta(target: number, current: number): number {
+    const wrapped = ((target - current + Math.PI) % (Math.PI * 2) + (Math.PI * 2)) % (Math.PI * 2);
+    return Math.abs(wrapped - Math.PI);
   }
 
   private collidesAt(world: VoxelWorld, position: Vec3): boolean {

@@ -13,10 +13,13 @@ import type {
 import type { ChunkPayload, JoinedWorldPayload } from "@craftvale/core/shared";
 import {
   ACTIVE_CHUNK_RADIUS,
+  CHUNK_SIZE,
+  LIGHT_LEVEL_MAX,
   STARTUP_CHUNK_RADIUS,
   VoxelWorld,
   createDefaultWorldTimeState,
   createDefaultInventory,
+  getBlockEmittedLightLevel,
   getChunkCoordsAroundPosition,
   isBreakableBlock,
   normalizeInventorySnapshot,
@@ -24,6 +27,14 @@ import {
 import type { IClientAdapter } from "./client-adapter.ts";
 
 const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
+const PREDICTED_LIGHT_DIRECTIONS = [
+  [1, 0, 0],
+  [-1, 0, 0],
+  [0, 1, 0],
+  [0, -1, 0],
+  [0, 0, 1],
+  [0, 0, -1],
+] as const;
 
 export class ClientWorldRuntime {
   public readonly world = new VoxelWorld();
@@ -89,6 +100,7 @@ export class ClientWorldRuntime {
     }
 
     this.world.setBlock(worldX, worldY, worldZ, 0);
+    this.refreshPredictedBreakLighting(worldX, worldY, worldZ);
     return true;
   }
 
@@ -273,6 +285,55 @@ export class ClientWorldRuntime {
         waiter.resolve();
       }
     }
+  }
+
+  private refreshPredictedBreakLighting(worldX: number, worldY: number, worldZ: number): void {
+    const skyLight = this.resolvePredictedSkyLight(worldX, worldY, worldZ);
+    const blockLight = this.resolvePredictedBlockLight(worldX, worldY, worldZ);
+    this.world.setLighting(worldX, worldY, worldZ, skyLight, blockLight);
+  }
+
+  private resolvePredictedSkyLight(worldX: number, worldY: number, worldZ: number): number {
+    if (this.hasClearSkyPath(worldX, worldY, worldZ)) {
+      return LIGHT_LEVEL_MAX;
+    }
+
+    return this.getPredictedNeighborLight(worldX, worldY, worldZ, "sky");
+  }
+
+  private resolvePredictedBlockLight(worldX: number, worldY: number, worldZ: number): number {
+    return Math.max(
+      getBlockEmittedLightLevel(this.world.getBlock(worldX, worldY, worldZ)),
+      this.getPredictedNeighborLight(worldX, worldY, worldZ, "block"),
+    );
+  }
+
+  private hasClearSkyPath(worldX: number, worldY: number, worldZ: number): boolean {
+    for (let y = worldY + 1; y < CHUNK_SIZE; y += 1) {
+      if (this.world.getBlock(worldX, y, worldZ) !== 0) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private getPredictedNeighborLight(
+    worldX: number,
+    worldY: number,
+    worldZ: number,
+    channel: "sky" | "block",
+  ): number {
+    let maxLight = 0;
+
+    for (const [dx, dy, dz] of PREDICTED_LIGHT_DIRECTIONS) {
+      const sample = channel === "sky"
+        ? this.world.getSkyLight(worldX + dx, worldY + dy, worldZ + dz)
+        : this.world.getBlockLight(worldX + dx, worldY + dy, worldZ + dz);
+      maxLight = Math.max(maxLight, Math.max(0, sample - 1));
+    }
+
+    return maxLight;
   }
 
   private clonePlayerSnapshot(player: PlayerSnapshot): PlayerSnapshot {

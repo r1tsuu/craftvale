@@ -602,7 +602,7 @@ export class GameApp {
       adapter.eventBus.on("playerUpdated", ({ player }) => {
         worldRuntime.applyPlayer(player);
         if (player.entityId === worldRuntime.clientPlayerEntityId) {
-          this.deps.player.syncFromSnapshot(player);
+          this.deps.player.reconcileFromSnapshot(player);
         }
       }),
       adapter.eventBus.on("playerLeft", ({ playerEntityId, playerName }) => {

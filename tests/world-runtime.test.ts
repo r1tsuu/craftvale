@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { ClientWorldRuntime } from "../apps/client/src/client/world-runtime.ts";
 import type { IClientAdapter } from "../apps/client/src/client/client-adapter.ts";
-import { raycastVoxel, vec3 } from "@craftvale/core/shared";
+import { LIGHT_LEVEL_MAX, raycastVoxel, vec3 } from "@craftvale/core/shared";
 
 const createClientRuntime = (): ClientWorldRuntime =>
   new ClientWorldRuntime({
@@ -34,4 +34,13 @@ test("predicted breaks respect survival-only unbreakable blocks", () => {
 
   expect(runtime.applyPredictedBreak(2, 2, 2, 1)).toBe(true);
   expect(runtime.world.getBlock(2, 2, 2)).toBe(0);
+});
+
+test("predicted breaks refresh the exposed cell lighting immediately", () => {
+  const runtime = createClientRuntime();
+  runtime.world.setBlock(2, 2, 2, 3);
+  runtime.world.setLighting(2, 3, 2, LIGHT_LEVEL_MAX, 0);
+
+  expect(runtime.applyPredictedBreak(2, 2, 2, 0)).toBe(true);
+  expect(runtime.world.getSkyLight(2, 2, 2)).toBe(LIGHT_LEVEL_MAX);
 });

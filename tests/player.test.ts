@@ -98,6 +98,17 @@ test("jump raises the player before gravity brings them down", () => {
   expect(player.state.position[1]).toBeCloseTo(1, 3);
 });
 
+test("shallow embedded positions are resolved before jump physics runs", () => {
+  const world = createEmptyWorld();
+  addFloor(world);
+  const player = new PlayerController();
+  player.state.position = [2.5, 0.85, 2.5];
+
+  player.update(createInput({ moveUp: true }), 1 / 60, world);
+
+  expect(player.state.position[1]).toBeGreaterThan(1);
+});
+
 test("authoritative sync preserves upward momentum after a jump", () => {
   const world = createEmptyWorld();
   addFloor(world);
@@ -112,6 +123,45 @@ test("authoritative sync preserves upward momentum after a jump", () => {
   const heightAfterSync = player.state.position[1];
 
   expect(heightAfterSync).toBeGreaterThan(heightAfterJump);
+});
+
+test("reconcileFromSnapshot ignores stale local echoes during a jump arc", () => {
+  const world = createEmptyWorld();
+  addFloor(world);
+  const player = new PlayerController();
+  player.state.position = [2.5, 1, 2.5];
+
+  let echoedSnapshot = createSnapshot(player);
+  let maxHeight = player.state.position[1];
+  for (let step = 0; step < 60; step += 1) {
+    const jumpDown = step === 0;
+    player.update(createInput({ moveUp: jumpDown }), 1 / 60, world);
+    player.reconcileFromSnapshot(echoedSnapshot);
+    echoedSnapshot = createSnapshot(player);
+    maxHeight = Math.max(maxHeight, player.state.position[1]);
+  }
+
+  expect(maxHeight).toBeGreaterThan(2);
+});
+
+test("reconcileFromSnapshot still applies large authoritative corrections", () => {
+  const player = new PlayerController();
+  player.state.position = [8, 8, 8];
+
+  player.reconcileFromSnapshot({
+    entityId: "player:1",
+    name: "Alice",
+    active: true,
+    gamemode: 0,
+    flying: false,
+    state: {
+      position: [2.5, 1, 2.5],
+      yaw: -Math.PI / 2,
+      pitch: -0.25,
+    },
+  });
+
+  expect(player.state.position).toEqual([2.5, 1, 2.5]);
 });
 
 test("horizontal movement collides with solid blocks", () => {

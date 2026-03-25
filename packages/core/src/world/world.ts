@@ -76,6 +76,24 @@ export class VoxelWorld {
     this.markNeighborBoundaries(coords.chunk, coords.local);
   }
 
+  public setLighting(
+    worldX: number,
+    worldY: number,
+    worldZ: number,
+    skyLight: number,
+    blockLight: number,
+  ): boolean {
+    const coords = worldToChunkCoord(worldX, worldY, worldZ);
+    const chunk = this.getChunk(coords.chunk);
+    if (!chunk) {
+      return false;
+    }
+
+    chunk.setLighting(coords.local.x, coords.local.y, coords.local.z, skyLight, blockLight);
+    this.markNeighborBoundaries(coords.chunk, coords.local);
+    return true;
+  }
+
   public replaceChunk(
     coord: ChunkCoord,
     blocks: Uint8Array,
