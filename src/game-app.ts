@@ -1513,7 +1513,7 @@ export const createDefaultGameApp = (options: {
   nativeBridge.initWindow({
     width: 1440,
     height: 900,
-    title: "Minecraft Clone",
+    title: `Minecraft Clone - ${options.playerName}`,
   });
   nativeBridge.setCursorDisabled(false);
 
