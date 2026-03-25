@@ -113,7 +113,14 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 - Expected moves:
   - current `src/index.ts` -> `apps/client/src/index.ts`
   - any client-app-specific CLI or startup composition should live nearby
-- `GameApp` can stay in `packages/core` if we treat it as reusable runtime logic rather than bootstrap glue.
+- `GameApp` should move into `apps/client` because it is client-app composition:
+  - menu/loading/play mode ownership
+  - renderer and native bridge lifecycle
+  - input handling
+  - client adapter selection
+  - singleplayer worker boot decisions
+  - HUD/UI flow
+- `packages/core` should provide the shared runtime pieces `GameApp` composes, not own `GameApp` itself.
 
 ### Move current dedicated bootstrap into `apps/dedicated-server`
 - Expected moves:
@@ -271,5 +278,6 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 - `native/` and `scripts/` stay at the repo root.
 - runtime client assets move to `apps/client/assets`.
 - `apps/client` owns the desktop app and singleplayer worker startup.
+- `GameApp` is part of the client app layer and belongs in `apps/client`, not `packages/core`.
 - `apps/dedicated-server` owns WebSocket and dedicated-only process concerns.
 - `packages/core` owns shared primitives plus the authoritative server code used by both singleplayer and dedicated multiplayer, not the client app layer.
