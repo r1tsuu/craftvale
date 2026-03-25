@@ -50,6 +50,7 @@ import { createLogger } from "./utils/logger.ts";
 import { Biomes, getBiomeAt } from "./world/biomes.ts";
 import { Blocks } from "./world/blocks.ts";
 import { STARTUP_CHUNK_RADIUS } from "./world/constants.ts";
+import { createDefaultInventory } from "./world/inventory.ts";
 import { getSelectedInventorySlot } from "./world/inventory.ts";
 import { raycastVoxel } from "./world/raycast.ts";
 import { VoxelWorld } from "./world/world.ts";
@@ -1480,6 +1481,9 @@ export class GameApp {
     this.deps.renderer.render(
       worldRuntime?.world ?? new VoxelWorld(),
       this.deps.player,
+      worldRuntime ? [...worldRuntime.players.values()] : [],
+      worldRuntime?.clientPlayerEntityId ?? null,
+      worldRuntime?.inventory ?? createDefaultInventory(),
       this.state.clientSettings.renderDistance,
       framebufferWidth,
       framebufferHeight,

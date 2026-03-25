@@ -2,7 +2,14 @@ import { createIdentityMat4 } from "../math/mat4.ts";
 import type { Vec3 } from "../math/vec3.ts";
 import { PlayerController } from "../game/player.ts";
 import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
-import type { BlockId, ChunkCoord, DroppedItemSnapshot, MeshData } from "../types.ts";
+import type {
+  BlockId,
+  ChunkCoord,
+  DroppedItemSnapshot,
+  InventorySnapshot,
+  MeshData,
+  PlayerSnapshot,
+} from "../types.ts";
 import { UiRenderer } from "../ui/renderer.ts";
 import { getAtlasUvRect, loadVoxelAtlasImageData } from "../world/atlas.ts";
 import { getBlockFaceTile, getBlockRenderPass, type BlockFaceRole } from "../world/blocks.ts";
@@ -11,6 +18,8 @@ import { buildChunkMesh } from "../world/mesher.ts";
 import { VoxelWorld } from "../world/world.ts";
 import type { UiResolvedComponent } from "../ui/components.ts";
 import { FocusHighlightRenderer } from "./highlight.ts";
+import { getHeldItemBlockId, collectVisibleRemotePlayers } from "./player-model.ts";
+import { PlayerRenderer } from "./player-renderer.ts";
 import { TextOverlayRenderer, type TextDrawCommand } from "./text.ts";
 
 interface GpuMesh {
@@ -147,7 +156,7 @@ const compileShader = (nativeBridge: NativeBridge, type: number, source: string)
   return shader;
 };
 
-const buildDroppedItemMesh = (blockId: BlockId): MeshData => {
+const buildBlockCubeMesh = (blockId: BlockId): MeshData => {
   const vertices: number[] = [];
   const indices: number[] = [];
   let baseIndex = 0;
@@ -197,8 +206,9 @@ export class VoxelRenderer {
   private readonly atlasSamplerLocation: number;
   private readonly atlasTexture: number;
   private readonly meshes = new Map<string, GpuChunkMesh>();
-  private readonly droppedItemMeshes = new Map<BlockId, GpuMesh | null>();
+  private readonly blockCubeMeshes = new Map<BlockId, GpuMesh | null>();
   private readonly focusHighlightRenderer: FocusHighlightRenderer;
+  private readonly playerRenderer: PlayerRenderer;
   private readonly textOverlayRenderer: TextOverlayRenderer;
   private readonly uiRenderer: UiRenderer;
 
@@ -239,6 +249,21 @@ export class VoxelRenderer {
     this.atlasSamplerLocation = nativeBridge.gl.getUniformLocation(this.program, "uAtlas");
     this.atlasTexture = this.createAtlasTexture();
     this.focusHighlightRenderer = new FocusHighlightRenderer(nativeBridge);
+    this.playerRenderer = new PlayerRenderer(
+      (matrix) => {
+        this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, matrix);
+      },
+      (blockId) => this.getBlockCubeMesh(blockId),
+      (mesh) => {
+        this.nativeBridge.gl.bindVertexArray(mesh.vao);
+        this.nativeBridge.gl.drawElements(
+          GL.TRIANGLES,
+          mesh.indexCount,
+          GL.UNSIGNED_INT,
+          0,
+        );
+      },
+    );
     this.textOverlayRenderer = new TextOverlayRenderer(nativeBridge);
     this.uiRenderer = new UiRenderer(nativeBridge);
   }
@@ -246,6 +271,9 @@ export class VoxelRenderer {
   public render(
     world: VoxelWorld,
     player: PlayerController,
+    players: readonly PlayerSnapshot[],
+    clientPlayerEntityId: string | null,
+    inventory: InventorySnapshot,
     renderDistance: number,
     width: number,
     height: number,
@@ -285,6 +313,12 @@ export class VoxelRenderer {
         Math.abs(itemChunkZ - playerChunkZ) <= renderDistance
       );
     });
+    const visibleRemotePlayers = collectVisibleRemotePlayers(
+      players,
+      clientPlayerEntityId,
+      player.state.position,
+      renderDistance,
+    );
 
     for (const coord of visibleCoords) {
       this.syncChunkMesh(world, coord);
@@ -304,6 +338,7 @@ export class VoxelRenderer {
     }
 
     this.renderDroppedItems(visibleDroppedItems, "opaque");
+    this.playerRenderer.renderWorldPlayers(visibleRemotePlayers);
 
     for (const coord of visibleCoords) {
       const gpuMesh = this.meshes.get(meshKey(coord));
@@ -325,6 +360,13 @@ export class VoxelRenderer {
 
     this.nativeBridge.gl.bindVertexArray(0);
     this.focusHighlightRenderer.render(focusedBlock, viewProjection);
+    this.nativeBridge.gl.disable(GL.DEPTH_TEST);
+    this.playerRenderer.renderFirstPersonViewModel(
+      player,
+      getHeldItemBlockId(inventory),
+    );
+    this.nativeBridge.gl.bindVertexArray(0);
+    this.nativeBridge.gl.enable(GL.DEPTH_TEST);
     this.textOverlayRenderer.render(overlayText, width, height);
     this.uiRenderer.render(uiComponents, uiWidth, uiHeight);
   }
@@ -338,7 +380,7 @@ export class VoxelRenderer {
         continue;
       }
 
-      const mesh = this.getDroppedItemMesh(item.blockId);
+      const mesh = this.getBlockCubeMesh(item.blockId);
       if (!mesh) {
         continue;
       }
@@ -381,13 +423,13 @@ export class VoxelRenderer {
     });
   }
 
-  private getDroppedItemMesh(blockId: BlockId): GpuMesh | null {
-    if (this.droppedItemMeshes.has(blockId)) {
-      return this.droppedItemMeshes.get(blockId) ?? null;
+  private getBlockCubeMesh(blockId: BlockId): GpuMesh | null {
+    if (this.blockCubeMeshes.has(blockId)) {
+      return this.blockCubeMeshes.get(blockId) ?? null;
     }
 
-    const mesh = this.createGpuMesh(buildDroppedItemMesh(blockId));
-    this.droppedItemMeshes.set(blockId, mesh);
+    const mesh = this.createGpuMesh(buildBlockCubeMesh(blockId));
+    this.blockCubeMeshes.set(blockId, mesh);
     return mesh;
   }
 

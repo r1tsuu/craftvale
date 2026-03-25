@@ -138,6 +138,8 @@ Because the transport abstraction is explicit, local and remote play can share t
 This local world is used for:
 
 - terrain rendering
+- remote player rendering
+- local first-person arm and held-item rendering inputs
 - player collision
 - voxel raycast/highlight
 - HUD/hotbar display
@@ -228,16 +230,20 @@ The pipeline is:
 1. Build or refresh chunk meshes from the replicated client world.
 2. Render opaque voxel faces.
 3. Render opaque dropped-item cubes.
-4. Render cutout voxel faces.
-5. Render cutout dropped-item cubes.
-6. Render the focused-block highlight.
-7. Render text overlay.
-8. Render UI overlay, including the play HUD and crosshair.
+4. Render opaque remote-player body parts.
+5. Render cutout voxel faces.
+6. Render cutout dropped-item cubes.
+7. Render the focused-block highlight.
+8. Render the local first-person arm and held block.
+9. Render text overlay.
+10. Render UI overlay, including the play HUD and crosshair.
 
 Important rendering details:
 
 - voxel textures come from a shared atlas
 - directional face shading is applied in the shader
+- remote players are rendered as dynamic cube-based actors, not chunk-meshed terrain
+- the local first-person arm uses the same cube-based visual language but is drawn as a late viewmodel-style pass
 - leaves use alpha-cutout rendering, not full sorted translucency
 - terrain meshing is split into opaque and cutout passes
 - dropped items render as lightweight atlas-textured cubes outside terrain meshing

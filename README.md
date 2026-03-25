@@ -17,6 +17,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Server-authoritative block breaking and placing through local worker transport or dedicated WebSocket server transport
 - Stable per-client player names with local profile persistence and optional `--player-name` override
 - Player-aware authoritative sessions with per-player position, rotation, and inventory state
+- Rendered remote players with Minecraft-like cuboid bodies
 - World-level server entity state with shared entity ids for authoritative actors
 - Dedicated `PlayerSystem` operating within that shared world entity state
 - Server-authoritative dropped item entities with floor spawning, pickups, and persistence
@@ -34,6 +35,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Seeded Minecraft-like menu background
 - On-screen HUD text for FPS, position, rotation, world name, and status
 - Bottom-center hotbar strip with slot highlight, counts, and selected-item label
+- First-person arm and held-block rendering tied to the selected hotbar slot
 - `E`-opened inventory screen with clickable slot movement and a carried cursor stack
 
 ## Requirements
@@ -115,6 +117,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Local singleplayer reports real startup loading progress from the worker, while multiplayer uses a simpler loading screen until the first startup chunk set is ready.
 - `AuthoritativeWorld` owns chunk/world authority while `PlayerSystem` mutates player components inside shared world-owned entity state.
 - Broken collectible blocks spawn dropped item actors in that same world-owned entity space, and players pick them up through a server-authoritative proximity check.
+- The client renders remote players as simple cube-based bodies and reuses that same cuboid visual language for the local first-person arm and held block.
 - Dedicated servers expose one generated world only; clients do not browse remote world lists.
 - Player identity is stored separately from world saves in `data/client/player-profile.json`.
 - `--data-dir` remaps that default layout, with desktop client state under `<data-dir>/client`, local worlds under `<data-dir>/`, and dedicated server state under `<data-dir>/server`.
