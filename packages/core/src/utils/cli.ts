@@ -30,6 +30,7 @@ export const parseCliFlagValue = (
 const parsePathFlag = (
   argv: readonly string[],
   flagName: string,
+  baseDir = process.cwd(),
 ): string | undefined => {
   const value = parseCliFlagValue(argv, flagName);
   if (value === null) {
@@ -41,11 +42,15 @@ const parsePathFlag = (
     throw new Error(`Missing value for --${flagName}.`);
   }
 
-  return resolve(normalized);
+  return resolve(baseDir, normalized);
 };
 
-export const parseClientDir = (argv: readonly string[]): string | undefined =>
-  parsePathFlag(argv, "client-dir");
+export const parseClientDir = (
+  argv: readonly string[],
+  baseDir?: string,
+): string | undefined => parsePathFlag(argv, "client-dir", baseDir);
 
-export const parseServerDir = (argv: readonly string[]): string | undefined =>
-  parsePathFlag(argv, "server-dir");
+export const parseServerDir = (
+  argv: readonly string[],
+  baseDir?: string,
+): string | undefined => parsePathFlag(argv, "server-dir", baseDir);

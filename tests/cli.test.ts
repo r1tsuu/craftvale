@@ -34,3 +34,12 @@ test("parseClientDir and parseServerDir resolve explicit split roots", () => {
   expect(parseClientDir([])).toBeUndefined();
   expect(parseServerDir([])).toBeUndefined();
 });
+
+test("parseClientDir and parseServerDir can resolve relative paths from app roots", () => {
+  expect(parseClientDir(["--client-dir", "./x"], resolve("./apps/client"))).toBe(
+    resolve("./apps/client", "./x"),
+  );
+  expect(parseServerDir(["--server-dir=./y"], resolve("./apps/dedicated-server"))).toBe(
+    resolve("./apps/dedicated-server", "./y"),
+  );
+});

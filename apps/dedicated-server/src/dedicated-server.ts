@@ -22,13 +22,10 @@ import {
 const appRoot = import.meta.dir.endsWith("/apps/dedicated-server/src")
   ? import.meta.dir.slice(0, -"/src".length)
   : import.meta.dir;
-const projectRoot = appRoot.endsWith("/apps/dedicated-server")
-  ? appRoot.slice(0, -"/apps/dedicated-server".length)
-  : appRoot;
 
 export const DEFAULT_DEDICATED_SERVER_PORT = 3210;
 export const DEFAULT_DEDICATED_WORLD_NAME = "Server World";
-export const DEFAULT_DEDICATED_STORAGE_ROOT = join(projectRoot, "server");
+export const DEFAULT_DEDICATED_STORAGE_ROOT = join(appRoot, "dist");
 const serverLogger = createLogger("server", "magenta");
 
 interface DedicatedSocketData {

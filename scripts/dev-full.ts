@@ -11,6 +11,8 @@ const SERVER_SHUTDOWN_TIMEOUT_MS = 3_000;
 const SERVER_READY_TIMEOUT_MS = 5_000;
 const SERVER_READY_POLL_INTERVAL_MS = 100;
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
+const clientAppRoot = fileURLToPath(new URL("../apps/client", import.meta.url));
+const serverAppRoot = fileURLToPath(new URL("../apps/dedicated-server", import.meta.url));
 const bunExecutable = Bun.which("bun") ?? process.execPath;
 const devFullLogger = createLogger("dev:full", "yellow");
 
@@ -40,8 +42,8 @@ const logInfo = (message: string): void => {
 };
 
 const argv = Bun.argv.slice(2);
-const clientDir = parseClientDir(argv);
-const serverDir = parseServerDir(argv);
+const clientDir = parseClientDir(argv, clientAppRoot);
+const serverDir = parseServerDir(argv, serverAppRoot);
 const clientRuntimeArgs = clientDir ? [`--client-dir=${clientDir}`] : [];
 const serverRuntimeArgs = serverDir ? [`--server-dir=${serverDir}`] : [];
 

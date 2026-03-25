@@ -9,6 +9,7 @@ At a high level:
 - `apps/client/src/index.ts` is the desktop-app bootstrap.
 - `apps/client/src/game-app.ts` owns the main application state and loop.
 - `apps/client/src/client/*`, `render/*`, `ui/*`, `game/*`, and `platform/*` implement client runtime behavior, rendering, input, menus, HUD, and native integration.
+- `apps/client/src/worker/*` owns singleplayer worker bootstrap and worker-only transport glue.
 - `apps/client/assets/*` contains runtime-loaded client shaders and textures.
 - `apps/dedicated-server/src/index.ts` is the dedicated WebSocket server bootstrap.
 - `packages/core/src/server/*` implements authoritative world/session behavior and storage.

@@ -10,11 +10,8 @@ const PLAYER_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,23}$/;
 const appRoot = import.meta.dir.endsWith("/apps/client/src/client")
   ? import.meta.dir.slice(0, -"/src/client".length)
   : import.meta.dir;
-const projectRoot = appRoot.endsWith("/apps/client")
-  ? appRoot.slice(0, -"/apps/client".length)
-  : appRoot;
 
-export const DEFAULT_CLIENT_STORAGE_ROOT = join(projectRoot, "client");
+export const DEFAULT_CLIENT_STORAGE_ROOT = join(appRoot, "dist");
 
 export interface ResolvedPlayerIdentity {
   effectivePlayerName: PlayerName;

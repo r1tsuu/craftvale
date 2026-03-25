@@ -20,7 +20,10 @@ const parsePort = (argv: readonly string[]): number | undefined => {
 
 const argv = Bun.argv.slice(2);
 const port = parsePort(argv) ?? DEFAULT_DEDICATED_SERVER_PORT;
-const storageRoot = parseServerDir(argv);
+const appRoot = import.meta.dir.endsWith("/apps/dedicated-server/src")
+  ? import.meta.dir.slice(0, -"/src".length)
+  : import.meta.dir;
+const storageRoot = parseServerDir(argv, appRoot);
 serverLogger.info(`starting dedicated server on port ${port}...`);
 await ensurePortAvailable(port);
 const server = await DedicatedServer.start({ port, storageRoot });

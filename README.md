@@ -48,21 +48,24 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 ## Commands
 
 - `bun run build:native` builds `native/libvoxel_bridge.dylib`
-- `bun run clean:data` removes the repo `client/` and `server/` directories for a fresh local state
+- `bun run clean:data` removes `apps/client/dist` and `apps/dedicated-server/dist` for a fresh local state
 - `bun run dev:client` builds the native bridge and starts the desktop client
-- `bun run dev:client:clean` wipes only `client/` and then starts the desktop client
+- `bun run dev:client:clean` wipes only `apps/client/dist` and then starts the desktop client
 - `bun run dev:server` starts the dedicated WebSocket server only
-- `bun run dev:server:clean` wipes only `server/` and then starts the dedicated server
+- `bun run dev:server:clean` wipes only `apps/dedicated-server/dist` and then starts the dedicated server
 - `bun run dev:full` starts the dedicated server and the desktop client together
-- `bun run dev:full:clean` wipes `client/` and `server/` and then starts the full client-plus-server dev flow
+- `bun run dev:full:clean` wipes `apps/client/dist` and `apps/dedicated-server/dist` and then starts the full client-plus-server dev flow
 - `bun run typecheck` runs TypeScript checks
 - `bun test` runs the automated tests
 - Launch options: `--player-name=<name>` or `--player-name <name>` overrides the local player name for that run
 - Launch options: `--client-dir=<path>` or `--client-dir <path>` overrides the desktop app's client-local data root
 - Launch options: `--server-dir=<path>` or `--server-dir <path>` overrides the dedicated server data root
 - Example: `bun run dev:client -- --client-dir=./client-data`
+  resolves to `apps/client/client-data`
 - Example: `bun run dev:server -- --server-dir=./server-data`
+  resolves to `apps/dedicated-server/server-data`
 - Example: `bun run dev:full -- --client-dir=./client-data --server-dir=./server-data`
+  resolves to `apps/client/client-data` and `apps/dedicated-server/server-data`
 - `bun run dev:client` runs with `APP_ENV=development` and defaults a fresh local player profile to `Developer`
 
 ## Controls
@@ -96,7 +99,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `apps/dedicated-server` dedicated WebSocket server package with process startup, port handling, and server lifecycle wiring
 - `packages/core` shared package published internally as `@voxel/core`, with stable export surfaces at `@voxel/core/shared` and `@voxel/core/server`
 - `packages/core/src/shared` typed message schemas, transport, event-bus plumbing, shared CLI parsing, and shared logging helpers
-- `packages/core/src/server` authoritative world runtime, world-level entity state, player system, dropped item system, worker host, world-session control, and binary world storage
+- `packages/core/src/server` authoritative world runtime, world-level entity state, player system, dropped item system, world-session control, and binary world storage
 - `packages/core/src/world` chunks, biome/terrain generation, meshing, atlas metadata/UVs, inventory helpers, item/block registries, and raycasting
 - `packages/core/src/math` shared math helpers
 - `native` GLFW/OpenGL bridge in C
@@ -128,9 +131,9 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - The client inventory, dropped-item state, HUD, and held-item rendering are item-based even when a first-pass item still maps one-to-one to a placeable block.
 - The client renders remote players as simple cube-based bodies and reuses that same cuboid visual language for the local first-person arm and held item.
 - Dedicated servers expose one generated world only; clients do not browse remote world lists.
-- Player identity is stored separately from world saves in `client/player-profile.json`.
-- The default layout separates desktop-client data under `client/` from dedicated-server data under `server/`.
-- Local singleplayer world saves now live under `client/worlds`.
+- Player identity is stored separately from world saves in `apps/client/dist/player-profile.json`.
+- The default layout separates desktop-client data under `apps/client/dist` from dedicated-server data under `apps/dedicated-server/dist`.
+- Local singleplayer world saves now live under `apps/client/dist/worlds`.
 - `--client-dir` overrides the desktop app root, including local worlds under `<client-dir>/worlds`.
 - `--server-dir` overrides the dedicated server root.
 - Player gamemode persists per player/world; chat history is session-only in this first pass.
