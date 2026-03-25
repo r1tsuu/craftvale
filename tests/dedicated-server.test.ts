@@ -6,8 +6,8 @@ import { PortClientAdapter } from "../apps/client/src/client/client-adapter.ts";
 import { ClientWorldRuntime } from "../apps/client/src/client/world-runtime.ts";
 import {
   WorldSessionController,
-  type WorldSessionPeer,
 } from "../packages/core/src/server/world-session-controller.ts";
+import { ServerRuntime } from "../packages/core/src/server/runtime.ts";
 import {
   loadOrCreateDedicatedWorld,
   type DedicatedServerSessionHost,
@@ -80,14 +80,15 @@ const createDedicatedSessionHarness = (
     {
       contextLabel: host.contextLabel,
       getWorld: () => host.world,
+      allocateIntentSequence: () => host.runtime.allocateIntentSequence(),
       sendToPlayer: (playerEntityId, message) => {
-        host.sendToPlayer(playerEntityId, message);
+        host.runtime.sendToPlayer(playerEntityId, message);
       },
       broadcast: (message, options) => {
-        host.broadcast(message, options);
+        host.runtime.broadcast(message, options);
       },
       afterJoin: (player) => {
-        host.broadcast(
+        host.runtime.broadcast(
           {
             type: "playerJoined",
             payload: { player },
@@ -96,7 +97,7 @@ const createDedicatedSessionHarness = (
         );
       },
       afterLeave: (player) => {
-        host.broadcast(
+        host.runtime.broadcast(
           {
             type: "playerLeft",
             payload: {
@@ -113,7 +114,7 @@ const createDedicatedSessionHarness = (
   const unregisterJoinServer = adapter.eventBus.on("joinServer", async ({ playerName }) =>
     controller.join(playerName)
   );
-  host.registerSession(controller);
+  host.runtime.registerSession(controller);
   const unsubscribers = registerRuntimeHandlers(client, runtime);
 
   return {
@@ -126,8 +127,8 @@ const createDedicatedSessionHarness = (
       }
       await controller.disconnect();
       unregisterJoinServer();
+      host.runtime.unregisterSession(controller);
       controller.dispose();
-      host.unregisterSession(controller);
       client.close();
     },
   };
@@ -151,33 +152,14 @@ test("dedicated multiplayer sessions share one generated world and only support 
     await expect(stat(join(rootDir, "worlds"))).rejects.toBeDefined();
     await expect(stat(join(rootDir, "registry.bin"))).rejects.toBeDefined();
 
-    const sessions = new Set<WorldSessionPeer>();
+    const runtime = new ServerRuntime(null, world, {
+      autoStart: false,
+    });
 
     const host: DedicatedServerSessionHost = {
       world,
+      runtime,
       contextLabel: "server",
-      registerSession(session) {
-        sessions.add(session);
-      },
-      unregisterSession(session) {
-        sessions.delete(session);
-      },
-      sendToPlayer(playerEntityId, message) {
-        for (const session of sessions) {
-          if (session.controlsPlayer(playerEntityId)) {
-            session.sendEvent(message);
-          }
-        }
-      },
-      broadcast(message, options = {}) {
-        for (const session of sessions) {
-          if (options.exclude && session === options.exclude) {
-            continue;
-          }
-
-          session.sendEvent(message);
-        }
-      },
     };
 
     const alice = createDedicatedSessionHarness(host);
@@ -232,7 +214,7 @@ test("dedicated multiplayer sessions share one generated world and only support 
     } finally {
       await bob.cleanup();
       await alice.cleanup();
-      await world.save();
+      await runtime.shutdown();
     }
   } finally {
     await rm(rootDir, { recursive: true, force: true });

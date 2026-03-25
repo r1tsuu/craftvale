@@ -3,6 +3,7 @@ import {
   AuthoritativeWorld,
   DedicatedWorldStorage,
   PortServerAdapter,
+  ServerRuntime,
   WorldSessionController,
   type WorldStorage,
   type WorldSessionPeer,
@@ -12,9 +13,6 @@ import {
   decodeClientToServerMessage,
   encodeTransportMessage,
   type ClientToServerMessage,
-  type EntityId,
-  type PlayerSnapshot,
-  type ServerEventMap,
   type ServerToClientMessage,
   type TransportPort,
 } from "@voxel/core/shared";
@@ -34,26 +32,9 @@ interface DedicatedSocketData {
 
 export interface DedicatedServerSessionHost {
   readonly world: AuthoritativeWorld;
+  readonly runtime: ServerRuntime;
   readonly contextLabel: string;
-  registerSession(session: WorldSessionPeer): void;
-  unregisterSession(session: WorldSessionPeer): void;
   logInfo?(message: string): void;
-  sendToPlayer<K extends keyof ServerEventMap>(
-    playerEntityId: EntityId,
-    message: {
-      type: K;
-      payload: ServerEventMap[K];
-    },
-  ): void;
-  broadcast<K extends keyof ServerEventMap>(
-    message: {
-      type: K;
-      payload: ServerEventMap[K];
-    },
-    options?: {
-      exclude?: WorldSessionPeer;
-    },
-  ): void;
 }
 
 export const loadOrCreateDedicatedWorld = async (
@@ -103,35 +84,39 @@ export class DedicatedServerSession implements WorldSessionPeer {
   private readonly controller: WorldSessionController;
   private readonly unregisterJoinServer: () => void;
   private joinedPlayerName: string | null = null;
+  private disconnected = false;
 
   public constructor(
-    private readonly server: DedicatedServerSessionHost,
+    private readonly server: DedicatedServer & DedicatedServerSessionHost,
     socket: Bun.ServerWebSocket<DedicatedSocketData>,
     private readonly sessionId: number,
   ) {
     this.transport = new DedicatedServerTransport(socket);
     this.adapter = new PortServerAdapter(this.transport);
-    this.controller = new WorldSessionController(
+
+    let controller!: WorldSessionController;
+    controller = new WorldSessionController(
       {
         contextLabel: server.contextLabel,
         getWorld: () => server.world,
+        allocateIntentSequence: () => server.runtime.allocateIntentSequence(),
         sendToPlayer: (playerEntityId, message) => {
-          server.sendToPlayer(playerEntityId, message);
+          server.runtime.sendToPlayer(playerEntityId, message);
         },
         broadcast: (message, options) => {
-          server.broadcast(message, options);
+          server.runtime.broadcast(message, options);
         },
         afterJoin: (player) => {
-          server.broadcast(
+          server.runtime.broadcast(
             {
               type: "playerJoined",
               payload: { player },
             },
-            { exclude: this },
+            { exclude: controller },
           );
         },
         afterLeave: (player) => {
-          server.broadcast(
+          server.runtime.broadcast(
             {
               type: "playerLeft",
               payload: {
@@ -139,12 +124,14 @@ export class DedicatedServerSession implements WorldSessionPeer {
                 playerName: player.name,
               },
             },
-            { exclude: this },
+            { exclude: controller },
           );
         },
       },
       this.adapter,
     );
+    this.controller = controller;
+    this.server.runtime.registerSession(this.controller);
     this.unregisterJoinServer = this.adapter.eventBus.on("joinServer", async ({ playerName }) => {
       const payload = await this.controller.join(playerName);
       this.joinedPlayerName = playerName;
@@ -161,18 +148,20 @@ export class DedicatedServerSession implements WorldSessionPeer {
     this.transport.handleEncodedMessage(encoded);
   }
 
-  public sendEvent<K extends keyof ServerEventMap>(message: {
-    type: K;
-    payload: ServerEventMap[K];
-  }): void {
+  public sendEvent(message: Parameters<WorldSessionPeer["sendEvent"]>[0]): void {
     this.controller.sendEvent(message);
   }
 
-  public controlsPlayer(entityId: EntityId): boolean {
+  public controlsPlayer(entityId: Parameters<WorldSessionPeer["controlsPlayer"]>[0]): boolean {
     return this.controller.controlsPlayer(entityId);
   }
 
   public async disconnect(closeTransport = false): Promise<void> {
+    if (this.disconnected) {
+      return;
+    }
+
+    this.disconnected = true;
     await this.controller.disconnect(closeTransport);
     if (this.joinedPlayerName) {
       this.server.logInfo?.(
@@ -182,17 +171,19 @@ export class DedicatedServerSession implements WorldSessionPeer {
       this.server.logInfo?.(`[session ${this.sessionId}] client disconnected`);
     }
     this.unregisterJoinServer();
+    this.server.runtime.unregisterSession(this.controller);
     this.controller.dispose();
     this.server.unregisterSession(this);
   }
 }
 
 export class DedicatedServer implements DedicatedServerSessionHost {
-  private readonly sessions = new Set<WorldSessionPeer>();
+  private readonly sessions = new Set<DedicatedServerSession>();
   private nextSessionId = 1;
 
   private constructor(
     public readonly world: AuthoritativeWorld,
+    public readonly runtime: ServerRuntime,
     public readonly storage: WorldStorage,
     public readonly socketServer: Bun.Server<DedicatedSocketData>,
   ) {}
@@ -210,11 +201,16 @@ export class DedicatedServer implements DedicatedServerSessionHost {
     worldName?: string;
     seed?: number;
     storageRoot?: string;
+    tickIntervalMs?: number;
   } = {}): Promise<DedicatedServer> {
     const storage = new DedicatedWorldStorage(
       options.storageRoot ?? DEFAULT_DEDICATED_STORAGE_ROOT,
     );
     const world = await loadOrCreateDedicatedWorld(storage, options);
+    const runtime = new ServerRuntime(null, world, {
+      logInfo: (message) => serverLogger.info(message),
+      tickIntervalMs: options.tickIntervalMs,
+    });
 
     let instance: DedicatedServer | null = null;
     const socketServer = Bun.serve<DedicatedSocketData>({
@@ -262,8 +258,16 @@ export class DedicatedServer implements DedicatedServerSessionHost {
       },
     });
 
-    instance = new DedicatedServer(world, storage, socketServer);
+    instance = new DedicatedServer(world, runtime, storage, socketServer);
     return instance;
+  }
+
+  public registerSession(session: DedicatedServerSession): void {
+    this.sessions.add(session);
+  }
+
+  public unregisterSession(session: DedicatedServerSession): void {
+    this.sessions.delete(session);
   }
 
   private allocateSessionId(): number {
@@ -272,54 +276,12 @@ export class DedicatedServer implements DedicatedServerSessionHost {
     return sessionId;
   }
 
-  public registerSession(session: WorldSessionPeer): void {
-    this.sessions.add(session);
-  }
-
-  public unregisterSession(session: WorldSessionPeer): void {
-    this.sessions.delete(session);
-  }
-
-  public sendToPlayer<K extends keyof ServerEventMap>(
-    playerEntityId: EntityId,
-    message: {
-      type: K;
-      payload: ServerEventMap[K];
-    },
-  ): void {
-    for (const session of this.sessions) {
-      if (session.controlsPlayer(playerEntityId)) {
-        session.sendEvent(message);
-      }
-    }
-  }
-
-  public broadcast<K extends keyof ServerEventMap>(
-    message: {
-      type: K;
-      payload: ServerEventMap[K];
-    },
-    options: {
-      exclude?: WorldSessionPeer;
-    } = {},
-  ): void {
-    for (const session of this.sessions) {
-      if (options.exclude && session === options.exclude) {
-        continue;
-      }
-
-      session.sendEvent(message);
-    }
-  }
-
   public async shutdown(): Promise<void> {
     for (const session of [...this.sessions]) {
-      if (session.disconnect) {
-        await session.disconnect(true);
-      }
+      await session.disconnect(true);
     }
 
-    await this.world.save();
+    await this.runtime.shutdown();
     this.socketServer.stop(true);
   }
 }

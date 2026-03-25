@@ -11,8 +11,15 @@ import type {
   PlayerName,
   PlayerSnapshot,
 } from "../types.ts";
-import { type IServerAdapter } from "./server-adapter.ts";
-import { AuthoritativeWorld, type WorldSimulationResult } from "./authoritative-world.ts";
+import type { IServerAdapter } from "./server-adapter.ts";
+import { AuthoritativeWorld } from "./authoritative-world.ts";
+import type { QueuedGameplayIntent } from "./world-tick.ts";
+
+type QueuedGameplayIntentInput =
+  | Omit<Extract<QueuedGameplayIntent, { kind: "mutateBlock" }>, "sequence">
+  | Omit<Extract<QueuedGameplayIntent, { kind: "selectInventorySlot" }>, "sequence">
+  | Omit<Extract<QueuedGameplayIntent, { kind: "interactInventorySlot" }>, "sequence">
+  | Omit<Extract<QueuedGameplayIntent, { kind: "updatePlayerState" }>, "sequence">;
 
 export interface WorldSessionPeer {
   sendEvent<K extends keyof ServerEventMap>(message: {
@@ -26,6 +33,7 @@ export interface WorldSessionPeer {
 export interface WorldSessionHost {
   readonly contextLabel: string;
   getWorld(): AuthoritativeWorld | null;
+  allocateIntentSequence(): number;
   sendToPlayer<K extends keyof ServerEventMap>(
     playerEntityId: EntityId,
     message: {
@@ -49,6 +57,7 @@ export interface WorldSessionHost {
 export class WorldSessionController implements WorldSessionPeer {
   private currentPlayerEntityId: EntityId | null = null;
   private readonly unsubscribers: Array<() => void> = [];
+  private readonly pendingIntents: QueuedGameplayIntent[] = [];
 
   public constructor(
     private readonly host: WorldSessionHost,
@@ -174,6 +183,10 @@ export class WorldSessionController implements WorldSessionPeer {
     return this.currentPlayerEntityId === entityId;
   }
 
+  public drainQueuedIntents(): QueuedGameplayIntent[] {
+    return this.pendingIntents.splice(0);
+  }
+
   private registerHandlers(): void {
     this.unsubscribers.push(
       this.adapter.eventBus.on("requestChunks", async ({ coords }) => {
@@ -221,69 +234,42 @@ export class WorldSessionController implements WorldSessionPeer {
           throw error;
         }
       }),
-      this.adapter.eventBus.on("mutateBlock", async ({ x, y, z, blockId }) => {
-        const world = this.requireWorld("mutating blocks");
-        const playerEntityId = this.requireCurrentPlayerEntityId();
-        const playerName = this.requireCurrentPlayerName(world);
-        const result = await world.applyBlockMutation(playerEntityId, x, y, z, blockId);
-
-        for (const chunk of result.changedChunks) {
-          this.host.broadcast({
-            type: "chunkChanged",
-            payload: { chunk },
-          });
-        }
-
-        if (result.inventoryChanged) {
-          this.host.sendToPlayer(playerEntityId, {
-            type: "inventoryUpdated",
-            payload: {
-              playerEntityId,
-              playerName,
-              inventory: result.inventory,
-            },
-          });
-        }
-
-        this.emitWorldSimulation(result.droppedItems);
-      }),
-      this.adapter.eventBus.on("selectInventorySlot", async ({ slot }) => {
-        const world = this.requireWorld("selecting inventory");
-        const playerEntityId = this.requireCurrentPlayerEntityId();
-        const inventory = await world.selectInventorySlot(playerEntityId, slot);
-        this.host.sendToPlayer(playerEntityId, {
-          type: "inventoryUpdated",
-          payload: {
-            playerEntityId,
-            playerName: this.requireCurrentPlayerName(world),
-            inventory,
-          },
+      this.adapter.eventBus.on("mutateBlock", ({ x, y, z, blockId }) => {
+        this.requireWorld("mutating blocks");
+        this.enqueueIntent({
+          kind: "mutateBlock",
+          playerEntityId: this.requireCurrentPlayerEntityId(),
+          x,
+          y,
+          z,
+          blockId,
         });
       }),
-      this.adapter.eventBus.on("interactInventorySlot", async ({ section, slot }) => {
-        const world = this.requireWorld("interacting with inventory");
-        const playerEntityId = this.requireCurrentPlayerEntityId();
-        const inventory = await world.interactInventorySlot(playerEntityId, section, slot);
-        this.host.sendToPlayer(playerEntityId, {
-          type: "inventoryUpdated",
-          payload: {
-            playerEntityId,
-            playerName: this.requireCurrentPlayerName(world),
-            inventory,
-          },
+      this.adapter.eventBus.on("selectInventorySlot", ({ slot }) => {
+        this.requireWorld("selecting inventory");
+        this.enqueueIntent({
+          kind: "selectInventorySlot",
+          playerEntityId: this.requireCurrentPlayerEntityId(),
+          slot,
         });
       }),
-      this.adapter.eventBus.on("updatePlayerState", async ({ state, flying }) => {
-        const world = this.requireWorld("updating player state");
-        const playerEntityId = this.requireCurrentPlayerEntityId();
-        const result = await world.updatePlayerState(playerEntityId, state, flying);
-        this.host.broadcast({
-          type: "playerUpdated",
-          payload: {
-            player: result.player,
-          },
+      this.adapter.eventBus.on("interactInventorySlot", ({ section, slot }) => {
+        this.requireWorld("interacting with inventory");
+        this.enqueueIntent({
+          kind: "interactInventorySlot",
+          playerEntityId: this.requireCurrentPlayerEntityId(),
+          section,
+          slot,
         });
-        this.emitWorldSimulation(result.simulation);
+      }),
+      this.adapter.eventBus.on("updatePlayerState", ({ state, flying }) => {
+        this.requireWorld("updating player state");
+        this.enqueueIntent({
+          kind: "updatePlayerState",
+          playerEntityId: this.requireCurrentPlayerEntityId(),
+          state,
+          flying,
+        });
       }),
       this.adapter.eventBus.on("submitChat", async ({ text }) => {
         const world = this.requireWorld("chatting");
@@ -339,36 +325,6 @@ export class WorldSessionController implements WorldSessionPeer {
     });
   }
 
-  private emitWorldSimulation(result: WorldSimulationResult): void {
-    for (const inventoryUpdate of result.inventoryUpdates) {
-      this.host.sendToPlayer(inventoryUpdate.playerEntityId, {
-        type: "inventoryUpdated",
-        payload: inventoryUpdate,
-      });
-    }
-
-    for (const item of result.spawnedDroppedItems) {
-      this.host.broadcast({
-        type: "droppedItemSpawned",
-        payload: { item },
-      });
-    }
-
-    for (const item of result.updatedDroppedItems) {
-      this.host.broadcast({
-        type: "droppedItemUpdated",
-        payload: { item },
-      });
-    }
-
-    for (const entityId of result.removedDroppedItemEntityIds) {
-      this.host.broadcast({
-        type: "droppedItemRemoved",
-        payload: { entityId },
-      });
-    }
-  }
-
   private async handleCommand(
     world: AuthoritativeWorld,
     playerEntityId: EntityId,
@@ -416,6 +372,13 @@ export class WorldSessionController implements WorldSessionPeer {
         ? "Gamemode set to creative."
         : "Gamemode set to normal.",
     );
+  }
+
+  private enqueueIntent(intent: QueuedGameplayIntentInput): void {
+    this.pendingIntents.push({
+      ...intent,
+      sequence: this.host.allocateIntentSequence(),
+    });
   }
 
   private async releaseCurrentPlayer(world = this.host.getWorld()): Promise<PlayerSnapshot | null> {

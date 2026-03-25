@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is a Bun/TypeScript voxel sandbox with a macOS-first native bridge for GLFW and OpenGL. The repo is organized as a Bun workspaces monorepo with an explicit desktop client app, an explicit dedicated-server app, and a shared core package. The runtime is still split into a client side and an authoritative server side: the client runs the app shell, rendering, input, menu, and local replicated world cache, while the authoritative server runs either inside a local Worker for singleplayer or as a dedicated WebSocket server for multiplayer and owns world generation, persistence, and all authoritative world mutations.
+This project is a Bun/TypeScript voxel sandbox with a macOS-first native bridge for GLFW and OpenGL. The repo is organized as a Bun workspaces monorepo with an explicit desktop client app, an explicit dedicated-server app, and a shared core package. The runtime is still split into a client side and an authoritative server side: the client runs the app shell, rendering, input, menu, and local replicated world cache, while the authoritative server runs either inside a local Worker for singleplayer or as a dedicated WebSocket server for multiplayer and owns world generation, persistence, and all authoritative world mutations on a shared fixed-step tick loop.
 
 At a high level:
 
@@ -116,6 +116,8 @@ There are three main categories:
 - client events: one-way gameplay intents such as `mutateBlock`, `selectInventorySlot`, chat submission, and player-state updates
 - server events: one-way authoritative updates such as `chunkDelivered`, `chunkChanged`, `inventoryUpdated`, `playerUpdated`, chat/system messages, and `saveStatus`
 
+Gameplay events that affect authoritative state are now enqueued and applied on the next authoritative server tick instead of mutating the world directly in transport handlers. Request/response flows such as joining, chunk delivery, and saving still run immediately.
+
 `packages/core/src/shared/event-bus.ts` wraps raw transport messages with typed handlers and request correlation.
 
 Current transport layers:
@@ -204,6 +206,9 @@ World entry now also has a startup warmup path:
 The server is responsible for:
 
 - chunk generation on demand
+- draining queued gameplay intents on the authoritative tick boundary
+- simulating dropped items and other world systems once per authoritative tick
+- batching replication after each authoritative tick so clients observe coherent world-state updates
 - bounded startup-area pregeneration before local world entry completes
 - validating and applying block mutations
 - loading, saving, and replicating per-player position/rotation state

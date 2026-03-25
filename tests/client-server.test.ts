@@ -19,6 +19,7 @@ import { getDroppedItemIdForBlock } from "../packages/core/src/world/blocks.ts";
 import { getTerrainHeight } from "../packages/core/src/world/terrain.ts";
 
 const PLAYER_NAME = "Alice";
+const SERVER_TICK_WAIT_MS = 25;
 
 const createHarness = async (): Promise<{
   rootDir: string;
@@ -48,7 +49,9 @@ const createHarness = async (): Promise<{
   const loadingProgressEvents: LoadingProgressPayload[] = [];
   const storage = new BinaryWorldStorage(rootDir);
   const worldRecord = await storage.createWorld("Alpha", 42);
-  const serverRuntime = new ServerRuntime(server, new AuthoritativeWorld(worldRecord, storage));
+  const serverRuntime = new ServerRuntime(server, new AuthoritativeWorld(worldRecord, storage), {
+    tickIntervalMs: 10,
+  });
 
   client.eventBus.on("chunkDelivered", ({ chunk }) => {
     worldRuntime.applyChunk(chunk);
@@ -199,7 +202,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         flying: false,
       },
     });
-    await Bun.sleep(0);
+    await Bun.sleep(SERVER_TICK_WAIT_MS);
     expect(harness.worldRuntime.getClientPlayer()?.state.position).toEqual([
       14,
       joined.clientPlayer.state.position[1],
@@ -215,7 +218,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         blockId: 0,
       },
     });
-    await Bun.sleep(0);
+    await Bun.sleep(SERVER_TICK_WAIT_MS);
 
     expect(changedChunkReceived).toBe(true);
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(0);
@@ -244,7 +247,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         flying: false,
       },
     });
-    await Bun.sleep(0);
+    await Bun.sleep(SERVER_TICK_WAIT_MS);
 
     const collectedSlot = harness.worldRuntime.inventory.main.find((slot) => slot.itemId === targetItemId);
     expect(collectedSlot?.count).toBe(1);
@@ -259,7 +262,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         slot: collectedSlotIndex,
       },
     });
-    await Bun.sleep(0);
+    await Bun.sleep(SERVER_TICK_WAIT_MS);
     expect(harness.worldRuntime.inventory.selectedSlot).toBe(collectedSlotIndex);
 
     harness.client.eventBus.send({
@@ -269,7 +272,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         slot: 8,
       },
     });
-    await Bun.sleep(0);
+    await Bun.sleep(SERVER_TICK_WAIT_MS);
     expect(harness.worldRuntime.inventory.cursor).toEqual({ itemId: 109, count: 64 });
 
     harness.client.eventBus.send({
@@ -279,7 +282,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         slot: 1,
       },
     });
-    await Bun.sleep(0);
+    await Bun.sleep(SERVER_TICK_WAIT_MS);
     expect(harness.worldRuntime.inventory.cursor).toBeNull();
     expect(harness.worldRuntime.inventory.main[1]).toEqual({ itemId: 109, count: 64 });
 
@@ -290,7 +293,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         slot: 1,
       },
     });
-    await Bun.sleep(0);
+    await Bun.sleep(SERVER_TICK_WAIT_MS);
     harness.client.eventBus.send({
       type: "interactInventorySlot",
       payload: {
@@ -298,7 +301,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         slot: 8,
       },
     });
-    await Bun.sleep(0);
+    await Bun.sleep(SERVER_TICK_WAIT_MS);
     expect(harness.worldRuntime.inventory.hotbar[8]).toEqual({ itemId: 109, count: 64 });
     expect(harness.worldRuntime.inventory.cursor).toBeNull();
 
@@ -308,7 +311,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         slot: 8,
       },
     });
-    await Bun.sleep(0);
+    await Bun.sleep(SERVER_TICK_WAIT_MS);
     expect(harness.worldRuntime.inventory.selectedSlot).toBe(8);
 
     harness.client.eventBus.send({
@@ -317,7 +320,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         slot: collectedSlotIndex,
       },
     });
-    await Bun.sleep(0);
+    await Bun.sleep(SERVER_TICK_WAIT_MS);
     expect(harness.worldRuntime.inventory.selectedSlot).toBe(collectedSlotIndex);
 
     harness.client.eventBus.send({
@@ -329,7 +332,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         blockId: targetBlockId,
       },
     });
-    await Bun.sleep(0);
+    await Bun.sleep(SERVER_TICK_WAIT_MS);
 
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(targetBlockId);
     expect(

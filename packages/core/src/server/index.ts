@@ -7,4 +7,5 @@ export * from "./runtime.ts";
 export * from "./server-adapter.ts";
 export * from "./world-entity-state.ts";
 export * from "./world-session-controller.ts";
+export * from "./world-tick.ts";
 export * from "./world-storage.ts";

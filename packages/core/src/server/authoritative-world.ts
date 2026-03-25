@@ -27,6 +27,12 @@ import { createGeneratedChunk, getTerrainHeight } from "../world/terrain.ts";
 import { worldToChunkCoord } from "../world/world.ts";
 import { DroppedItemSystem, type DroppedItemSimulationResult } from "./dropped-item-system.ts";
 import { PlayerSystem } from "./player-system.ts";
+import {
+  createEmptyWorldTickResult,
+  type QueuedGameplayIntent,
+  type WorldInventoryUpdate,
+  type WorldTickResult,
+} from "./world-tick.ts";
 import { WorldEntityState } from "./world-entity-state.ts";
 import type { WorldStorage } from "./world-storage.ts";
 
@@ -44,12 +50,6 @@ interface BlockMutationResult {
   droppedItems: WorldSimulationResult;
 }
 
-export interface WorldInventoryUpdate {
-  playerEntityId: EntityId;
-  playerName: PlayerName;
-  inventory: InventorySnapshot;
-}
-
 export interface WorldSimulationResult {
   spawnedDroppedItems: DroppedItemSnapshot[];
   updatedDroppedItems: DroppedItemSnapshot[];
@@ -62,11 +62,6 @@ export interface StartupAreaProgress {
   totalChunks: number;
 }
 
-interface UpdatedPlayerResult {
-  player: PlayerSnapshot;
-  simulation: WorldSimulationResult;
-}
-
 const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
 
 export class AuthoritativeWorld {
@@ -74,7 +69,6 @@ export class AuthoritativeWorld {
   private readonly entityState = new WorldEntityState();
   private readonly playerSystem: PlayerSystem;
   private readonly droppedItemSystem: DroppedItemSystem;
-  private lastSimulationAt = Date.now();
 
   public constructor(
     private world: WorldSummary,
@@ -174,13 +168,8 @@ export class AuthoritativeWorld {
     entityId: EntityId,
     state: PlayerState,
     flying: boolean,
-    nowMs = Date.now(),
-  ): Promise<UpdatedPlayerResult> {
-    const player = await this.playerSystem.updatePlayerState(entityId, state, flying);
-    return {
-      player,
-      simulation: await this.stepSimulation(nowMs),
-    };
+  ): Promise<PlayerSnapshot> {
+    return this.playerSystem.updatePlayerState(entityId, state, flying);
   }
 
   public async setPlayerGamemode(
@@ -333,12 +322,58 @@ export class AuthoritativeWorld {
     };
   }
 
-  private async stepSimulation(nowMs: number): Promise<WorldSimulationResult> {
-    const deltaSeconds = Math.max(0, Math.min((nowMs - this.lastSimulationAt) / 1000, 0.25));
-    this.lastSimulationAt = nowMs;
+  public async runTick(
+    intents: readonly QueuedGameplayIntent[],
+    deltaSeconds: number,
+  ): Promise<WorldTickResult> {
+    const result = createEmptyWorldTickResult();
 
+    for (const intent of intents) {
+      switch (intent.kind) {
+        case "mutateBlock": {
+          const mutation = await this.applyBlockMutation(
+            intent.playerEntityId,
+            intent.x,
+            intent.y,
+            intent.z,
+            intent.blockId,
+          );
+          this.mergeBlockMutation(result, intent.playerEntityId, mutation);
+          break;
+        }
+        case "selectInventorySlot": {
+          this.mergeInventoryUpdate(
+            result,
+            intent.playerEntityId,
+            await this.selectInventorySlot(intent.playerEntityId, intent.slot),
+          );
+          break;
+        }
+        case "interactInventorySlot": {
+          this.mergeInventoryUpdate(
+            result,
+            intent.playerEntityId,
+            await this.interactInventorySlot(intent.playerEntityId, intent.section, intent.slot),
+          );
+          break;
+        }
+        case "updatePlayerState": {
+          this.mergePlayerUpdate(
+            result,
+            await this.updatePlayerState(intent.playerEntityId, intent.state, intent.flying),
+          );
+          break;
+        }
+      }
+    }
+
+    this.mergeSimulationResult(result, await this.stepSimulation(deltaSeconds));
+    return result;
+  }
+
+  private async stepSimulation(deltaSeconds: number): Promise<WorldSimulationResult> {
     const result = await this.droppedItemSystem.update(
-      deltaSeconds,
+      Math.max(0, Math.min(deltaSeconds, 0.25)),
       this.playerSystem.getActivePlayers(),
       (playerEntityId, itemId, count) => this.playerSystem.addInventoryItem(playerEntityId, itemId, count),
     );
@@ -444,6 +479,126 @@ export class AuthoritativeWorld {
         inventory,
       })),
     };
+  }
+
+  private mergeBlockMutation(
+    result: WorldTickResult,
+    playerEntityId: EntityId,
+    mutation: BlockMutationResult,
+  ): void {
+    for (const chunk of mutation.changedChunks) {
+      this.upsertChunk(result.changedChunks, chunk);
+    }
+
+    if (mutation.inventoryChanged) {
+      this.mergeInventoryUpdate(result, playerEntityId, mutation.inventory);
+    }
+
+    this.mergeSimulationResult(result, mutation.droppedItems);
+  }
+
+  private mergeInventoryUpdate(
+    result: WorldTickResult,
+    playerEntityId: EntityId,
+    inventory: InventorySnapshot,
+  ): void {
+    const playerName = this.getPlayerName(playerEntityId) ?? "Unknown";
+    const next: WorldInventoryUpdate = {
+      playerEntityId,
+      playerName,
+      inventory,
+    };
+    const index = result.inventoryUpdates.findIndex(
+      (entry) => entry.playerEntityId === playerEntityId,
+    );
+    if (index >= 0) {
+      result.inventoryUpdates[index] = next;
+      return;
+    }
+
+    result.inventoryUpdates.push(next);
+  }
+
+  private mergePlayerUpdate(result: WorldTickResult, player: PlayerSnapshot): void {
+    const index = result.playerUpdates.findIndex(
+      (entry) => entry.entityId === player.entityId,
+    );
+    if (index >= 0) {
+      result.playerUpdates[index] = player;
+      return;
+    }
+
+    result.playerUpdates.push(player);
+  }
+
+  private mergeSimulationResult(
+    result: WorldTickResult,
+    simulation: WorldSimulationResult,
+  ): void {
+    for (const update of simulation.inventoryUpdates) {
+      this.mergeInventoryUpdate(result, update.playerEntityId, update.inventory);
+    }
+
+    for (const item of simulation.spawnedDroppedItems) {
+      this.upsertDroppedItem(result.spawnedDroppedItems, item);
+      this.removeDroppedItem(result.updatedDroppedItems, item.entityId);
+      this.removeRemovedDroppedItem(result.removedDroppedItemEntityIds, item.entityId);
+    }
+
+    for (const item of simulation.updatedDroppedItems) {
+      if (this.upsertDroppedItem(result.spawnedDroppedItems, item)) {
+        continue;
+      }
+
+      this.upsertDroppedItem(result.updatedDroppedItems, item);
+      this.removeRemovedDroppedItem(result.removedDroppedItemEntityIds, item.entityId);
+    }
+
+    for (const entityId of simulation.removedDroppedItemEntityIds) {
+      this.removeDroppedItem(result.spawnedDroppedItems, entityId);
+      this.removeDroppedItem(result.updatedDroppedItems, entityId);
+      if (!result.removedDroppedItemEntityIds.includes(entityId)) {
+        result.removedDroppedItemEntityIds.push(entityId);
+      }
+    }
+  }
+
+  private upsertChunk(chunks: ChunkPayload[], chunk: ChunkPayload): void {
+    const index = chunks.findIndex((entry) => chunkKey(entry.coord) === chunkKey(chunk.coord));
+    if (index >= 0) {
+      chunks[index] = chunk;
+      return;
+    }
+
+    chunks.push(chunk);
+  }
+
+  private upsertDroppedItem(
+    collection: DroppedItemSnapshot[],
+    item: DroppedItemSnapshot,
+  ): boolean {
+    const index = collection.findIndex((entry) => entry.entityId === item.entityId);
+    if (index >= 0) {
+      collection[index] = item;
+      return true;
+    }
+
+    collection.push(item);
+    return false;
+  }
+
+  private removeDroppedItem(collection: DroppedItemSnapshot[], entityId: EntityId): void {
+    const index = collection.findIndex((entry) => entry.entityId === entityId);
+    if (index >= 0) {
+      collection.splice(index, 1);
+    }
+  }
+
+  private removeRemovedDroppedItem(collection: EntityId[], entityId: EntityId): void {
+    const index = collection.indexOf(entityId);
+    if (index >= 0) {
+      collection.splice(index, 1);
+    }
   }
 
   private async flushDirtyChunks(touchWorld: boolean): Promise<number> {
