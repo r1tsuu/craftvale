@@ -7,7 +7,6 @@ import { createLogger } from "../src/utils/logger.ts";
 import { fileURLToPath } from "node:url";
 
 const SERVER_PORT = 3210;
-const SERVER_NAME = "Local Server";
 const SERVER_ADDRESS = `127.0.0.1:${SERVER_PORT}`;
 const SERVER_SHUTDOWN_TIMEOUT_MS = 3_000;
 const SERVER_READY_TIMEOUT_MS = 5_000;
@@ -134,8 +133,6 @@ const client = spawnRuntimeProcess("src/index.ts", {
   env: {
     ...Bun.env,
     APP_ENV: "development",
-    APP_DEV_PREFILL_SERVER_NAME: SERVER_NAME,
-    APP_DEV_PREFILL_SERVER_ADDRESS: SERVER_ADDRESS,
   },
 });
 

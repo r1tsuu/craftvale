@@ -27,7 +27,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Server-authoritative full inventory with a 9-slot hotbar, main storage grid, stack movement, and per-player persistence
 - Nine placeable hotbar block types including terrain, wood, and masonry-style blocks
 - Create, join, delete, and save worlds from the menu
-- Multiplayer server browser with saved servers, add/delete controls, and direct join flow
+- Multiplayer server browser with saved servers, a built-in localhost entry, add/delete controls, and direct join flow
 - Explicit world loading screen for local singleplayer and multiplayer joins
 - Server-authoritative startup chunk pregeneration around the initial entry area
 - Pre-game menu with reusable UI components and clickable buttons
@@ -49,7 +49,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `bun run dev` builds the native bridge and starts the app
 - `bun run dev:clean` wipes `data/` and then starts the app
 - `bun run dev:server` starts the dedicated WebSocket server only
-- `bun run dev:full` starts the dedicated server and the desktop client together, and prefills the saved server list with the local server
+- `bun run dev:full` starts the dedicated server and the desktop client together
 - `bun run dev:full:clean` wipes `data/` and then starts the full client-plus-server dev flow
 - `bun run typecheck` runs TypeScript checks
 - `bun test` runs the automated tests

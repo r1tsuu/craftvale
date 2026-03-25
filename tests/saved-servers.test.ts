@@ -3,6 +3,9 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  BUILTIN_LOCAL_SERVER_ADDRESS,
+  BUILTIN_LOCAL_SERVER_ID,
+  BUILTIN_LOCAL_SERVER_NAME,
   JsonSavedServerStorage,
   createSavedServerRecord,
 } from "../src/client/saved-servers.ts";
@@ -18,19 +21,56 @@ const createStorage = async (): Promise<{
   };
 };
 
-test("saved server storage adds, reuses, and deletes local server entries", async () => {
+test("saved server storage always includes the built-in localhost server", async () => {
   const { rootDir, storage } = await createStorage();
 
   try {
-    let servers = await storage.addServer("Local Server", "127.0.0.1:3210");
-    expect(servers).toHaveLength(1);
-    expect(servers[0]?.name).toBe("Local Server");
+    let servers = await storage.loadServers();
+    expect(servers).toEqual([
+      expect.objectContaining({
+        id: BUILTIN_LOCAL_SERVER_ID,
+        name: BUILTIN_LOCAL_SERVER_NAME,
+        address: BUILTIN_LOCAL_SERVER_ADDRESS,
+      }),
+    ]);
 
     servers = await storage.ensureServer("Local Server", "127.0.0.1:3210");
     expect(servers).toHaveLength(1);
+    expect(servers[0]?.id).toBe(BUILTIN_LOCAL_SERVER_ID);
 
-    servers = await storage.deleteServer(servers[0]!.id);
-    expect(servers).toEqual([]);
+    servers = await storage.deleteServer(BUILTIN_LOCAL_SERVER_ID);
+    expect(servers).toEqual([
+      expect.objectContaining({
+        id: BUILTIN_LOCAL_SERVER_ID,
+        name: BUILTIN_LOCAL_SERVER_NAME,
+        address: BUILTIN_LOCAL_SERVER_ADDRESS,
+      }),
+    ]);
+  } finally {
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("saved server storage keeps the built-in localhost server alongside custom entries", async () => {
+  const { rootDir, storage } = await createStorage();
+
+  try {
+    let servers = await storage.addServer("Bravo", "10.0.0.1:3210");
+    expect(servers).toHaveLength(2);
+    expect(servers.map((server) => server.address)).toContain(BUILTIN_LOCAL_SERVER_ADDRESS);
+    expect(servers.map((server) => server.address)).toContain("10.0.0.1:3210");
+
+    const bravo = servers.find((server) => server.address === "10.0.0.1:3210");
+    expect(bravo?.name).toBe("Bravo");
+
+    servers = await storage.deleteServer(bravo!.id);
+    expect(servers).toEqual([
+      expect.objectContaining({
+        id: BUILTIN_LOCAL_SERVER_ID,
+        name: BUILTIN_LOCAL_SERVER_NAME,
+        address: BUILTIN_LOCAL_SERVER_ADDRESS,
+      }),
+    ]);
   } finally {
     await rm(rootDir, { recursive: true, force: true });
   }
@@ -56,6 +96,11 @@ test("saved server storage normalizes valid persisted entries", async () => {
       expect.objectContaining({
         name: "Bravo",
         address: "10.0.0.1:3210",
+      }),
+      expect.objectContaining({
+        id: BUILTIN_LOCAL_SERVER_ID,
+        name: BUILTIN_LOCAL_SERVER_NAME,
+        address: BUILTIN_LOCAL_SERVER_ADDRESS,
       }),
     ]);
   } finally {

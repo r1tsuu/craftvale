@@ -5,6 +5,9 @@ import { DEFAULT_CLIENT_STORAGE_ROOT } from "./player-profile.ts";
 
 const SAVED_SERVERS_VERSION = 1;
 const SAVED_SERVERS_FILENAME = "saved-servers.json";
+export const BUILTIN_LOCAL_SERVER_ID = "builtin-local-server";
+export const BUILTIN_LOCAL_SERVER_NAME = "Local Server";
+export const BUILTIN_LOCAL_SERVER_ADDRESS = "127.0.0.1:3210";
 
 interface PersistedSavedServers {
   version: 1;
@@ -43,6 +46,23 @@ const sortServers = (servers: readonly SavedServerRecord[]): SavedServerRecord[]
     .filter((server) => Boolean(server.id && server.name && server.address))
     .sort((left, right) => left.name.localeCompare(right.name));
 
+const createBuiltinLocalServerRecord = (): SavedServerRecord => ({
+  id: BUILTIN_LOCAL_SERVER_ID,
+  name: BUILTIN_LOCAL_SERVER_NAME,
+  address: BUILTIN_LOCAL_SERVER_ADDRESS,
+  createdAt: 0,
+  updatedAt: 0,
+});
+
+const mergeBuiltinServers = (servers: readonly SavedServerRecord[]): SavedServerRecord[] => {
+  const normalized = sortServers(servers);
+  if (normalized.some((server) => server.address === BUILTIN_LOCAL_SERVER_ADDRESS)) {
+    return normalized;
+  }
+
+  return sortServers([...normalized, createBuiltinLocalServerRecord()]);
+};
+
 export const createSavedServerRecord = (
   name: string,
   address: string,
@@ -64,7 +84,7 @@ export const isValidSavedServerAddress = (value: string): boolean =>
 export class JsonSavedServerStorage {
   public constructor(private readonly storageRoot = DEFAULT_CLIENT_STORAGE_ROOT) {}
 
-  public async loadServers(): Promise<SavedServerRecord[]> {
+  private async loadPersistedServers(): Promise<SavedServerRecord[]> {
     try {
       const text = await readFile(toSavedServersPath(this.storageRoot), "utf8");
       const parsed = JSON.parse(text) as Partial<PersistedSavedServers>;
@@ -81,11 +101,17 @@ export class JsonSavedServerStorage {
     }
   }
 
+  public async loadServers(): Promise<SavedServerRecord[]> {
+    return mergeBuiltinServers(await this.loadPersistedServers());
+  }
+
   public async saveServers(servers: readonly SavedServerRecord[]): Promise<void> {
     await mkdir(this.storageRoot, { recursive: true });
     const persisted: PersistedSavedServers = {
       version: SAVED_SERVERS_VERSION,
-      servers: sortServers(servers),
+      servers: sortServers(
+        servers.filter((server) => server.id !== BUILTIN_LOCAL_SERVER_ID),
+      ),
     };
     await writeFile(
       toSavedServersPath(this.storageRoot),
@@ -95,23 +121,27 @@ export class JsonSavedServerStorage {
   }
 
   public async addServer(name: string, address: string): Promise<SavedServerRecord[]> {
-    const servers = await this.loadServers();
+    const servers = await this.loadPersistedServers();
     const next = [...servers, createSavedServerRecord(name, address)];
     await this.saveServers(next);
-    return sortServers(next);
+    return this.loadServers();
   }
 
   public async deleteServer(serverId: string): Promise<SavedServerRecord[]> {
-    const servers = await this.loadServers();
+    const servers = await this.loadPersistedServers();
     const next = servers.filter((server) => server.id !== serverId);
     await this.saveServers(next);
-    return sortServers(next);
+    return this.loadServers();
   }
 
   public async ensureServer(name: string, address: string): Promise<SavedServerRecord[]> {
     const normalizedName = normalizeName(name);
     const normalizedAddress = normalizeAddress(address);
-    const servers = await this.loadServers();
+    if (normalizedAddress === BUILTIN_LOCAL_SERVER_ADDRESS) {
+      return this.loadServers();
+    }
+
+    const servers = await this.loadPersistedServers();
     const existing = servers.find((server) => server.address === normalizedAddress);
     if (existing) {
       const next = servers.map((server) =>
@@ -124,7 +154,7 @@ export class JsonSavedServerStorage {
           : server
       );
       await this.saveServers(next);
-      return sortServers(next);
+      return this.loadServers();
     }
 
     return this.addServer(normalizedName, normalizedAddress);

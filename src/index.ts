@@ -27,13 +27,6 @@ const localWorldStorage = worldStorageRoot
   : new LocalWorldStorage();
 const { settings: clientSettings } = await clientSettingsStorage.getOrCreateSettings();
 
-if (Bun.env.APP_DEV_PREFILL_SERVER_NAME && Bun.env.APP_DEV_PREFILL_SERVER_ADDRESS) {
-  await savedServerStorage.ensureServer(
-    Bun.env.APP_DEV_PREFILL_SERVER_NAME,
-    Bun.env.APP_DEV_PREFILL_SERVER_ADDRESS,
-  );
-}
-
 const app = createDefaultGameApp({
   playerName: identity.effectivePlayerName,
   clientSettings,
