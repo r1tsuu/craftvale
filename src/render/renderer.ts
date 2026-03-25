@@ -18,9 +18,14 @@ import { buildChunkMesh } from "../world/mesher.ts";
 import { VoxelWorld } from "../world/world.ts";
 import type { UiResolvedComponent } from "../ui/components.ts";
 import { FocusHighlightRenderer } from "./highlight.ts";
-import { getHeldItemBlockId, collectVisibleRemotePlayers } from "./player-model.ts";
+import {
+  PLAYER_NAMEPLATE_HEIGHT,
+  getHeldItemBlockId,
+  collectVisibleRemotePlayers,
+} from "./player-model.ts";
 import { PlayerRenderer } from "./player-renderer.ts";
 import { TextOverlayRenderer, type TextDrawCommand } from "./text.ts";
+import { measureTextHeight, measureTextWidth } from "./text-mesh.ts";
 
 interface GpuMesh {
   vao: number;
@@ -144,6 +149,8 @@ const ITEM_FACE_DEFINITIONS: readonly ItemFaceDefinition[] = [
 ];
 
 const meshKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
+const PLAYER_NAMEPLATE_SCALE = 2;
+const PLAYER_NAMEPLATE_MARGIN = 6;
 
 const compileShader = (nativeBridge: NativeBridge, type: number, source: string): number => {
   const shader = nativeBridge.gl.createShader(type);
@@ -196,6 +203,34 @@ const buildBlockCubeMesh = (blockId: BlockId): MeshData => {
     vertexData: new Float32Array(vertices),
     indexData: new Uint32Array(indices),
     indexCount: indices.length,
+  };
+};
+
+const projectWorldToScreen = (
+  matrix: Float32Array,
+  x: number,
+  y: number,
+  z: number,
+  width: number,
+  height: number,
+): { x: number; y: number } | null => {
+  const clipX = matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12];
+  const clipY = matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13];
+  const clipW = matrix[3] * x + matrix[7] * y + matrix[11] * z + matrix[15];
+
+  if (clipW <= 0.001) {
+    return null;
+  }
+
+  const ndcX = clipX / clipW;
+  const ndcY = clipY / clipW;
+  if (ndcX < -1 || ndcX > 1 || ndcY < -1 || ndcY > 1) {
+    return null;
+  }
+
+  return {
+    x: ((ndcX + 1) * 0.5) * width,
+    y: ((1 - ndcY) * 0.5) * height,
   };
 };
 
@@ -367,8 +402,52 @@ export class VoxelRenderer {
     );
     this.nativeBridge.gl.bindVertexArray(0);
     this.nativeBridge.gl.enable(GL.DEPTH_TEST);
-    this.textOverlayRenderer.render(overlayText, width, height);
+    this.textOverlayRenderer.render(
+      [
+        ...overlayText,
+        ...this.buildPlayerNameplateCommands(visibleRemotePlayers, viewProjection, width, height),
+      ],
+      width,
+      height,
+    );
     this.uiRenderer.render(uiComponents, uiWidth, uiHeight);
+  }
+
+  private buildPlayerNameplateCommands(
+    players: readonly PlayerSnapshot[],
+    viewProjection: Float32Array,
+    width: number,
+    height: number,
+  ): TextDrawCommand[] {
+    const commands: TextDrawCommand[] = [];
+
+    for (const player of players) {
+      const projected = projectWorldToScreen(
+        viewProjection,
+        player.state.position[0],
+        player.state.position[1] + PLAYER_NAMEPLATE_HEIGHT,
+        player.state.position[2],
+        width,
+        height,
+      );
+      if (!projected) {
+        continue;
+      }
+
+      const textWidth = measureTextWidth(player.name, PLAYER_NAMEPLATE_SCALE);
+      const textHeight = measureTextHeight(PLAYER_NAMEPLATE_SCALE);
+      commands.push({
+        text: player.name,
+        x: projected.x - textWidth / 2,
+        y: projected.y - textHeight - PLAYER_NAMEPLATE_MARGIN,
+        scale: PLAYER_NAMEPLATE_SCALE,
+        color: [1, 1, 1, 1],
+        shadowColor: [0, 0, 0, 0.9],
+        shadowOffset: { x: 2, y: 2 },
+      });
+    }
+
+    return commands;
   }
 
   private renderDroppedItems(

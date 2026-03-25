@@ -55,6 +55,8 @@ export const PLAYER_BODY_PARTS: readonly CuboidPartDefinition[] = [
   },
 ] as const;
 
+export const PLAYER_NAMEPLATE_HEIGHT = 2.15;
+
 export const FIRST_PERSON_ARM_PART: CuboidPartDefinition = {
   id: "first-person-arm",
   blockId: PLAYER_ARM_BLOCK_ID,
