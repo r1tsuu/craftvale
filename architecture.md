@@ -12,10 +12,12 @@ At a high level:
 - `apps/client/src/worker/*` owns singleplayer worker bootstrap and worker-only transport glue.
 - `apps/client/assets/*` contains runtime-loaded client shaders and textures.
 - `apps/cli/src/*` owns repo-level developer tooling such as native builds, combined dev startup, cleanup, and asset generation.
+- `apps/cli/src/generate-content-registry.ts` generates stable block/item ids and registries from the authored content spec.
 - `apps/dedicated-server/src/index.ts` is the dedicated WebSocket server bootstrap.
 - `packages/core/src/server/*` implements authoritative world/session behavior and storage.
 - `packages/core/src/shared/*` defines typed messaging, transport, and event-bus plumbing.
 - `packages/core/src/world/*` contains deterministic worldgen, chunk data, meshing, atlas metadata/UVs, item/inventory helpers, and raycasting.
+- `packages/core/src/world/content-spec.ts` is the authored source of truth for block/item content, while `packages/core/src/world/generated/*` contains checked-in generated id maps and registries consumed at runtime.
 - `packages/core/src/math/*` and `packages/core/src/utils/*` provide shared helpers, including CLI parsing, logging, and reusable port-availability checks.
 - `native/*` bridges Bun to GLFW/OpenGL.
 

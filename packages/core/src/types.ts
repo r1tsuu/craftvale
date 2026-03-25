@@ -1,5 +1,6 @@
-export type BlockId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
-export type ItemId = 0 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110;
+import type { BlockId, ItemId } from "./world/generated/content-ids.ts";
+
+export type { BlockId, ItemId } from "./world/generated/content-ids.ts";
 
 export interface ChunkCoord {
   x: number;

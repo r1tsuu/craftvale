@@ -1,4 +1,5 @@
 import type { BlockId, ChunkCoord } from "../types.ts";
+import { BLOCK_IDS } from "./blocks.ts";
 import { Chunk } from "./chunk.ts";
 import { CHUNK_SIZE, WORLD_LAYER_CHUNKS_Y } from "./constants.ts";
 
@@ -54,7 +55,7 @@ export class VoxelWorld {
   public getBlock(worldX: number, worldY: number, worldZ: number): BlockId {
     const coords = worldToChunkCoord(worldX, worldY, worldZ);
     const chunk = this.getChunk(coords.chunk);
-    return chunk ? chunk.get(coords.local.x, coords.local.y, coords.local.z) : 0;
+    return chunk ? chunk.get(coords.local.x, coords.local.y, coords.local.z) : BLOCK_IDS.air;
   }
 
   public getSkyLight(worldX: number, worldY: number, worldZ: number): number {

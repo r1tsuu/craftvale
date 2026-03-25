@@ -1,4 +1,5 @@
 import { vec3, type Vec3 } from "../math/vec3.ts";
+import { BLOCK_IDS } from "./blocks.ts";
 import { VoxelWorld } from "./world.ts";
 
 export interface RaycastHit {
@@ -33,7 +34,7 @@ export const raycastVoxel = (
       continue;
     }
 
-    if (world.getBlock(voxel.x, voxel.y, voxel.z) !== 0) {
+    if (world.getBlock(voxel.x, voxel.y, voxel.z) !== BLOCK_IDS.air) {
       return {
         hit: voxel,
         place: current,

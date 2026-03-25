@@ -7,7 +7,7 @@ import {
   type WorldTimeState,
 } from "../shared/lighting.ts";
 import type { BlockId, ChunkCoord } from "../types.ts";
-import { getBlockEmittedLightLevel } from "../world/blocks.ts";
+import { BLOCK_IDS, getBlockEmittedLightLevel } from "../world/blocks.ts";
 import { Chunk } from "../world/chunk.ts";
 import { CHUNK_SIZE } from "../world/constants.ts";
 
@@ -34,7 +34,7 @@ interface LightRegion {
 
 const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
 
-const isLightPassable = (blockId: BlockId): boolean => blockId === 0;
+const isLightPassable = (blockId: BlockId): boolean => blockId === BLOCK_IDS.air;
 
 export class LightingSystem {
   private worldTime = createDefaultWorldTimeState();

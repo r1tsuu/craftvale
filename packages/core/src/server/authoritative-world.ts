@@ -20,7 +20,12 @@ import {
   type WorldSummary,
 } from "../shared/messages.ts";
 import { Chunk } from "../world/chunk.ts";
-import { getDroppedItemIdForBlock, isBreakableBlock, isCollectibleBlock } from "../world/blocks.ts";
+import {
+  BLOCK_IDS,
+  getDroppedItemIdForBlock,
+  isBreakableBlock,
+  isCollectibleBlock,
+} from "../world/blocks.ts";
 import {
   CHUNK_SIZE,
   STARTUP_CHUNK_RADIUS,
@@ -258,8 +263,8 @@ export class AuthoritativeWorld {
     let inventoryChanged = false;
     let droppedItems = this.createEmptyWorldSimulation();
 
-    if (blockId === 0) {
-      if (current === 0) {
+    if (blockId === BLOCK_IDS.air) {
+      if (current === BLOCK_IDS.air) {
         return {
           changedChunks: [],
           inventory: nextInventory,
@@ -287,7 +292,7 @@ export class AuthoritativeWorld {
         droppedItems = this.toWorldSimulationResult(droppedItemSimulation);
       }
     } else {
-      if (current !== 0) {
+      if (current !== BLOCK_IDS.air) {
         return {
           changedChunks: [],
           inventory: nextInventory,

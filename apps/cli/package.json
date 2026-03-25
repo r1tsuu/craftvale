@@ -6,6 +6,7 @@
     "build-native": "bun run src/build-native.ts",
     "clean-data": "bun run src/clean-data.ts",
     "dev-full": "bun run src/dev-full.ts",
+    "generate-content-registry": "bun run src/generate-content-registry.ts",
     "generate-voxel-atlas": "bun run src/generate-voxel-atlas.ts"
   },
   "dependencies": {

@@ -5,6 +5,7 @@ import type {
   PlayerGamemode,
   WorldTimeState,
 } from "@craftvale/core/shared";
+import { ITEM_IDS } from "@craftvale/core/shared";
 import type { PauseScreen } from "../game/play-overlay.ts";
 import { measureTextWidth } from "../render/text-mesh.ts";
 import {
@@ -54,7 +55,7 @@ interface VisibleChatLine {
 }
 
 const isEmptyInventorySlot = (slot: InventorySlot | null | undefined): boolean =>
-  !slot || slot.itemId === 0 || slot.count <= 0;
+  !slot || slot.itemId === ITEM_IDS.empty || slot.count <= 0;
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 

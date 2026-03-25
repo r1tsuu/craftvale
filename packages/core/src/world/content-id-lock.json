@@ -1,0 +1,29 @@
+{
+  "blocks": {
+    "air": 0,
+    "grass": 1,
+    "dirt": 2,
+    "stone": 3,
+    "log": 4,
+    "leaves": 5,
+    "sand": 6,
+    "planks": 7,
+    "cobblestone": 8,
+    "brick": 9,
+    "bedrock": 10,
+    "glowstone": 11
+  },
+  "items": {
+    "empty": 0,
+    "grass": 101,
+    "dirt": 102,
+    "stone": 103,
+    "log": 104,
+    "leaves": 105,
+    "sand": 106,
+    "planks": 107,
+    "cobblestone": 108,
+    "brick": 109,
+    "glowstone": 110
+  }
+}

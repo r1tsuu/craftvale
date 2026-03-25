@@ -16,6 +16,7 @@
     "dev:server:clean": "bun run clean:data -- --server-dir=./dist && bun run dev:server",
     "dev:full": "bun run build:native && bun run --cwd apps/cli dev-full",
     "dev:full:clean": "bun run clean:data && bun run dev:full",
+    "generate:content": "bun run --cwd apps/cli generate-content-registry",
     "start": "bun run --cwd apps/client start",
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test"

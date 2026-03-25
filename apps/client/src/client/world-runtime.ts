@@ -12,6 +12,7 @@ import type {
 } from "@craftvale/core/shared";
 import type { ChunkPayload, JoinedWorldPayload } from "@craftvale/core/shared";
 import {
+  BLOCK_IDS,
   ACTIVE_CHUNK_RADIUS,
   CHUNK_SIZE,
   LIGHT_LEVEL_MAX,
@@ -91,7 +92,7 @@ export class ClientWorldRuntime {
     gamemode: PlayerGamemode,
   ): boolean {
     const current = this.world.getBlock(worldX, worldY, worldZ);
-    if (current === 0) {
+    if (current === BLOCK_IDS.air) {
       return false;
     }
 
@@ -99,7 +100,7 @@ export class ClientWorldRuntime {
       return false;
     }
 
-    this.world.setBlock(worldX, worldY, worldZ, 0);
+    this.world.setBlock(worldX, worldY, worldZ, BLOCK_IDS.air);
     this.refreshPredictedBreakLighting(worldX, worldY, worldZ);
     return true;
   }
@@ -310,7 +311,7 @@ export class ClientWorldRuntime {
 
   private hasClearSkyPath(worldX: number, worldY: number, worldZ: number): boolean {
     for (let y = worldY + 1; y < CHUNK_SIZE; y += 1) {
-      if (this.world.getBlock(worldX, y, worldZ) !== 0) {
+      if (this.world.getBlock(worldX, y, worldZ) !== BLOCK_IDS.air) {
         return false;
       }
     }

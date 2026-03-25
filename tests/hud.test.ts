@@ -4,6 +4,7 @@ import {
   createDefaultInventory,
   setSelectedInventorySlot,
 } from "../packages/core/src/world/inventory.ts";
+import { ITEM_IDS } from "../packages/core/src/world/items.ts";
 
 test("play HUD includes a centered crosshair", () => {
   const hud = buildPlayHud(1280, 720, {
@@ -244,8 +245,8 @@ test("play HUD hides expired passive chat messages but keeps them while chat is 
 
 test("play HUD renders the full inventory overlay when inventory is open", () => {
   const inventory = createDefaultInventory();
-  inventory.main[0] = { itemId: 104, count: 12 };
-  inventory.cursor = { itemId: 109, count: 8 };
+  inventory.main[0] = { itemId: ITEM_IDS.log, count: 12 };
+  inventory.cursor = { itemId: ITEM_IDS.brick, count: 8 };
   const hud = buildPlayHud(1280, 720, {
     inventory,
     inventoryOpen: true,

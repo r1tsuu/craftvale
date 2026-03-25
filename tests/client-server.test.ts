@@ -14,8 +14,9 @@ import { AuthoritativeWorld } from "../packages/core/src/server/authoritative-wo
 import { PortServerAdapter } from "../packages/core/src/server/server-adapter.ts";
 import { ServerRuntime } from "../packages/core/src/server/runtime.ts";
 import { BinaryWorldStorage } from "../packages/core/src/server/world-storage.ts";
+import { BLOCK_IDS, getDroppedItemIdForBlock } from "../packages/core/src/world/blocks.ts";
 import { DEFAULT_INVENTORY_STACK_SIZE } from "../packages/core/src/world/inventory.ts";
-import { getDroppedItemIdForBlock } from "../packages/core/src/world/blocks.ts";
+import { ITEM_IDS } from "../packages/core/src/world/items.ts";
 import { getTerrainHeight } from "../packages/core/src/world/terrain.ts";
 
 const PLAYER_NAME = "Alice";
@@ -179,17 +180,17 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     ).toBe(true);
     expect(
       harness.worldRuntime.inventory.main[0],
-    ).toEqual({ itemId: 110, count: DEFAULT_INVENTORY_STACK_SIZE });
+    ).toEqual({ itemId: ITEM_IDS.glowstone, count: DEFAULT_INVENTORY_STACK_SIZE });
     expect(
       harness.worldRuntime.inventory.main.slice(1).every(
-        (slot) => slot.itemId === 0 && slot.count === 0,
+        (slot) => slot.itemId === ITEM_IDS.empty && slot.count === 0,
       ),
     ).toBe(true);
 
     const targetY = getTerrainHeight(joined.world.seed, 1, 1);
     const targetBlockId = harness.worldRuntime.world.getBlock(1, targetY, 1);
     const targetItemId = getDroppedItemIdForBlock(targetBlockId);
-    expect(targetBlockId).not.toBe(0);
+    expect(targetBlockId).not.toBe(BLOCK_IDS.air);
     expect(targetItemId).not.toBeNull();
 
     let changedChunkReceived = false;
@@ -221,19 +222,19 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
         x: 1,
         y: targetY,
         z: 1,
-        blockId: 0,
+        blockId: BLOCK_IDS.air,
       },
     });
     await Bun.sleep(SERVER_TICK_WAIT_MS);
 
     expect(changedChunkReceived).toBe(true);
-    expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(0);
+    expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(BLOCK_IDS.air);
     expect(
       harness.worldRuntime.inventory.main[0],
-    ).toEqual({ itemId: 110, count: DEFAULT_INVENTORY_STACK_SIZE });
+    ).toEqual({ itemId: ITEM_IDS.glowstone, count: DEFAULT_INVENTORY_STACK_SIZE });
     expect(
       harness.worldRuntime.inventory.main.slice(1).every(
-        (slot) => slot.itemId === 0 && slot.count === 0,
+        (slot) => slot.itemId === ITEM_IDS.empty && slot.count === 0,
       ),
     ).toBe(true);
     expect(harness.worldRuntime.droppedItems.size).toBe(1);
@@ -282,7 +283,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
       },
     });
     await Bun.sleep(SERVER_TICK_WAIT_MS);
-    expect(harness.worldRuntime.inventory.cursor).toEqual({ itemId: 109, count: 64 });
+    expect(harness.worldRuntime.inventory.cursor).toEqual({ itemId: ITEM_IDS.brick, count: 64 });
 
     harness.client.eventBus.send({
       type: "interactInventorySlot",
@@ -293,7 +294,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     });
     await Bun.sleep(SERVER_TICK_WAIT_MS);
     expect(harness.worldRuntime.inventory.cursor).toBeNull();
-    expect(harness.worldRuntime.inventory.main[2]).toEqual({ itemId: 109, count: 64 });
+    expect(harness.worldRuntime.inventory.main[2]).toEqual({ itemId: ITEM_IDS.brick, count: 64 });
 
     harness.client.eventBus.send({
       type: "interactInventorySlot",
@@ -311,7 +312,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
       },
     });
     await Bun.sleep(SERVER_TICK_WAIT_MS);
-    expect(harness.worldRuntime.inventory.hotbar[8]).toEqual({ itemId: 109, count: 64 });
+    expect(harness.worldRuntime.inventory.hotbar[8]).toEqual({ itemId: ITEM_IDS.brick, count: 64 });
     expect(harness.worldRuntime.inventory.cursor).toBeNull();
 
     harness.client.eventBus.send({

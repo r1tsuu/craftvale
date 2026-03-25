@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { getAtlasUvRect } from "../apps/client/src/world/atlas.ts";
+import { BLOCK_IDS } from "../packages/core/src/world/blocks.ts";
 import { buildChunkMesh } from "../packages/core/src/world/mesher.ts";
 import type { MeshData } from "../packages/core/src/types.ts";
 import { VoxelWorld } from "../packages/core/src/world/world.ts";
@@ -165,11 +166,15 @@ test("leaves emit cutout faces and use the leaves atlas tile", () => {
 
 test("expanded hotbar blocks use their atlas tile on every face", () => {
   const world = new VoxelWorld();
-  const blockChecks: Array<{ blockId: 6 | 7 | 8 | 9; tile: "sand" | "planks" | "cobblestone" | "brick"; x: number }> = [
-    { blockId: 6, tile: "sand", x: 0 },
-    { blockId: 7, tile: "planks", x: 1 },
-    { blockId: 8, tile: "cobblestone", x: 2 },
-    { blockId: 9, tile: "brick", x: 3 },
+  const blockChecks: Array<{
+    blockId: typeof BLOCK_IDS.sand | typeof BLOCK_IDS.planks | typeof BLOCK_IDS.cobblestone | typeof BLOCK_IDS.brick;
+    tile: "sand" | "planks" | "cobblestone" | "brick";
+    x: number;
+  }> = [
+    { blockId: BLOCK_IDS.sand, tile: "sand", x: 0 },
+    { blockId: BLOCK_IDS.planks, tile: "planks", x: 1 },
+    { blockId: BLOCK_IDS.cobblestone, tile: "cobblestone", x: 2 },
+    { blockId: BLOCK_IDS.brick, tile: "brick", x: 3 },
   ];
 
   for (const check of blockChecks) {

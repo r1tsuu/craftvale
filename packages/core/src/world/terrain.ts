@@ -1,6 +1,7 @@
 import type { BlockId, ChunkCoord } from "../types.ts";
 import { Chunk } from "./chunk.ts";
 import { Biomes, getBiomeAt, sampleBiome, type BiomeDefinition } from "./biomes.ts";
+import { BLOCK_IDS } from "./blocks.ts";
 import { CHUNK_SIZE } from "./constants.ts";
 import { clamp, hash2dInt, sampleValueNoise } from "./noise.ts";
 
@@ -75,11 +76,11 @@ const getColumnBlocksForBiome = (
   worldY: number,
 ): BlockId => {
   if (worldY === 0) {
-    return 10;
+    return BLOCK_IDS.bedrock;
   }
 
   if (worldY > height) {
-    return 0;
+    return BLOCK_IDS.air;
   }
 
   if (worldY === height) {
@@ -119,9 +120,9 @@ const setGeneratedBlockIfInChunk = (
   }
 
   const current = chunk.get(localX, localY, localZ);
-  if (blockId === 5) {
-    if (current === 0) {
-      chunk.set(localX, localY, localZ, 5);
+  if (blockId === BLOCK_IDS.leaves) {
+    if (current === BLOCK_IDS.air) {
+      chunk.set(localX, localY, localZ, BLOCK_IDS.leaves);
     }
     return;
   }
@@ -136,7 +137,7 @@ const getTreeAnchorForCell = (seed: number, cellX: number, cellZ: number): TreeA
   const biomeId = getBiomeAt(seed, worldX, worldZ);
   const biome = Biomes[biomeId];
 
-  if ((cellSeed % 100) >= biome.treeChancePercent || biome.surfaceBlock !== 1) {
+  if ((cellSeed % 100) >= biome.treeChancePercent || biome.surfaceBlock !== BLOCK_IDS.grass) {
     return null;
   }
 
@@ -181,7 +182,7 @@ const decorateChunkWithTrees = (chunk: Chunk, seed: number): void => {
       const trunkTopY = trunkBaseY + tree.trunkHeight - 1;
 
       for (let worldY = trunkBaseY; worldY <= trunkTopY; worldY += 1) {
-        setGeneratedBlockIfInChunk(chunk, tree.x, worldY, tree.z, 4);
+        setGeneratedBlockIfInChunk(chunk, tree.x, worldY, tree.z, BLOCK_IDS.log);
       }
 
       for (let offsetZ = -tree.canopyRadius; offsetZ <= tree.canopyRadius; offsetZ += 1) {
@@ -193,8 +194,20 @@ const decorateChunkWithTrees = (chunk: Chunk, seed: number): void => {
             continue;
           }
 
-          setGeneratedBlockIfInChunk(chunk, tree.x + offsetX, trunkTopY - 1, tree.z + offsetZ, 5);
-          setGeneratedBlockIfInChunk(chunk, tree.x + offsetX, trunkTopY, tree.z + offsetZ, 5);
+          setGeneratedBlockIfInChunk(
+            chunk,
+            tree.x + offsetX,
+            trunkTopY - 1,
+            tree.z + offsetZ,
+            BLOCK_IDS.leaves,
+          );
+          setGeneratedBlockIfInChunk(
+            chunk,
+            tree.x + offsetX,
+            trunkTopY,
+            tree.z + offsetZ,
+            BLOCK_IDS.leaves,
+          );
         }
       }
 
@@ -204,12 +217,18 @@ const decorateChunkWithTrees = (chunk: Chunk, seed: number): void => {
             continue;
           }
 
-          setGeneratedBlockIfInChunk(chunk, tree.x + offsetX, trunkTopY + 1, tree.z + offsetZ, 5);
+          setGeneratedBlockIfInChunk(
+            chunk,
+            tree.x + offsetX,
+            trunkTopY + 1,
+            tree.z + offsetZ,
+            BLOCK_IDS.leaves,
+          );
         }
       }
 
-      setGeneratedBlockIfInChunk(chunk, tree.x, trunkTopY + 2, tree.z, 5);
-      setGeneratedBlockIfInChunk(chunk, tree.x, trunkTopY, tree.z, 4);
+      setGeneratedBlockIfInChunk(chunk, tree.x, trunkTopY + 2, tree.z, BLOCK_IDS.leaves);
+      setGeneratedBlockIfInChunk(chunk, tree.x, trunkTopY, tree.z, BLOCK_IDS.log);
     }
   }
 };

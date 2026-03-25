@@ -1,4 +1,5 @@
 import type { BlockId } from "../types.ts";
+import { BLOCK_IDS } from "./blocks.ts";
 import { clamp, sampleValueNoise } from "./noise.ts";
 
 export type BiomeId = "plains" | "forest" | "highlands" | "scrub";
@@ -34,9 +35,9 @@ export const Biomes: Record<BiomeId, BiomeDefinition> = {
   plains: createBiome({
     id: "plains",
     name: "Plains",
-    surfaceBlock: 1,
-    fillerBlock: 2,
-    deepBlock: 3,
+    surfaceBlock: BLOCK_IDS.grass,
+    fillerBlock: BLOCK_IDS.dirt,
+    deepBlock: BLOCK_IDS.stone,
     baseHeight: 5.8,
     waveAmplitude: 1.0,
     largeNoiseAmplitude: 0.45,
@@ -51,9 +52,9 @@ export const Biomes: Record<BiomeId, BiomeDefinition> = {
   forest: createBiome({
     id: "forest",
     name: "Forest",
-    surfaceBlock: 1,
-    fillerBlock: 2,
-    deepBlock: 3,
+    surfaceBlock: BLOCK_IDS.grass,
+    fillerBlock: BLOCK_IDS.dirt,
+    deepBlock: BLOCK_IDS.stone,
     baseHeight: 6.4,
     waveAmplitude: 1.25,
     largeNoiseAmplitude: 0.75,
@@ -68,9 +69,9 @@ export const Biomes: Record<BiomeId, BiomeDefinition> = {
   highlands: createBiome({
     id: "highlands",
     name: "Highlands",
-    surfaceBlock: 3,
-    fillerBlock: 3,
-    deepBlock: 3,
+    surfaceBlock: BLOCK_IDS.stone,
+    fillerBlock: BLOCK_IDS.stone,
+    deepBlock: BLOCK_IDS.stone,
     baseHeight: 8.4,
     waveAmplitude: 1.95,
     largeNoiseAmplitude: 1.45,
@@ -85,9 +86,9 @@ export const Biomes: Record<BiomeId, BiomeDefinition> = {
   scrub: createBiome({
     id: "scrub",
     name: "Scrub",
-    surfaceBlock: 2,
-    fillerBlock: 2,
-    deepBlock: 3,
+    surfaceBlock: BLOCK_IDS.dirt,
+    fillerBlock: BLOCK_IDS.dirt,
+    deepBlock: BLOCK_IDS.stone,
     baseHeight: 4.9,
     waveAmplitude: 0.9,
     largeNoiseAmplitude: 0.35,

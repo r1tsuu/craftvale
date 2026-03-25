@@ -6,6 +6,8 @@ import {
 } from "../apps/client/src/render/player-model.ts";
 import type { PlayerSnapshot } from "../packages/core/src/types.ts";
 import { createDefaultInventory, setSelectedInventorySlot } from "../packages/core/src/world/inventory.ts";
+import { BLOCK_IDS } from "../packages/core/src/world/blocks.ts";
+import { ITEM_IDS } from "../packages/core/src/world/items.ts";
 
 const createPlayerSnapshot = (
   entityId: string,
@@ -58,12 +60,12 @@ test("collectVisibleRemotePlayers includes active players when no local entity i
 
 test("getHeldItemBlockId follows the selected hotbar slot and treats empty slots as no held item", () => {
   const inventory = setSelectedInventorySlot(createDefaultInventory(), 4);
-  expect(getHeldItemBlockId(inventory)).toBe(5);
+  expect(getHeldItemBlockId(inventory)).toBe(BLOCK_IDS.leaves);
 
   const emptySelected = {
     ...inventory,
     hotbar: inventory.hotbar.map((slot, index) =>
-      index === 4 ? { itemId: 0 as const, count: 0 } : { ...slot }
+      index === 4 ? { itemId: ITEM_IDS.empty, count: 0 } : { ...slot }
     ),
   };
   expect(getHeldItemBlockId(emptySelected)).toBeNull();

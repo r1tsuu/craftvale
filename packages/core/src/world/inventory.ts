@@ -1,6 +1,8 @@
 import type { InventorySection, InventorySnapshot, InventorySlot, ItemId } from "../types.ts";
 import {
   HOTBAR_ITEM_IDS,
+  ITEM_IDS,
+  STARTER_MAIN_INVENTORY_STACKS,
   getItemMaxStackSize,
   isPlaceableItem,
   isValidItemId,
@@ -11,7 +13,7 @@ export const MAIN_INVENTORY_SLOT_COUNT = 27;
 export const DEFAULT_INVENTORY_STACK_SIZE = 64;
 
 const EMPTY_INVENTORY_SLOT: InventorySlot = {
-  itemId: 0,
+  itemId: ITEM_IDS.empty,
   count: 0,
 };
 
@@ -33,7 +35,7 @@ const normalizeSlot = (slot: InventorySlot | null | undefined): InventorySlot =>
   }
 
   const count = clampCount(slot.count, getItemMaxStackSize(slot.itemId));
-  if (slot.itemId === 0 || count === 0) {
+  if (slot.itemId === ITEM_IDS.empty || count === 0) {
     return { ...EMPTY_INVENTORY_SLOT };
   }
 
@@ -80,7 +82,7 @@ const withSectionSlot = (
 };
 
 const isEmptySlot = (slot: InventorySlot | null | undefined): boolean =>
-  !slot || slot.itemId === 0 || slot.count <= 0;
+  !slot || slot.itemId === ITEM_IDS.empty || slot.count <= 0;
 
 const clearSlot = (): InventorySlot => ({ ...EMPTY_INVENTORY_SLOT });
 
@@ -117,22 +119,29 @@ const findEmptySlot = (inventory: InventorySnapshot): { section: InventorySectio
 
 export const createEmptyInventorySlot = (): InventorySlot => ({ ...EMPTY_INVENTORY_SLOT });
 
-export const createDefaultInventory = (): InventorySnapshot => ({
-  hotbar: HOTBAR_ITEM_IDS.map((itemId): InventorySlot => ({
-    itemId,
-    count: DEFAULT_INVENTORY_STACK_SIZE,
-  })),
-  main: Array.from({ length: MAIN_INVENTORY_SLOT_COUNT }, (_, index) =>
-    index === 0
-      ? {
-          itemId: 110,
-          count: DEFAULT_INVENTORY_STACK_SIZE,
-        }
-      : createEmptyInventorySlot()
-  ),
-  selectedSlot: 0,
-  cursor: null,
-});
+export const createDefaultInventory = (): InventorySnapshot => {
+  const starterMainStacks = new Map<number, (typeof STARTER_MAIN_INVENTORY_STACKS)[number]>(
+    STARTER_MAIN_INVENTORY_STACKS.map((stack) => [stack.slot, stack] as const),
+  );
+
+  return {
+    hotbar: HOTBAR_ITEM_IDS.map((itemId): InventorySlot => ({
+      itemId,
+      count: DEFAULT_INVENTORY_STACK_SIZE,
+    })),
+    main: Array.from({ length: MAIN_INVENTORY_SLOT_COUNT }, (_, index) => {
+      const starterStack = starterMainStacks.get(index);
+      return starterStack
+        ? {
+            itemId: starterStack.itemId ?? ITEM_IDS.empty,
+            count: starterStack.count ?? 0,
+          }
+        : createEmptyInventorySlot();
+    }),
+    selectedSlot: 0,
+    cursor: null,
+  };
+};
 
 export const normalizeInventorySnapshot = (
   snapshot: InventorySnapshot | null | undefined,

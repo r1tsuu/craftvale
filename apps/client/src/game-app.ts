@@ -56,6 +56,7 @@ import { buildPlayHud } from "./ui/hud.ts";
 import { buildLoadingScreen } from "./ui/loading.ts";
 import { buildMainMenu } from "./ui/menu.ts";
 import {
+  BLOCK_IDS,
   Biomes,
   STARTUP_CHUNK_RADIUS,
   VoxelWorld,
@@ -1247,7 +1248,7 @@ export class GameApp {
           x: hit.hit.x,
           y: hit.hit.y,
           z: hit.hit.z,
-          blockId: 0,
+          blockId: BLOCK_IDS.air,
         },
       });
     }

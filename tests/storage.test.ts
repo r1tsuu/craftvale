@@ -8,7 +8,9 @@ import {
   DEDICATED_WORLD_DIRECTORY_NAME,
 } from "../packages/core/src/server/world-storage.ts";
 import { setWorldTimeOfDay } from "../packages/core/src/shared/lighting.ts";
+import { BLOCK_IDS } from "../packages/core/src/world/blocks.ts";
 import { CHUNK_VOLUME } from "../packages/core/src/world/constants.ts";
+import { ITEM_IDS } from "../packages/core/src/world/items.ts";
 
 const PLAYER_A = "Alice";
 const PLAYER_B = "Bob Builder";
@@ -37,8 +39,8 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
     expect(worlds[0]?.name).toBe("Alpha");
 
     const blocks = new Uint8Array(CHUNK_VOLUME);
-    blocks[0] = 3;
-    blocks[17] = 2;
+    blocks[0] = BLOCK_IDS.stone;
+    blocks[17] = BLOCK_IDS.dirt;
     await storage.saveChunk("Alpha", {
       coord: { x: 0, y: 0, z: 0 },
       blocks,
@@ -50,8 +52,8 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
     const loaded = await storage.loadChunk("Alpha", { x: 0, y: 0, z: 0 });
     expect(loaded).not.toBeNull();
     expect(loaded?.revision).toBe(7);
-    expect(loaded?.blocks[0]).toBe(3);
-    expect(loaded?.blocks[17]).toBe(2);
+    expect(loaded?.blocks[0]).toBe(BLOCK_IDS.stone);
+    expect(loaded?.blocks[17]).toBe(BLOCK_IDS.dirt);
     expect(loaded?.skyLight?.[0]).toBe(15);
     expect(loaded?.blockLight?.[0]).toBe(2);
     expect(loaded?.hasLightData).toBe(true);
@@ -77,15 +79,15 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
       },
       inventory: {
         hotbar: [
-          { itemId: 101, count: 3 },
-          { itemId: 102, count: 4 },
-          { itemId: 103, count: 5 },
-          { itemId: 104, count: 6 },
-          { itemId: 105, count: 7 },
+          { itemId: ITEM_IDS.grass, count: 3 },
+          { itemId: ITEM_IDS.dirt, count: 4 },
+          { itemId: ITEM_IDS.stone, count: 5 },
+          { itemId: ITEM_IDS.log, count: 6 },
+          { itemId: ITEM_IDS.leaves, count: 7 },
         ],
-        main: [{ itemId: 106, count: 9 }],
+        main: [{ itemId: ITEM_IDS.sand, count: 9 }],
         selectedSlot: 2,
-        cursor: { itemId: 107, count: 2 },
+        cursor: { itemId: ITEM_IDS.planks, count: 2 },
       },
     });
 
@@ -103,7 +105,7 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
         },
       },
       inventory: {
-        hotbar: [{ itemId: 104, count: 9 }],
+        hotbar: [{ itemId: ITEM_IDS.log, count: 9 }],
         main: [],
         selectedSlot: 0,
         cursor: null,
@@ -121,23 +123,23 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
     expect(loadedPlayerA?.inventory.selectedSlot).toBe(2);
     expect(loadedPlayerA?.inventory.hotbar).toHaveLength(9);
     expect(loadedPlayerA?.inventory.main).toHaveLength(27);
-    expect(loadedPlayerA?.inventory.hotbar.find((slot) => slot.itemId === 103)?.count).toBe(5);
-    expect(loadedPlayerA?.inventory.main.find((slot) => slot.itemId === 106)?.count).toBe(9);
-    expect(loadedPlayerA?.inventory.cursor).toEqual({ itemId: 107, count: 2 });
+    expect(loadedPlayerA?.inventory.hotbar.find((slot) => slot.itemId === ITEM_IDS.stone)?.count).toBe(5);
+    expect(loadedPlayerA?.inventory.main.find((slot) => slot.itemId === ITEM_IDS.sand)?.count).toBe(9);
+    expect(loadedPlayerA?.inventory.cursor).toEqual({ itemId: ITEM_IDS.planks, count: 2 });
 
     const loadedPlayerB = await storage.loadPlayer("Alpha", PLAYER_B);
     expect(loadedPlayerB).not.toBeNull();
     expect(loadedPlayerB?.snapshot.entityId).toBe("player:8");
     expect(loadedPlayerB?.snapshot.gamemode).toBe(0);
     expect(loadedPlayerB?.snapshot.state.position).toEqual([1, 2, 3]);
-    expect(loadedPlayerB?.inventory.hotbar.find((slot) => slot.itemId === 104)?.count).toBe(9);
+    expect(loadedPlayerB?.inventory.hotbar.find((slot) => slot.itemId === ITEM_IDS.log)?.count).toBe(9);
 
     await storage.saveDroppedItems("Alpha", [
       {
         entityId: "drop:3",
         position: [4.5, 65.25, -2.5],
         velocity: [0.5, 1.75, -0.25],
-        itemId: 103,
+        itemId: ITEM_IDS.stone,
         count: 12,
         pickupCooldownMs: 180,
       },
@@ -149,7 +151,7 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
         entityId: "drop:3",
         position: [4.5, 65.25, -2.5],
         velocity: [0.5, 1.75, -0.25],
-        itemId: 103,
+        itemId: ITEM_IDS.stone,
         count: 12,
         pickupCooldownMs: 180,
       },

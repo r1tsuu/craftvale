@@ -27,6 +27,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Per-world save/load with named worlds and binary chunk persistence
 - Server-authoritative full inventory with a 9-slot hotbar, main storage grid, stack movement, and per-player persistence
 - Separate item and block registries, with explicit item-to-block placement and block-to-item drop mappings
+- Generated content registries with authored string keys, checked-in id locks, and stable numeric block/item ids
 - Nine placeable hotbar items for terrain, wood, and masonry-style blocks
 - Create, join, delete, and save worlds from the menu
 - Multiplayer server browser with saved servers, a built-in localhost entry, add/delete controls, and direct join flow
@@ -55,6 +56,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `bun run dev:server:clean` wipes only `apps/dedicated-server/dist` and then starts the dedicated server
 - `bun run dev:full` starts the dedicated server and the desktop client together
 - `bun run dev:full:clean` wipes `apps/client/dist` and `apps/dedicated-server/dist` and then starts the full client-plus-server dev flow
+- `bun run generate:content` regenerates block/item ids and registries from the authored content spec
 - `bun run typecheck` runs TypeScript checks
 - `bun test` runs the automated tests
 - Launch options: `--player-name=<name>` or `--player-name <name>` overrides the local player name for that run
@@ -98,10 +100,11 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `apps/client` desktop app package with the app bootstrap, `GameApp`, client runtime, rendering, UI, input, singleplayer worker startup, and runtime assets under `apps/client/assets`
 - `apps/dedicated-server` dedicated WebSocket server package with process startup and server lifecycle wiring
 - `apps/cli` developer CLI workspace with native build, combined dev flow, data cleanup, and asset-generation scripts
+- `apps/cli/src/generate-content-registry.ts` deterministic content-registry generation for block/item ids and registries
 - `packages/core` shared package published internally as `@craftvale/core`, with stable export surfaces at `@craftvale/core/shared` and `@craftvale/core/server`
 - `packages/core/src/shared` typed message schemas, transport, event-bus plumbing, shared CLI parsing, and shared logging helpers
 - `packages/core/src/server` authoritative world runtime, world-level entity state, player system, dropped item system, world-session control, and binary world storage
-- `packages/core/src/world` chunks, biome/terrain generation, meshing, atlas metadata/UVs, inventory helpers, item/block registries, and raycasting
+- `packages/core/src/world` chunks, biome/terrain generation, meshing, atlas metadata/UVs, authored content specs, generated item/block registries, inventory helpers, and raycasting
 - `packages/core/src/math` shared math helpers
 - `native` GLFW/OpenGL bridge in C
 - `apps/client/assets/shaders` client GLSL shaders
@@ -130,6 +133,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `AuthoritativeWorld` owns chunk/world authority while `PlayerSystem` mutates player components inside shared world-owned entity state.
 - Broken collectible blocks resolve explicit dropped item ids, spawn dropped item actors in that same world-owned entity space, and players pick them up through a server-authoritative proximity check.
 - The client inventory, dropped-item state, HUD, and held-item rendering are item-based even when a first-pass item still maps one-to-one to a placeable block.
+- Block/item content is authored in `packages/core/src/world/content-spec.ts`, with stable numeric ids tracked in `packages/core/src/world/content-id-lock.json` and generated outputs under `packages/core/src/world/generated`.
 - The client renders remote players as simple cube-based bodies and reuses that same cuboid visual language for the local first-person arm and held item.
 - Dedicated servers expose one generated world only; clients do not browse remote world lists.
 - Player identity is stored separately from world saves in `apps/client/dist/player-profile.json`.

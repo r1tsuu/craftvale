@@ -1,5 +1,7 @@
 import {
+  BLOCK_IDS,
   CHUNK_SIZE,
+  ITEM_IDS,
   getItemRenderBlockId,
   getSelectedInventorySlot,
   type BlockId,
@@ -16,10 +18,10 @@ export interface CuboidPartDefinition {
   pitchFollowsLook?: boolean;
 }
 
-export const PLAYER_HEAD_BLOCK_ID: BlockId = 6;
-export const PLAYER_TORSO_BLOCK_ID: BlockId = 9;
-export const PLAYER_ARM_BLOCK_ID: BlockId = 6;
-export const PLAYER_LEG_BLOCK_ID: BlockId = 8;
+export const PLAYER_HEAD_BLOCK_ID: BlockId = BLOCK_IDS.sand;
+export const PLAYER_TORSO_BLOCK_ID: BlockId = BLOCK_IDS.brick;
+export const PLAYER_ARM_BLOCK_ID: BlockId = BLOCK_IDS.sand;
+export const PLAYER_LEG_BLOCK_ID: BlockId = BLOCK_IDS.cobblestone;
 
 export const PLAYER_BODY_PARTS: readonly CuboidPartDefinition[] = [
   {
@@ -117,7 +119,7 @@ export const collectVisibleRemotePlayers = (
 
 export const getHeldItemBlockId = (inventory: InventorySnapshot): BlockId | null => {
   const slot = getSelectedInventorySlot(inventory);
-  if (slot.itemId === 0 || slot.count <= 0) {
+  if (slot.itemId === ITEM_IDS.empty || slot.count <= 0) {
     return null;
   }
 
