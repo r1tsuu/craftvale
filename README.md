@@ -45,9 +45,12 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 ## Commands
 
 - `bun run build:native` builds `native/libvoxel_bridge.dylib`
+- `bun run clean:data` removes the repo `data/` directory for a fresh local state
 - `bun run dev` builds the native bridge and starts the app
+- `bun run dev:clean` wipes `data/` and then starts the app
 - `bun run dev:server` starts the dedicated WebSocket server only
 - `bun run dev:full` starts the dedicated server and the desktop client together, and prefills the saved server list with the local server
+- `bun run dev:full:clean` wipes `data/` and then starts the full client-plus-server dev flow
 - `bun run typecheck` runs TypeScript checks
 - `bun test` runs the automated tests
 - Launch options: `--player-name=<name>` or `--player-name <name>` overrides the local player name for that run
