@@ -5,8 +5,6 @@ export * from "./entity-system.ts";
 export * from "./player-system.ts";
 export * from "./runtime.ts";
 export * from "./server-adapter.ts";
-export * from "./worker-host.ts";
-export * from "./worker-server-adapter.ts";
 export * from "./world-entity-state.ts";
 export * from "./world-session-controller.ts";
 export * from "./world-storage.ts";

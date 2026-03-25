@@ -1,4 +1,4 @@
-import { attachWorkerServerHost, type WorkerInboundMessage } from "@voxel/core/server";
+import { attachWorkerServerHost, type WorkerInboundMessage } from "./worker/host.ts";
 
 const scope = globalThis as typeof globalThis & {
   onmessage: ((event: MessageEvent<WorkerInboundMessage>) => void) | null;

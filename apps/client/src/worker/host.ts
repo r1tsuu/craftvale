@@ -1,11 +1,31 @@
-import { AuthoritativeWorld } from "./authoritative-world.ts";
-import type { ClientToServerMessage } from "../shared/messages.ts";
-import { DEFAULT_WORLD_STORAGE_ROOT, ServerRuntime } from "./runtime.ts";
-import { createLogger } from "../utils/logger.ts";
-import { BinaryWorldStorage, type StoredWorldRecord } from "./world-storage.ts";
-import { WorkerServerAdapter, type WorkerLikeScope } from "./worker-server-adapter.ts";
+import { AuthoritativeWorld, BinaryWorldStorage, DEFAULT_WORLD_STORAGE_ROOT, ServerRuntime, type StoredWorldRecord } from "@voxel/core/server";
+import { createLogger, type ClientToServerMessage, type ServerToClientMessage } from "@voxel/core/shared";
+import { ServerEventBus } from "@voxel/core/shared";
 
 const workerLogger = createLogger("worker", "green");
+
+export interface WorkerLikeScope {
+  postMessage(message: ServerToClientMessage, transfer?: Transferable[]): void;
+}
+
+class WorkerServerAdapter {
+  public readonly eventBus: ServerEventBus;
+
+  public constructor(private readonly scope: WorkerLikeScope) {
+    this.eventBus = new ServerEventBus({
+      postMessage: (message, transfer = []) => {
+        this.scope.postMessage(message, [...transfer] as Transferable[]);
+      },
+      setMessageHandler(): void {},
+    });
+  }
+
+  public handleMessage(message: ClientToServerMessage): void {
+    void this.eventBus.handleIncoming(message);
+  }
+
+  public close(): void {}
+}
 
 export interface WorkerInitMessage {
   kind: "internal:init";

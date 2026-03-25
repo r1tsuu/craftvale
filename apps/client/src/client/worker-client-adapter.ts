@@ -6,12 +6,7 @@ import type {
   TransferList,
   TransportPort,
 } from "@voxel/core/shared";
-
-interface WorkerInitMessage {
-  kind: "internal:init";
-  storageRoot?: string;
-  world: StoredWorldRecord;
-}
+import type { WorkerInitMessage } from "../worker/host.ts";
 
 type WorkerInboundMessage = ServerToClientMessage;
 type WorkerOutboundMessage = ClientToServerMessage | WorkerInitMessage;
