@@ -1,10 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { deflateSync } from "node:zlib";
-
-const rootDir = import.meta.dir.endsWith("/scripts")
-  ? import.meta.dir.slice(0, -"/scripts".length)
-  : import.meta.dir;
+import { clientAppRoot } from "./paths.ts";
 
 const ATLAS_TILE_SIZE = 16;
 const ATLAS_COLUMNS = 4;
@@ -366,7 +363,7 @@ const encodePng = (width: number, height: number, pixels: Uint8Array): Uint8Arra
   return png;
 };
 
-const atlasPath = join(rootDir, "assets", "textures", "voxel-atlas.png");
+const atlasPath = join(clientAppRoot, "assets", "textures", "voxel-atlas.png");
 mkdirSync(dirname(atlasPath), { recursive: true });
 writeFileSync(atlasPath, encodePng(ATLAS_WIDTH, ATLAS_HEIGHT, createAtlasPixels()));
 console.log(`Wrote ${atlasPath}`);

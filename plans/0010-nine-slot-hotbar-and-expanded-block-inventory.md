@@ -87,7 +87,7 @@ Expand the current block inventory from its small starter hotbar into a fuller M
 - `src/platform/native.ts`
 - `src/render/*`
 - `src/ui/*`
-- `scripts/generate-voxel-atlas.ts`
+- `apps/cli/src/generate-voxel-atlas.ts`
 
 ## Test Plan
 - Inventory tests:

@@ -1,30 +1,28 @@
 import {
   ensurePortAvailable,
   forceReleasePort,
-} from "../apps/dedicated-server/src/port-availability.ts";
-import { parseClientDir, parseServerDir, createLogger } from "@voxel/core/shared";
-import { fileURLToPath } from "node:url";
+  parseClientDir,
+  parseServerDir,
+  createLogger,
+} from "@voxel/core/shared";
+import { clientAppRoot, projectRoot, serverAppRoot } from "./paths.ts";
 
 const SERVER_PORT = 3210;
 const SERVER_ADDRESS = `127.0.0.1:${SERVER_PORT}`;
 const SERVER_SHUTDOWN_TIMEOUT_MS = 3_000;
 const SERVER_READY_TIMEOUT_MS = 5_000;
 const SERVER_READY_POLL_INTERVAL_MS = 100;
-const projectRoot = fileURLToPath(new URL("..", import.meta.url));
-const clientAppRoot = fileURLToPath(new URL("../apps/client", import.meta.url));
-const serverAppRoot = fileURLToPath(new URL("../apps/dedicated-server", import.meta.url));
 const bunExecutable = Bun.which("bun") ?? process.execPath;
 const devFullLogger = createLogger("dev:full", "yellow");
 
 const spawnRuntimeProcess = (
-  entryRelativePath: string,
+  entryPath: string,
   options: {
     stdin: "ignore" | "inherit";
     env: Record<string, string | undefined>;
     extraArgs?: string[];
   },
 ): Bun.Subprocess => {
-  const entryPath = fileURLToPath(new URL(`../${entryRelativePath}`, import.meta.url));
   return Bun.spawn(
     [bunExecutable, entryPath, ...(options.extraArgs ?? [])],
     {
@@ -118,7 +116,7 @@ logInfo(`ensuring port ${SERVER_PORT} is available`);
 await ensurePortAvailable(SERVER_PORT);
 
 logInfo(`spawning dedicated server on port ${SERVER_PORT}`);
-const server = spawnRuntimeProcess("apps/dedicated-server/src/index.ts", {
+const server = spawnRuntimeProcess(`${serverAppRoot}/src/index.ts`, {
   stdin: "ignore",
   extraArgs: [...serverRuntimeArgs, `--port=${SERVER_PORT}`],
   env: {
@@ -130,7 +128,7 @@ const server = spawnRuntimeProcess("apps/dedicated-server/src/index.ts", {
 await waitForServerReady(server, SERVER_ADDRESS, SERVER_READY_TIMEOUT_MS);
 
 logInfo("spawning desktop client");
-const client = spawnRuntimeProcess("apps/client/src/index.ts", {
+const client = spawnRuntimeProcess(`${clientAppRoot}/src/index.ts`, {
   stdin: "inherit",
   extraArgs: clientRuntimeArgs,
   env: {

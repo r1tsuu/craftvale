@@ -1,7 +1,7 @@
 # Bun Workspaces Monorepo Layout
 
 ## Summary
-Reorganize the repository into a Bun workspaces monorepo so the desktop client and dedicated server become explicit apps with clear package boundaries. The new shape should keep `native/` and `scripts/` at the repo root, move runtime entrypoints into `apps/client` and `apps/dedicated-server`, and consolidate only shared primitives plus authoritative server/runtime code into `packages/core`. The key goal is structural clarity, not a behavior rewrite: singleplayer should still boot an in-process worker-backed authoritative server from the client app, while dedicated multiplayer should still boot a standalone WebSocket server, but both should depend on the same shared core package instead of reaching into one flat `src/` tree.
+Reorganize the repository into a Bun workspaces monorepo so the desktop client, dedicated server, and developer tooling become explicit apps with clear package boundaries. The new shape should keep `native/` at the repo root, move runtime entrypoints into `apps/client` and `apps/dedicated-server`, move repo tooling into `apps/cli`, and consolidate only shared primitives plus authoritative server/runtime code into `packages/core`. The key goal is structural clarity, not a behavior rewrite: singleplayer should still boot an in-process worker-backed authoritative server from the client app, while dedicated multiplayer should still boot a standalone WebSocket server, but both should depend on the same shared core package instead of reaching into one flat `src/` tree.
 
 ## Benefits
 
@@ -44,20 +44,27 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 
 ## Target Layout
 
-### Root stays responsible for shared non-workspace assets and tooling
+### Root stays responsible for shared non-workspace assets
 - Keep these directories at the project root:
   - `native/`
-  - `scripts/`
   - `plans/`
   - `tests/` unless we later split package-local tests deliberately
 - Add Bun workspace configuration at the root for:
   - `apps/*`
   - `packages/*`
 - Keep the root as the place for:
-  - top-level scripts that orchestrate multi-app dev flows
   - shared TypeScript config bases
   - repo-wide docs and architecture notes
-  - native build outputs and repo-wide tooling only
+  - native build outputs
+
+### `apps/cli`
+- `apps/cli` should own repo-level developer tooling and orchestration.
+- This app should contain:
+  - native build scripts
+  - combined client-plus-server dev flow startup
+  - data cleanup commands
+  - atlas generation and similar content-generation utilities
+- It may depend on `packages/core` for shared CLI parsing, logging, and reusable process helpers.
 
 ### `apps/client`
 - `apps/client` should own the desktop app runtime and client-only composition.
@@ -78,7 +85,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 - This app should contain:
   - the standalone server bootstrap currently living in `src/server/standalone-entry.ts`
   - dedicated-only CLI parsing and process startup
-  - port checks, server-dir handling, and dedicated process logging
+  - server-dir handling and dedicated process logging
   - Bun `serve` composition and dedicated process lifecycle wiring
 - It should not own gameplay rules directly; it should compose them from `packages/core`.
 
@@ -109,19 +116,22 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 - `apps/client` should not be imported by any other workspace.
 - `apps/client` owns process-local composition, not shared gameplay logic.
 
+### CLI app boundary
+- `apps/cli` may depend on `packages/core`.
+- `apps/cli` should not become a second home for dedicated-server or client runtime code.
+- `apps/cli` owns developer tooling and orchestration, not gameplay/runtime rules.
+
 ### Dedicated server app boundary
 - `apps/dedicated-server` may depend on `packages/core`.
-- `apps/dedicated-server` may use root `scripts/` conventions and root native/tooling paths only where needed for startup.
 - `apps/dedicated-server` should not import client-only bootstrap code.
 - `apps/dedicated-server` should not depend on client runtime assets.
 
 ### Core package boundary
 - `packages/core` should not depend on either app package.
 - `packages/core` should expose stable entry surfaces for:
-  - client-side app/runtime composition helpers
+  - neutral shared/client-server protocol helpers
   - authoritative server runtime creation
-  - worker-backed singleplayer server hosting
-  - dedicated-server runtime creation helpers
+  - dedicated and worker server support code that is actually shared between both runtimes
 - Avoid putting root-relative path assumptions deep inside `packages/core` when they are really app concerns.
 
 ## Suggested Directory Mapping
@@ -142,7 +152,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 ### Move current dedicated bootstrap into `apps/dedicated-server`
 - Expected moves:
   - current `src/server/standalone-entry.ts` -> `apps/dedicated-server/src/index.ts`
-  - dedicated-only port/prompt/process startup helpers can move with it if they are not reused by the client app
+  - only dedicated-server-specific startup helpers should move with it
 
 ### Move reusable code into `packages/core`
 - Likely moves:
@@ -172,7 +182,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 - Recommended shape:
   - `apps/client` starts the worker
   - the worker entrypoint imports server/runtime logic from `packages/core`
-  - worker transport contracts and shared server-facing host/controller logic live in `packages/core`
+  - worker transport contracts and shared server-facing runtime logic live in `packages/core`
 - This keeps singleplayer as an app concern while preserving one authoritative server implementation.
 
 ### Dedicated WebSocket transport stays dedicated-app-owned at the edge
@@ -196,6 +206,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 - Each workspace should expose its own local commands:
   - `apps/client`: dev, build, typecheck as needed
   - `apps/dedicated-server`: dev, build, typecheck as needed
+  - `apps/cli`: build-native, clean-data, dev-full, asset generation
   - `packages/core`: test and typecheck focused on shared code
 - The root should remain the easiest place to run end-to-end flows.
 
@@ -247,7 +258,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 
 ## Suggested Implementation Order
 1. Add Bun workspace configuration and package manifests without moving code yet.
-2. Create `apps/client`, `apps/dedicated-server`, and `packages/core` with minimal entrypoints.
+2. Create `apps/client`, `apps/dedicated-server`, `apps/cli`, and `packages/core` with minimal entrypoints.
 3. Move reusable code from `src/` into `packages/core/src/` while preserving behavior.
 4. Move client bootstrap into `apps/client` and dedicated bootstrap into `apps/dedicated-server`.
 5. Update root scripts to call workspace app entrypoints.
@@ -264,9 +275,10 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 - `apps/client/src/index.ts`
 - `apps/dedicated-server/package.json`
 - `apps/dedicated-server/src/index.ts`
+- `apps/cli/package.json`
+- `apps/cli/src/*`
 - `packages/core/package.json`
 - `packages/core/src/**/*`
-- `scripts/*`
 - `README.md`
 - `architecture.md`
 
@@ -292,7 +304,8 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 ## Assumptions And Defaults
 - Use the next plan filename in sequence: `0025-bun-workspaces-monorepo-layout.md`.
 - This is primarily a repository-structure refactor, not a gameplay feature change.
-- `native/` and `scripts/` stay at the repo root.
+- `native/` stays at the repo root.
+- `apps/cli` owns developer tooling and repo-level orchestration scripts.
 - runtime client assets move to `apps/client/assets`.
 - `apps/client` owns the desktop app and singleplayer worker startup.
 - `GameApp` is part of the client app layer and belongs in `apps/client`, not `packages/core`.

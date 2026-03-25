@@ -8,13 +8,13 @@
     "packages/*"
   ],
   "scripts": {
-    "build:native": "bun run scripts/build-native.ts",
-    "clean:data": "bun run scripts/clean-data.ts",
+    "build:native": "bun run --cwd apps/cli build-native",
+    "clean:data": "bun run --cwd apps/cli clean-data",
     "dev:client": "bun run build:native && bun run --cwd apps/client dev",
     "dev:client:clean": "bun run clean:data -- --client-dir=./dist && bun run dev:client",
     "dev:server": "bun run --cwd apps/dedicated-server dev",
     "dev:server:clean": "bun run clean:data -- --server-dir=./dist && bun run dev:server",
-    "dev:full": "bun run build:native && bun run scripts/dev-full.ts",
+    "dev:full": "bun run build:native && bun run --cwd apps/cli dev-full",
     "dev:full:clean": "bun run clean:data && bun run dev:full",
     "start": "bun run --cwd apps/client start",
     "typecheck": "bunx tsc --noEmit",

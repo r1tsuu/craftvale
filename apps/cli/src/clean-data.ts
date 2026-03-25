@@ -1,12 +1,7 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { parseClientDir, parseServerDir, createLogger } from "@voxel/core/shared";
-
-const projectRoot = import.meta.dir.endsWith("/scripts")
-  ? import.meta.dir.slice(0, -"/scripts".length)
-  : import.meta.dir;
-const clientAppRoot = join(projectRoot, "apps", "client");
-const serverAppRoot = join(projectRoot, "apps", "dedicated-server");
+import { clientAppRoot, serverAppRoot } from "./paths.ts";
 
 const argv = Bun.argv.slice(2);
 const clientRoot = parseClientDir(argv, clientAppRoot);

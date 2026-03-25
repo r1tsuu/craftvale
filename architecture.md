@@ -11,11 +11,12 @@ At a high level:
 - `apps/client/src/client/*`, `render/*`, `ui/*`, `game/*`, and `platform/*` implement client runtime behavior, rendering, input, menus, HUD, and native integration.
 - `apps/client/src/worker/*` owns singleplayer worker bootstrap and worker-only transport glue.
 - `apps/client/assets/*` contains runtime-loaded client shaders and textures.
+- `apps/cli/src/*` owns repo-level developer tooling such as native builds, combined dev startup, cleanup, and asset generation.
 - `apps/dedicated-server/src/index.ts` is the dedicated WebSocket server bootstrap.
 - `packages/core/src/server/*` implements authoritative world/session behavior and storage.
 - `packages/core/src/shared/*` defines typed messaging, transport, and event-bus plumbing.
 - `packages/core/src/world/*` contains deterministic worldgen, chunk data, meshing, atlas metadata/UVs, item/inventory helpers, and raycasting.
-- `packages/core/src/math/*` and `packages/core/src/utils/*` provide shared helpers.
+- `packages/core/src/math/*` and `packages/core/src/utils/*` provide shared helpers, including CLI parsing, logging, and reusable port-availability checks.
 - `native/*` bridges Bun to GLFW/OpenGL.
 
 The intended shared import surfaces are:
@@ -40,7 +41,7 @@ The main thread hosts the playable client app:
 The local worker hosts the authoritative gameplay server for one selected world:
 
 - boots through `apps/client/src/worker-entry.ts`
-- is attached to a `WorkerServerHost` from `@voxel/core/server`
+- is attached to a client-owned `WorkerServerHost` from `apps/client/src/worker/host.ts`
 - constructs a `ServerRuntime` from `@voxel/core/server`
 - is initialized with one chosen local world record
 - saves that world through `BinaryWorldStorage` from `@voxel/core/server`
@@ -120,8 +121,8 @@ There are three main categories:
 Current transport layers:
 
 - `WorkerClientAdapter` on the client side
-- `WorkerServerAdapter` on the worker side
-- `WorkerServerHost` as the worker lifecycle/controller instance
+- `WorkerServerAdapter` on the client-owned singleplayer worker side
+- `WorkerServerHost` inside `apps/client/src/worker/host.ts`
 - `WebSocketClientAdapter` on the multiplayer client side
 - `DedicatedServerTransport` inside the dedicated server
 

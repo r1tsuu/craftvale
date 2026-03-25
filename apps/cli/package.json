@@ -1,0 +1,14 @@
+{
+  "name": "@voxel/cli",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build-native": "bun run src/build-native.ts",
+    "clean-data": "bun run src/clean-data.ts",
+    "dev-full": "bun run src/dev-full.ts",
+    "generate-voxel-atlas": "bun run src/generate-voxel-atlas.ts"
+  },
+  "dependencies": {
+    "@voxel/core": "workspace:*"
+  }
+}

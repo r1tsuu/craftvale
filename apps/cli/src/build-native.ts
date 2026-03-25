@@ -1,9 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-
-const rootDir = import.meta.dir.endsWith("/scripts")
-  ? import.meta.dir.slice(0, -"/scripts".length)
-  : import.meta.dir;
+import { projectRoot } from "./paths.ts";
 
 const glfwCandidates = [
   { include: "/opt/homebrew/include", lib: "/opt/homebrew/lib" },
@@ -20,8 +17,8 @@ if (!glfwPath) {
   process.exit(1);
 }
 
-const outputPath = join(rootDir, "native", "libvoxel_bridge.dylib");
-const sourcePath = join(rootDir, "native", "bridge.c");
+const outputPath = join(projectRoot, "native", "libvoxel_bridge.dylib");
+const sourcePath = join(projectRoot, "native", "bridge.c");
 
 const command = [
   "clang",

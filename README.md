@@ -96,7 +96,8 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 ## Project Layout
 
 - `apps/client` desktop app package with the app bootstrap, `GameApp`, client runtime, rendering, UI, input, singleplayer worker startup, and runtime assets under `apps/client/assets`
-- `apps/dedicated-server` dedicated WebSocket server package with process startup, port handling, and server lifecycle wiring
+- `apps/dedicated-server` dedicated WebSocket server package with process startup and server lifecycle wiring
+- `apps/cli` developer CLI workspace with native build, combined dev flow, data cleanup, and asset-generation scripts
 - `packages/core` shared package published internally as `@voxel/core`, with stable export surfaces at `@voxel/core/shared` and `@voxel/core/server`
 - `packages/core/src/shared` typed message schemas, transport, event-bus plumbing, shared CLI parsing, and shared logging helpers
 - `packages/core/src/server` authoritative world runtime, world-level entity state, player system, dropped item system, world-session control, and binary world storage
@@ -164,12 +165,12 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 
 Source-line snapshot as of 2026-03-25 using `wc -l` over TypeScript, C, and GLSL files. This excludes docs, JSON/package metadata, lockfiles, and binary assets.
 
-- `apps/client/src`: 8,379 lines of TypeScript
+- `apps/client/src`: 8,516 lines of TypeScript
 - `apps/client/assets/shaders`: 78 lines of GLSL
-- `apps/dedicated-server`: 532 lines of TypeScript
-- `packages/core`: 5,677 lines of TypeScript
-- `scripts`: 684 lines of TypeScript
+- `apps/dedicated-server`: 376 lines of TypeScript
+- `packages/core`: 5,676 lines of TypeScript
+- `apps/cli/src`: 681 lines of TypeScript
 - `native`: 429 lines of C
-- `tests`: 3,434 lines of TypeScript
-- Total source lines including tests: 19,213
-- Total source lines excluding tests: 15,779
+- `tests`: 3,447 lines of TypeScript
+- Total source lines including tests: 19,203
+- Total source lines excluding tests: 15,756
