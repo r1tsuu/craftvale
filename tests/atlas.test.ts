@@ -30,6 +30,7 @@ test("atlas tile layout is fixed and UVs are inset within tile bounds", () => {
   expect(AtlasTiles.planks).toEqual({ x: 0, y: 2 });
   expect(AtlasTiles.cobblestone).toEqual({ x: 1, y: 2 });
   expect(AtlasTiles.brick).toEqual({ x: 2, y: 2 });
+  expect(AtlasTiles.bedrock).toEqual({ x: 3, y: 2 });
 
   const rect = getAtlasUvRect("grass-top");
   expect(rect.uMin).toBeGreaterThan(0);
@@ -57,10 +58,16 @@ test("leaves tile includes transparent pixels for cutout rendering", () => {
   expect(transparentPixels).toBeGreaterThan(0);
 });
 
-test("new hotbar block tiles are fully opaque", () => {
+test("opaque atlas tiles are fully opaque", () => {
   const atlas = loadVoxelAtlasImageData();
 
-  for (const tile of [AtlasTiles.sand, AtlasTiles.planks, AtlasTiles.cobblestone, AtlasTiles.brick]) {
+  for (const tile of [
+    AtlasTiles.sand,
+    AtlasTiles.planks,
+    AtlasTiles.cobblestone,
+    AtlasTiles.brick,
+    AtlasTiles.bedrock,
+  ]) {
     for (let localY = 0; localY < ATLAS_TILE_SIZE; localY += 1) {
       for (let localX = 0; localX < ATLAS_TILE_SIZE; localX += 1) {
         const worldX = tile.x * ATLAS_TILE_SIZE + localX;

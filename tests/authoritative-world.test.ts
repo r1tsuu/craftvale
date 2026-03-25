@@ -164,3 +164,44 @@ test("authoritative world pregenerates and persists the startup chunk set", asyn
     await rm(rootDir, { recursive: true, force: true });
   }
 });
+
+test("survival cannot break bedrock but creative can", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-authoritative-world-bedrock-"));
+  const storage = new BinaryWorldStorage(rootDir);
+
+  try {
+    const worldRecord = await storage.createWorld("Bedrock", 42);
+    const world = new AuthoritativeWorld(worldRecord, storage);
+    const joined = await world.joinPlayer(PLAYER_A);
+    const targetIndex = 1 + (1 * CHUNK_SIZE) + (0 * CHUNK_SIZE * CHUNK_SIZE);
+
+    const survivalAttempt = await world.applyBlockMutation(
+      joined.clientPlayer.entityId,
+      1,
+      0,
+      1,
+      0,
+    );
+    expect(survivalAttempt.changedChunks).toEqual([]);
+    expect(survivalAttempt.droppedItems.spawnedDroppedItems).toEqual([]);
+
+    const unchangedChunk = await world.getChunkPayload({ x: 0, y: 0, z: 0 });
+    expect(unchangedChunk.blocks[targetIndex]).toBe(10);
+
+    await world.setPlayerGamemode(joined.clientPlayer.entityId, 1);
+    const creativeAttempt = await world.applyBlockMutation(
+      joined.clientPlayer.entityId,
+      1,
+      0,
+      1,
+      0,
+    );
+    expect(creativeAttempt.changedChunks).toHaveLength(1);
+    expect(creativeAttempt.droppedItems.spawnedDroppedItems).toEqual([]);
+
+    const changedChunk = await world.getChunkPayload({ x: 0, y: 0, z: 0 });
+    expect(changedChunk.blocks[targetIndex]).toBe(0);
+  } finally {
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});

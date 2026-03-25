@@ -15,6 +15,7 @@ export interface BlockDefinition {
   id: BlockId;
   name: string;
   collidable: boolean;
+  breakable: boolean;
   occlusion: BlockOcclusionMode;
   renderPass: BlockRenderPass | null;
   dropItemId: ItemId | null;
@@ -27,6 +28,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     id: 0,
     name: "air",
     collidable: false,
+    breakable: false,
     occlusion: "none",
     renderPass: null,
     dropItemId: null,
@@ -36,6 +38,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     id: 1,
     name: "grass",
     collidable: true,
+    breakable: true,
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 101,
@@ -50,6 +53,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     id: 2,
     name: "dirt",
     collidable: true,
+    breakable: true,
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 102,
@@ -64,6 +68,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     id: 3,
     name: "stone",
     collidable: true,
+    breakable: true,
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 103,
@@ -78,6 +83,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     id: 4,
     name: "log",
     collidable: true,
+    breakable: true,
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 104,
@@ -92,6 +98,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     id: 5,
     name: "leaves",
     collidable: true,
+    breakable: true,
     occlusion: "self",
     renderPass: "cutout",
     dropItemId: 105,
@@ -106,6 +113,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     id: 6,
     name: "sand",
     collidable: true,
+    breakable: true,
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 106,
@@ -120,6 +128,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     id: 7,
     name: "planks",
     collidable: true,
+    breakable: true,
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 107,
@@ -134,6 +143,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     id: 8,
     name: "cobblestone",
     collidable: true,
+    breakable: true,
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 108,
@@ -148,6 +158,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     id: 9,
     name: "brick",
     collidable: true,
+    breakable: true,
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 109,
@@ -158,9 +169,26 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
       side: "brick",
     },
   },
+  10: {
+    id: 10,
+    name: "bedrock",
+    collidable: true,
+    breakable: false,
+    occlusion: "full",
+    renderPass: "opaque",
+    dropItemId: null,
+    color: [0.24, 0.24, 0.27],
+    tiles: {
+      top: "bedrock",
+      bottom: "bedrock",
+      side: "bedrock",
+    },
+  },
 };
 
 export const isSolidBlock = (blockId: BlockId): boolean => Blocks[blockId].collidable;
+
+export const isBreakableBlock = (blockId: BlockId): boolean => Blocks[blockId].breakable;
 
 export const getDroppedItemIdForBlock = (blockId: BlockId): ItemId | null => Blocks[blockId].dropItemId;
 

@@ -29,6 +29,16 @@ test("different seeds still produce different terrain samples", () => {
   expect(samplesA).not.toEqual(samplesB);
 });
 
+test("generated chunks always place bedrock at the bottom layer", () => {
+  const chunk = createGeneratedChunk({ x: 0, y: 0, z: 0 }, 42);
+
+  for (let z = 0; z < 16; z += 1) {
+    for (let x = 0; x < 16; x += 1) {
+      expect(chunk.get(x, 0, z)).toBe(10);
+    }
+  }
+});
+
 test("biome sampling is deterministic and produces multiple biome types", () => {
   const seed = 42;
   const sampleA = getBiomeAt(seed, 8, 8);

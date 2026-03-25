@@ -121,6 +121,19 @@ test("dirt and stone reuse the same tile on every face", () => {
   expectFaceUsesTile(stoneMesh.opaque, 2, "stone");
 });
 
+test("bedrock reuses the bedrock tile on every face", () => {
+  const world = new VoxelWorld();
+  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 });
+  chunk.blocks.fill(0);
+  chunk.dirty = true;
+  chunk.set(1, 1, 1, 10);
+
+  const mesh = buildChunkMesh(world, chunk.coord);
+  expect(mesh.cutout.indexCount).toBe(0);
+  expectFaceUsesTile(mesh.opaque, 0, "bedrock");
+  expectFaceUsesTile(mesh.opaque, 2, "bedrock");
+});
+
 test("logs use distinct top and side atlas tiles", () => {
   const world = new VoxelWorld();
   const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 });

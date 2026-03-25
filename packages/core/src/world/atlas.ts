@@ -9,6 +9,7 @@ export type AtlasTileId =
   | "grass-side"
   | "dirt"
   | "stone"
+  | "bedrock"
   | "log-top"
   | "log-side"
   | "leaves"
@@ -41,6 +42,7 @@ export const AtlasTiles: Record<AtlasTileId, AtlasTileCoord> = {
   planks: { x: 0, y: 2 },
   cobblestone: { x: 1, y: 2 },
   brick: { x: 2, y: 2 },
+  bedrock: { x: 3, y: 2 },
 };
 
 const UV_INSET_X = 0.5 / ATLAS_WIDTH;

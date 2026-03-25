@@ -14,6 +14,7 @@ type AtlasTileId =
   | "grass-side"
   | "dirt"
   | "stone"
+  | "bedrock"
   | "log-top"
   | "log-side"
   | "leaves"
@@ -35,6 +36,7 @@ const AtlasTiles: Record<AtlasTileId, { x: number; y: number }> = {
   planks: { x: 0, y: 2 },
   cobblestone: { x: 1, y: 2 },
   brick: { x: 2, y: 2 },
+  bedrock: { x: 3, y: 2 },
 };
 
 const rgba = (red: number, green: number, blue: number, alpha = 255): Rgba => [
@@ -134,6 +136,24 @@ const createStonePixel = (x: number, y: number): Rgba => {
     color = tint(color, 24);
   } else if (((noise >>> 9) & 0xf) <= 1) {
     color = tint(color, -24);
+  }
+
+  return color;
+};
+
+const createBedrockPixel = (x: number, y: number): Rgba => {
+  const base = rgba(58, 58, 64);
+  const noise = hash2d(x, y, 0x5d1f0bed);
+  let color = tint(base, ((noise & 0x7) - 3) * 9);
+
+  if ((x + y + ((noise >>> 6) & 0x3)) % 5 === 0) {
+    color = tint(color, 18);
+  } else if (((noise >>> 10) & 0xf) <= 2) {
+    color = tint(color, -18);
+  }
+
+  if ((x === 0 || y === 0 || x === 15 || y === 15) && ((noise >>> 14) & 0x3) !== 0) {
+    color = tint(color, -10);
   }
 
   return color;
@@ -281,6 +301,7 @@ const createAtlasPixels = (): Uint8Array => {
   fillTile(pixels, "grass-side", createGrassSidePixel);
   fillTile(pixels, "dirt", createDirtPixel);
   fillTile(pixels, "stone", createStonePixel);
+  fillTile(pixels, "bedrock", createBedrockPixel);
   fillTile(pixels, "log-top", createLogTopPixel);
   fillTile(pixels, "log-side", createLogSidePixel);
   fillTile(pixels, "leaves", createLeavesPixel);

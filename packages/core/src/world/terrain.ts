@@ -74,6 +74,10 @@ const getColumnBlocksForBiome = (
   height: number,
   worldY: number,
 ): BlockId => {
+  if (worldY === 0) {
+    return 10;
+  }
+
   if (worldY > height) {
     return 0;
   }

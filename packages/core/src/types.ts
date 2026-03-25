@@ -1,4 +1,4 @@
-export type BlockId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type BlockId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export type ItemId = 0 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109;
 
 export interface ChunkCoord {
