@@ -2,6 +2,7 @@ export * from "../types.ts";
 export * from "../math/mat4.ts";
 export * from "../math/vec3.ts";
 export * from "../shared/event-bus.ts";
+export * from "../shared/lighting.ts";
 export * from "../shared/message-codec.ts";
 export * from "../shared/messages.ts";
 export * from "../shared/transport.ts";

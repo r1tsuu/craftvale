@@ -1,10 +1,13 @@
 import {
   CHUNK_SIZE,
+  LIGHT_LEVEL_MAX,
   VoxelWorld,
   buildChunkMesh,
   createIdentityMat4,
+  createDefaultWorldTimeState,
   getBlockFaceTile,
   getBlockRenderPass,
+  getWorldDaylightFactor,
   getItemRenderBlockId,
   type BlockFaceRole,
   type BlockId,
@@ -14,6 +17,7 @@ import {
   type MeshData,
   type PlayerSnapshot,
   type Vec3,
+  type WorldTimeState,
 } from "@craftvale/core/shared";
 import { PlayerController } from "../game/player.ts";
 import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
@@ -188,6 +192,8 @@ const buildBlockCubeMesh = (blockId: BlockId): MeshData => {
         u === 0 ? uvRect.uMin : uvRect.uMax,
         v === 0 ? uvRect.vMin : uvRect.vMax,
         face.shade,
+        LIGHT_LEVEL_MAX,
+        0,
       );
     }
 
@@ -242,6 +248,7 @@ export class VoxelRenderer {
   private readonly viewProjectionLocation: number;
   private readonly modelLocation: number;
   private readonly atlasSamplerLocation: number;
+  private readonly daylightLocation: number;
   private readonly atlasTexture: number;
   private readonly meshes = new Map<string, GpuChunkMesh>();
   private readonly blockCubeMeshes = new Map<BlockId, GpuMesh | null>();
@@ -285,6 +292,7 @@ export class VoxelRenderer {
     );
     this.modelLocation = nativeBridge.gl.getUniformLocation(this.program, "uModel");
     this.atlasSamplerLocation = nativeBridge.gl.getUniformLocation(this.program, "uAtlas");
+    this.daylightLocation = nativeBridge.gl.getUniformLocation(this.program, "uDaylight");
     this.atlasTexture = this.createAtlasTexture();
     this.focusHighlightRenderer = new FocusHighlightRenderer(nativeBridge);
     this.playerRenderer = new PlayerRenderer(
@@ -312,6 +320,7 @@ export class VoxelRenderer {
     players: readonly PlayerSnapshot[],
     clientPlayerEntityId: string | null,
     inventory: InventorySnapshot,
+    worldTime: WorldTimeState | undefined,
     firstPersonSwingProgress: number,
     renderDistance: number,
     width: number,
@@ -323,13 +332,20 @@ export class VoxelRenderer {
     uiWidth: number,
     uiHeight: number,
   ): void {
+    const resolvedWorldTime = worldTime ?? createDefaultWorldTimeState();
+    const daylightFactor = getWorldDaylightFactor(resolvedWorldTime);
     this.nativeBridge.gl.viewport(0, 0, width, height);
-    this.nativeBridge.gl.clearColor(0.56, 0.76, 0.94, 1);
+    this.nativeBridge.gl.clearColor(
+      0.04 + daylightFactor * 0.52,
+      0.06 + daylightFactor * 0.7,
+      0.12 + daylightFactor * 0.82,
+      1,
+    );
     this.nativeBridge.gl.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
 
     const aspect = Math.max(width / Math.max(height, 1), 0.01);
     const viewProjection = player.getViewProjection(aspect);
-    this.prepareVoxelProgram(viewProjection);
+    this.prepareVoxelProgram(viewProjection, daylightFactor);
 
     const playerChunkX = Math.floor(player.state.position[0] / CHUNK_SIZE);
     const playerChunkZ = Math.floor(player.state.position[2] / CHUNK_SIZE);
@@ -394,7 +410,7 @@ export class VoxelRenderer {
 
     this.nativeBridge.gl.bindVertexArray(0);
     this.focusHighlightRenderer.render(focusedBlock, viewProjection);
-    this.prepareVoxelProgram(viewProjection);
+    this.prepareVoxelProgram(viewProjection, daylightFactor);
     this.nativeBridge.gl.disable(GL.DEPTH_TEST);
     this.playerRenderer.renderFirstPersonViewModel(
       player,
@@ -414,11 +430,12 @@ export class VoxelRenderer {
     this.uiRenderer.render(uiComponents, uiWidth, uiHeight);
   }
 
-  private prepareVoxelProgram(viewProjection: Float32Array): void {
+  private prepareVoxelProgram(viewProjection: Float32Array, daylightFactor: number): void {
     this.nativeBridge.gl.useProgram(this.program);
     this.nativeBridge.gl.activeTexture(GL.TEXTURE0);
     this.nativeBridge.gl.bindTexture(GL.TEXTURE_2D, this.atlasTexture);
     this.nativeBridge.gl.uniform1i(this.atlasSamplerLocation, 0);
+    this.nativeBridge.gl.uniform1f(this.daylightLocation, daylightFactor);
     this.nativeBridge.gl.uniformMatrix4fv(this.viewProjectionLocation, viewProjection);
     this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL);
   }
@@ -538,7 +555,7 @@ export class VoxelRenderer {
     this.nativeBridge.gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, ebo);
     this.nativeBridge.gl.bufferData(GL.ELEMENT_ARRAY_BUFFER, mesh.indexData, GL.STATIC_DRAW);
 
-    const stride = 6 * Float32Array.BYTES_PER_ELEMENT;
+    const stride = 8 * Float32Array.BYTES_PER_ELEMENT;
     this.nativeBridge.gl.enableVertexAttribArray(0);
     this.nativeBridge.gl.vertexAttribPointer(0, 3, GL.FLOAT, false, stride, 0);
     this.nativeBridge.gl.enableVertexAttribArray(1);
@@ -558,6 +575,24 @@ export class VoxelRenderer {
       false,
       stride,
       5 * Float32Array.BYTES_PER_ELEMENT,
+    );
+    this.nativeBridge.gl.enableVertexAttribArray(3);
+    this.nativeBridge.gl.vertexAttribPointer(
+      3,
+      1,
+      GL.FLOAT,
+      false,
+      stride,
+      6 * Float32Array.BYTES_PER_ELEMENT,
+    );
+    this.nativeBridge.gl.enableVertexAttribArray(4);
+    this.nativeBridge.gl.vertexAttribPointer(
+      4,
+      1,
+      GL.FLOAT,
+      false,
+      stride,
+      7 * Float32Array.BYTES_PER_ELEMENT,
     );
 
     return {

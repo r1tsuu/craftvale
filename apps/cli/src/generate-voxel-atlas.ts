@@ -5,7 +5,7 @@ import { clientAppRoot } from "./paths.ts";
 
 const ATLAS_TILE_SIZE = 16;
 const ATLAS_COLUMNS = 4;
-const ATLAS_ROWS = 3;
+const ATLAS_ROWS = 4;
 const ATLAS_WIDTH = ATLAS_TILE_SIZE * ATLAS_COLUMNS;
 const ATLAS_HEIGHT = ATLAS_TILE_SIZE * ATLAS_ROWS;
 
@@ -21,7 +21,8 @@ type AtlasTileId =
   | "sand"
   | "planks"
   | "cobblestone"
-  | "brick";
+  | "brick"
+  | "glowstone";
 type Rgba = readonly [number, number, number, number];
 
 const AtlasTiles: Record<AtlasTileId, { x: number; y: number }> = {
@@ -37,6 +38,7 @@ const AtlasTiles: Record<AtlasTileId, { x: number; y: number }> = {
   cobblestone: { x: 1, y: 2 },
   brick: { x: 2, y: 2 },
   bedrock: { x: 3, y: 2 },
+  glowstone: { x: 0, y: 3 },
 };
 
 const rgba = (red: number, green: number, blue: number, alpha = 255): Rgba => [
@@ -295,6 +297,24 @@ const createBrickPixel = (x: number, y: number): Rgba => {
   return tint(brickBase, ((noise & 0x7) - 3) * 4);
 };
 
+const createGlowstonePixel = (x: number, y: number): Rgba => {
+  const base = rgba(223, 186, 84);
+  const noise = hash2d(x, y, 0xd1e917);
+  let color = tint(base, ((noise & 0x7) - 3) * 9);
+
+  if ((x + y) % 5 === 0) {
+    color = tint(color, 18);
+  } else if (((noise >>> 5) & 0xf) <= 1) {
+    color = tint(color, -16);
+  }
+
+  if (x > 4 && x < 11 && y > 4 && y < 11) {
+    color = tint(color, 14);
+  }
+
+  return color;
+};
+
 const createAtlasPixels = (): Uint8Array => {
   const pixels = new Uint8Array(ATLAS_WIDTH * ATLAS_HEIGHT * 4);
   fillTile(pixels, "grass-top", createGrassTopPixel);
@@ -309,6 +329,7 @@ const createAtlasPixels = (): Uint8Array => {
   fillTile(pixels, "planks", createPlanksPixel);
   fillTile(pixels, "cobblestone", createCobblestonePixel);
   fillTile(pixels, "brick", createBrickPixel);
+  fillTile(pixels, "glowstone", createGlowstonePixel);
   return pixels;
 };
 

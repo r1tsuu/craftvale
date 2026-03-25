@@ -11,14 +11,15 @@ import {
 } from "../packages/core/src/world/inventory.ts";
 import { HOTBAR_ITEM_IDS } from "../packages/core/src/world/items.ts";
 
-test("default inventory creates a full hotbar plus empty main inventory", () => {
+test("default inventory creates a full hotbar plus a starter glowstone stack", () => {
   const inventory = createDefaultInventory();
 
   expect(inventory.hotbar).toHaveLength(9);
   expect(inventory.hotbar.map((slot) => slot.itemId)).toEqual([...HOTBAR_ITEM_IDS]);
   expect(inventory.hotbar.every((slot) => slot.count === DEFAULT_INVENTORY_STACK_SIZE)).toBe(true);
   expect(inventory.main).toHaveLength(MAIN_INVENTORY_SLOT_COUNT);
-  expect(inventory.main.every((slot) => slot.itemId === 0 && slot.count === 0)).toBe(true);
+  expect(inventory.main[0]).toEqual({ itemId: 110, count: DEFAULT_INVENTORY_STACK_SIZE });
+  expect(inventory.main.slice(1).every((slot) => slot.itemId === 0 && slot.count === 0)).toBe(true);
   expect(inventory.selectedSlot).toBe(0);
   expect(inventory.cursor).toBeNull();
 });
@@ -62,7 +63,8 @@ test("adding items fills empty main-inventory stacks when hotbar stacks are full
 
   expect(result.added).toBe(5);
   expect(result.remaining).toBe(0);
-  expect(result.inventory.main[0]).toEqual({ itemId: 101, count: 5 });
+  expect(result.inventory.main[0]).toEqual({ itemId: 110, count: 64 });
+  expect(result.inventory.main[1]).toEqual({ itemId: 101, count: 5 });
 });
 
 test("inventory interaction picks up, places, and merges stacks", () => {
@@ -72,9 +74,9 @@ test("inventory interaction picks up, places, and merges stacks", () => {
   expect(inventory.cursor).toEqual({ itemId: 101, count: 64 });
   expect(inventory.hotbar[0]).toEqual({ itemId: 0, count: 0 });
 
-  inventory = interactInventorySlot(inventory, "main", 0);
+  inventory = interactInventorySlot(inventory, "main", 1);
   expect(inventory.cursor).toBeNull();
-  expect(inventory.main[0]).toEqual({ itemId: 101, count: 64 });
+  expect(inventory.main[1]).toEqual({ itemId: 101, count: 64 });
 
   inventory = normalizeInventorySnapshot({
     hotbar: [

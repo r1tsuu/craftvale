@@ -1,4 +1,10 @@
-import type { ChatEntry, InventorySlot, InventorySnapshot, PlayerGamemode } from "@craftvale/core/shared";
+import type {
+  ChatEntry,
+  InventorySlot,
+  InventorySnapshot,
+  PlayerGamemode,
+  WorldTimeState,
+} from "@craftvale/core/shared";
 import type { PauseScreen } from "../game/play-overlay.ts";
 import { measureTextWidth } from "../render/text-mesh.ts";
 import {
@@ -6,7 +12,12 @@ import {
   buildPauseSettingsOverlay,
   type SettingsPanelViewModel,
 } from "./menu.ts";
-import { getItemColor, getItemDisplayName, getSelectedInventorySlot } from "@craftvale/core/shared";
+import {
+  formatWorldClock,
+  getItemColor,
+  getItemDisplayName,
+  getSelectedInventorySlot,
+} from "@craftvale/core/shared";
 import {
   createButton,
   createHotspot,
@@ -359,6 +370,35 @@ const buildModeBadge = (
   ];
 };
 
+const buildClockBadge = (
+  windowWidth: number,
+  worldTime: WorldTimeState | null | undefined,
+): UiComponent[] => {
+  if (!worldTime) {
+    return [];
+  }
+
+  const width = 220;
+  const x = windowWidth - width - 18;
+  return [
+    createPanel({
+      id: "clock-badge-frame",
+      kind: "panel",
+      rect: { x, y: 54, width, height: 30 },
+      color: [0.08, 0.09, 0.1],
+    }),
+    createLabel({
+      id: "clock-badge-label",
+      kind: "label",
+      rect: { x, y: 60, width, height: 18 },
+      text: formatWorldClock(worldTime).toUpperCase(),
+      scale: 2,
+      color: [0.98, 0.95, 0.78],
+      centered: true,
+    }),
+  ];
+};
+
 const buildChatFeed = (
   windowWidth: number,
   windowHeight: number,
@@ -560,6 +600,7 @@ const buildInventoryOverlay = (
 
 export interface PlayHudState {
   inventory: InventorySnapshot;
+  worldTime?: WorldTimeState | null;
   inventoryOpen?: boolean;
   cursorX?: number;
   cursorY?: number;
@@ -590,6 +631,7 @@ export const buildPlayHud = (
 
   return [
     ...(state.inventoryOpen || state.showCrosshair === false ? [] : buildCrosshair(windowWidth, windowHeight)),
+    ...(!state.inventoryOpen ? buildClockBadge(windowWidth, state.worldTime) : []),
     ...(state.biomeName && !state.inventoryOpen ? buildBiomeBadge(windowWidth, windowHeight, state.biomeName) : []),
     ...buildModeBadge(windowWidth, state.gamemode ?? 0, state.flying ?? false),
     ...(!state.inventoryOpen

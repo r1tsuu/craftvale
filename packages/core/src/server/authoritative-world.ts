@@ -11,6 +11,11 @@ import type {
   PlayerState,
 } from "../types.ts";
 import {
+  cloneWorldTimeState,
+  createDefaultWorldTimeState,
+  type WorldTimeState,
+} from "../shared/lighting.ts";
+import {
   type ChunkPayload,
   type WorldSummary,
 } from "../shared/messages.ts";
@@ -26,6 +31,7 @@ import { getChunkCoordsAroundPosition } from "../world/chunk-coords.ts";
 import { createGeneratedChunk, getTerrainHeight } from "../world/terrain.ts";
 import { worldToChunkCoord } from "../world/world.ts";
 import { DroppedItemSystem, type DroppedItemSimulationResult } from "./dropped-item-system.ts";
+import { LightingSystem } from "./lighting-system.ts";
 import { PlayerSystem } from "./player-system.ts";
 import {
   createEmptyWorldTickResult,
@@ -39,7 +45,7 @@ import type { WorldStorage } from "./world-storage.ts";
 interface ServerChunkEntry {
   chunk: Chunk;
   hasPersistedRecord: boolean;
-  persistBaseline: boolean;
+  hasLightData: boolean;
   saveDirty: boolean;
 }
 
@@ -69,6 +75,8 @@ export class AuthoritativeWorld {
   private readonly entityState = new WorldEntityState();
   private readonly playerSystem: PlayerSystem;
   private readonly droppedItemSystem: DroppedItemSystem;
+  private readonly lightingSystem = new LightingSystem();
+  private readonly initialization: Promise<void>;
 
   public constructor(
     private world: WorldSummary,
@@ -86,6 +94,7 @@ export class AuthoritativeWorld {
       this.entityState,
       (x, y, z) => this.getBlockAt(x, y, z),
     );
+    this.initialization = this.initialize();
   }
 
   public get summary(): WorldSummary {
@@ -108,6 +117,7 @@ export class AuthoritativeWorld {
     inventory: InventorySnapshot;
     droppedItems: DroppedItemSnapshot[];
   }> {
+    await this.ensureInitialized();
     const joined = await this.playerSystem.joinPlayer(playerName);
     return {
       ...joined,
@@ -132,6 +142,7 @@ export class AuthoritativeWorld {
     coords: ChunkCoord[];
     savedChunks: number;
   }> {
+    await this.ensureInitialized();
     const coords = this.getStartupChunkCoords(position, radius);
     let completedChunks = 0;
 
@@ -141,9 +152,8 @@ export class AuthoritativeWorld {
     });
 
     for (const coord of coords) {
-      const entry = await this.ensureChunkLoaded(coord);
+      const entry = await this.ensureChunkLoaded(coord, { relight: false });
       if (!entry.hasPersistedRecord) {
-        entry.persistBaseline = true;
         entry.saveDirty = true;
       }
 
@@ -154,6 +164,16 @@ export class AuthoritativeWorld {
       });
     }
 
+    for (const coord of this.relightLoadedChunks(true)) {
+      const entry = this.chunks.get(chunkKey(coord));
+      if (!entry) {
+        continue;
+      }
+
+      entry.saveDirty = true;
+      this.chunks.set(chunkKey(coord), entry);
+    }
+
     return {
       coords,
       savedChunks: await this.flushDirtyChunks(true),
@@ -161,6 +181,7 @@ export class AuthoritativeWorld {
   }
 
   public async leavePlayer(entityId: EntityId): Promise<PlayerSnapshot | null> {
+    await this.ensureInitialized();
     return this.playerSystem.leavePlayer(entityId);
   }
 
@@ -169,6 +190,7 @@ export class AuthoritativeWorld {
     state: PlayerState,
     flying: boolean,
   ): Promise<PlayerSnapshot> {
+    await this.ensureInitialized();
     return this.playerSystem.updatePlayerState(entityId, state, flying);
   }
 
@@ -176,10 +198,12 @@ export class AuthoritativeWorld {
     entityId: EntityId,
     gamemode: PlayerGamemode,
   ): Promise<PlayerSnapshot> {
+    await this.ensureInitialized();
     return this.playerSystem.setPlayerGamemode(entityId, gamemode);
   }
 
   public async getChunkPayload(coord: ChunkCoord): Promise<ChunkPayload> {
+    await this.ensureInitialized();
     return this.toChunkPayload((await this.ensureChunkLoaded(coord)).chunk);
   }
 
@@ -188,6 +212,7 @@ export class AuthoritativeWorld {
   }
 
   public async selectInventorySlot(entityId: EntityId, slot: number): Promise<InventorySnapshot> {
+    await this.ensureInitialized();
     return this.playerSystem.selectInventorySlot(entityId, slot);
   }
 
@@ -196,7 +221,17 @@ export class AuthoritativeWorld {
     section: "hotbar" | "main",
     slot: number,
   ): Promise<InventorySnapshot> {
+    await this.ensureInitialized();
     return this.playerSystem.interactInventorySlot(entityId, section, slot);
+  }
+
+  public getWorldTimeState(): WorldTimeState {
+    return this.lightingSystem.getTimeState();
+  }
+
+  public async setWorldTime(time: WorldTimeState): Promise<WorldTimeState> {
+    await this.ensureInitialized();
+    return this.lightingSystem.setTimeState(time);
   }
 
   public async applyBlockMutation(
@@ -206,6 +241,7 @@ export class AuthoritativeWorld {
     worldZ: number,
     blockId: BlockId,
   ): Promise<BlockMutationResult> {
+    await this.ensureInitialized();
     const coords = worldToChunkCoord(worldX, worldY, worldZ);
     if (!WORLD_LAYER_CHUNKS_Y.includes(coords.chunk.y)) {
       return {
@@ -220,6 +256,7 @@ export class AuthoritativeWorld {
     const current = entry.chunk.get(coords.local.x, coords.local.y, coords.local.z);
     let nextInventory = this.playerSystem.getInventorySnapshot(entityId);
     let inventoryChanged = false;
+    let droppedItems = this.createEmptyWorldSimulation();
 
     if (blockId === 0) {
       if (current === 0) {
@@ -242,22 +279,12 @@ export class AuthoritativeWorld {
 
       const droppedItemId = getDroppedItemIdForBlock(current);
       if (isCollectibleBlock(current) && droppedItemId !== null) {
-        const droppedItems = await this.droppedItemSystem.spawnBlockDrop(droppedItemId, 1, [
+        const droppedItemSimulation = await this.droppedItemSystem.spawnBlockDrop(droppedItemId, 1, [
           worldX + 0.5,
           worldY + 0.75,
           worldZ + 0.5,
         ]);
-        entry.chunk.set(coords.local.x, coords.local.y, coords.local.z, blockId);
-        entry.chunk.revision += 1;
-        entry.saveDirty = true;
-
-        const affected = this.getAffectedChunkPayloads(coords.chunk, coords.local.x, coords.local.y, coords.local.z);
-        return {
-          changedChunks: affected,
-          inventory: nextInventory,
-          inventoryChanged,
-          droppedItems: this.toWorldSimulationResult(droppedItems),
-        };
+        droppedItems = this.toWorldSimulationResult(droppedItemSimulation);
       }
     } else {
       if (current !== 0) {
@@ -298,23 +325,31 @@ export class AuthoritativeWorld {
     entry.chunk.revision += 1;
     entry.saveDirty = true;
 
+    const lightingChanged = this.relightLoadedChunks(true);
+    const changedChunks = this.getAffectedChunkPayloads(
+      coords.chunk,
+      coords.local.x,
+      coords.local.y,
+      coords.local.z,
+    );
+    for (const coord of lightingChanged) {
+      this.upsertChunk(changedChunks, this.toChunkPayload(this.chunks.get(chunkKey(coord))!.chunk));
+    }
+
     return {
-      changedChunks: this.getAffectedChunkPayloads(
-        coords.chunk,
-        coords.local.x,
-        coords.local.y,
-        coords.local.z,
-      ),
+      changedChunks,
       inventory: nextInventory,
       inventoryChanged,
-      droppedItems: this.createEmptyWorldSimulation(),
+      droppedItems,
     };
   }
 
   public async save(): Promise<{ world: WorldSummary; savedChunks: number }> {
+    await this.ensureInitialized();
     const savedChunks = await this.flushDirtyChunks(false);
     await this.playerSystem.save();
     await this.droppedItemSystem.save();
+    await this.storage.saveWorldTime(this.world.name, this.lightingSystem.getTimeState());
     this.world = await this.storage.touchWorld(this.world.name, Date.now());
     return {
       world: this.world,
@@ -326,6 +361,7 @@ export class AuthoritativeWorld {
     intents: readonly QueuedGameplayIntent[],
     deltaSeconds: number,
   ): Promise<WorldTickResult> {
+    await this.ensureInitialized();
     const result = createEmptyWorldTickResult();
 
     for (const intent of intents) {
@@ -368,6 +404,7 @@ export class AuthoritativeWorld {
     }
 
     this.mergeSimulationResult(result, await this.stepSimulation(deltaSeconds));
+    result.worldTime = this.lightingSystem.advanceTime(Math.max(1, Math.round(deltaSeconds * 20)));
     return result;
   }
 
@@ -380,7 +417,12 @@ export class AuthoritativeWorld {
     return this.toWorldSimulationResult(result);
   }
 
-  private async ensureChunkLoaded(coord: ChunkCoord): Promise<ServerChunkEntry> {
+  private async ensureChunkLoaded(
+    coord: ChunkCoord,
+    options: {
+      relight?: boolean;
+    } = {},
+  ): Promise<ServerChunkEntry> {
     const key = chunkKey(coord);
     const existing = this.chunks.get(key);
     if (existing) {
@@ -389,24 +431,33 @@ export class AuthoritativeWorld {
 
     const persisted = await this.storage.loadChunk(this.world.name, coord);
     const chunk = persisted ? new Chunk(coord) : createGeneratedChunk(coord, this.world.seed);
-    let persistBaseline = false;
 
     if (persisted) {
-      chunk.replace(persisted.blocks, persisted.revision);
-      chunk.dirty = false;
-      const baseline = createGeneratedChunk(coord, this.world.seed);
-      persistBaseline = chunk.blocks.every(
-        (blockId, index) => blockId === baseline.blocks[index],
+      chunk.replace(
+        persisted.blocks,
+        persisted.revision,
+        persisted.skyLight,
+        persisted.blockLight,
       );
+      chunk.dirty = false;
     }
 
     const entry: ServerChunkEntry = {
       chunk,
       hasPersistedRecord: Boolean(persisted),
-      persistBaseline,
+      hasLightData: persisted?.hasLightData ?? false,
       saveDirty: false,
     };
     this.chunks.set(key, entry);
+    if (options.relight === false) {
+      return entry;
+    }
+
+    const relit = this.relightLoadedChunks(persisted?.hasLightData ?? false);
+    if (persisted && !persisted.hasLightData && relit.some((value) => chunkKey(value) === key)) {
+      entry.saveDirty = true;
+      this.chunks.set(key, entry);
+    }
     return entry;
   }
 
@@ -414,6 +465,8 @@ export class AuthoritativeWorld {
     return {
       coord: chunk.coord,
       blocks: chunk.cloneBlocks(),
+      skyLight: chunk.cloneSkyLight(),
+      blockLight: chunk.cloneBlockLight(),
       revision: chunk.revision,
     };
   }
@@ -609,34 +662,17 @@ export class AuthoritativeWorld {
         continue;
       }
 
-      const baseline = createGeneratedChunk(entry.chunk.coord, this.world.seed);
-      const blocksMatchBaseline = entry.chunk.blocks.every(
-        (blockId, index) => blockId === baseline.blocks[index],
-      );
-
-      if (blocksMatchBaseline) {
-        if (entry.persistBaseline) {
-          await this.storage.saveChunk(this.world.name, {
-            coord: entry.chunk.coord,
-            blocks: entry.chunk.cloneBlocks(),
-            revision: entry.chunk.revision,
-          });
-          entry.hasPersistedRecord = true;
-          savedChunks += 1;
-        } else if (entry.hasPersistedRecord) {
-          await this.storage.deleteChunk(this.world.name, entry.chunk.coord);
-          entry.hasPersistedRecord = false;
-          savedChunks += 1;
-        }
-      } else {
-        await this.storage.saveChunk(this.world.name, {
-          coord: entry.chunk.coord,
-          blocks: entry.chunk.cloneBlocks(),
-          revision: entry.chunk.revision,
-        });
-        entry.hasPersistedRecord = true;
-        savedChunks += 1;
-      }
+      await this.storage.saveChunk(this.world.name, {
+        coord: entry.chunk.coord,
+        blocks: entry.chunk.cloneBlocks(),
+        skyLight: entry.chunk.cloneSkyLight(),
+        blockLight: entry.chunk.cloneBlockLight(),
+        hasLightData: true,
+        revision: entry.chunk.revision,
+      });
+      entry.hasPersistedRecord = true;
+      entry.hasLightData = true;
+      savedChunks += 1;
 
       entry.saveDirty = false;
       this.chunks.set(key, entry);
@@ -647,5 +683,58 @@ export class AuthoritativeWorld {
     }
 
     return savedChunks;
+  }
+
+  private async initialize(): Promise<void> {
+    const storedTime = await this.storage.loadWorldTime(this.world.name);
+    this.lightingSystem.setTimeState(storedTime ?? createDefaultWorldTimeState());
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    await this.initialization;
+  }
+
+  private relightLoadedChunks(persistChanges: boolean): ChunkCoord[] {
+    const loadedChunks = [...this.chunks.values()].map((entry) => entry.chunk);
+    const generatedChunkCache = new Map<string, Chunk>();
+    const changed = this.lightingSystem.relightLoadedChunks(
+      loadedChunks,
+      (worldX, worldY, worldZ) => {
+        const coords = worldToChunkCoord(worldX, worldY, worldZ);
+        if (!WORLD_LAYER_CHUNKS_Y.includes(coords.chunk.y)) {
+          return 0;
+        }
+
+        const loaded = this.chunks.get(chunkKey(coords.chunk));
+        if (loaded) {
+          return loaded.chunk.get(coords.local.x, coords.local.y, coords.local.z);
+        }
+
+        const key = chunkKey(coords.chunk);
+        let generated = generatedChunkCache.get(key);
+        if (!generated) {
+          generated = createGeneratedChunk(coords.chunk, this.world.seed);
+          generatedChunkCache.set(key, generated);
+        }
+
+        return generated.get(coords.local.x, coords.local.y, coords.local.z);
+      },
+    );
+    if (!persistChanges) {
+      return changed;
+    }
+
+    for (const coord of changed) {
+      const entry = this.chunks.get(chunkKey(coord));
+      if (!entry) {
+        continue;
+      }
+
+      entry.saveDirty = true;
+      entry.hasLightData = true;
+      this.chunks.set(chunkKey(coord), entry);
+    }
+
+    return changed;
   }
 }

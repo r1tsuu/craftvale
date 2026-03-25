@@ -10,6 +10,7 @@ import type {
   PlayerSnapshot,
   PlayerState,
 } from "../types.ts";
+import type { WorldTimeState } from "./lighting.ts";
 
 export interface WorldSummary {
   name: string;
@@ -42,6 +43,8 @@ export interface ChunkRequest {
 export interface ChunkPayload {
   coord: ChunkCoord;
   blocks: Uint8Array;
+  skyLight: Uint8Array;
+  blockLight: Uint8Array;
   revision: number;
 }
 
@@ -95,6 +98,7 @@ export interface LoadingProgressPayload {
 
 export interface JoinedWorldPayload {
   world: WorldSummary;
+  worldTime: WorldTimeState;
   clientPlayerName: PlayerName;
   clientPlayer: PlayerSnapshot;
   players: PlayerSnapshot[];
@@ -147,6 +151,7 @@ export interface ServerEventMap {
   playerLeft: { playerEntityId: EntityId; playerName: PlayerName };
   chatMessage: { entry: ChatEntry };
   loadingProgress: LoadingProgressPayload;
+  worldTimeUpdated: { worldTime: WorldTimeState };
   saveStatus: SaveStatusPayload;
   worldDeleted: { name: string };
   serverError: { message: string; requestId?: string };
@@ -234,6 +239,7 @@ const SERVER_EVENT_TYPES = new Set<keyof ServerEventMap>([
   "playerLeft",
   "chatMessage",
   "loadingProgress",
+  "worldTimeUpdated",
   "saveStatus",
   "worldDeleted",
   "serverError",

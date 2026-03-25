@@ -321,6 +321,7 @@ export class GameApp {
         : [];
       const playHud = buildPlayHud(input.windowWidth, input.windowHeight, {
         inventory: worldRuntime.inventory,
+        worldTime: worldRuntime.worldTime,
         inventoryOpen: this.state.inventoryOpen,
         cursorX: input.cursorX,
         cursorY: input.cursorY,
@@ -609,6 +610,9 @@ export class GameApp {
       }),
       adapter.eventBus.on("chatMessage", ({ entry }) => {
         worldRuntime.appendChatMessage(entry);
+      }),
+      adapter.eventBus.on("worldTimeUpdated", ({ worldTime }) => {
+        worldRuntime.applyWorldTime(worldTime);
       }),
       adapter.eventBus.on("loadingProgress", (progress) => {
         this.applyLoadingProgress(progress);
@@ -1526,6 +1530,7 @@ export class GameApp {
       worldRuntime ? [...worldRuntime.players.values()] : [],
       worldRuntime?.clientPlayerEntityId ?? null,
       worldRuntime?.inventory ?? createDefaultInventory(),
+      worldRuntime?.worldTime,
       this.getFirstPersonSwingProgress(),
       this.state.clientSettings.renderDistance,
       framebufferWidth,

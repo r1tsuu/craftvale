@@ -122,7 +122,14 @@ export const createDefaultInventory = (): InventorySnapshot => ({
     itemId,
     count: DEFAULT_INVENTORY_STACK_SIZE,
   })),
-  main: Array.from({ length: MAIN_INVENTORY_SLOT_COUNT }, () => createEmptyInventorySlot()),
+  main: Array.from({ length: MAIN_INVENTORY_SLOT_COUNT }, (_, index) =>
+    index === 0
+      ? {
+          itemId: 110,
+          count: DEFAULT_INVENTORY_STACK_SIZE,
+        }
+      : createEmptyInventorySlot()
+  ),
   selectedSlot: 0,
   cursor: null,
 });

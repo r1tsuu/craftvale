@@ -87,6 +87,10 @@ const library = dlopen(libraryPath, {
     args: [FFIType.i32, FFIType.i32],
     returns: FFIType.void,
   },
+  bridge_gl_uniform1f: {
+    args: [FFIType.i32, FFIType.f32],
+    returns: FFIType.void,
+  },
   bridge_gl_gen_vertex_array: { args: [], returns: FFIType.u32 },
   bridge_gl_gen_buffer: { args: [], returns: FFIType.u32 },
   bridge_gl_gen_texture: { args: [], returns: FFIType.u32 },
@@ -370,6 +374,8 @@ export class NativeBridge {
       library.symbols.bridge_gl_uniform_matrix4fv(location, ptr(value)),
     uniform1i: (location: number, value: number): void =>
       library.symbols.bridge_gl_uniform1i(location, value),
+    uniform1f: (location: number, value: number): void =>
+      library.symbols.bridge_gl_uniform1f(location, value),
     genVertexArray: (): number => library.symbols.bridge_gl_gen_vertex_array(),
     genBuffer: (): number => library.symbols.bridge_gl_gen_buffer(),
     genTexture: (): number => library.symbols.bridge_gl_gen_texture(),

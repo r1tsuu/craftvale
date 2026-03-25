@@ -1,4 +1,5 @@
 import type { ChunkPayload } from "../shared/messages.ts";
+import type { WorldTimeState } from "../shared/lighting.ts";
 import type {
   BlockId,
   DroppedItemSnapshot,
@@ -49,6 +50,7 @@ export interface WorldInventoryUpdate {
 
 export interface WorldTickResult {
   changedChunks: ChunkPayload[];
+  worldTime: WorldTimeState | null;
   inventoryUpdates: WorldInventoryUpdate[];
   playerUpdates: PlayerSnapshot[];
   spawnedDroppedItems: DroppedItemSnapshot[];
@@ -58,6 +60,7 @@ export interface WorldTickResult {
 
 export const createEmptyWorldTickResult = (): WorldTickResult => ({
   changedChunks: [],
+  worldTime: null,
   inventoryUpdates: [],
   playerUpdates: [],
   spawnedDroppedItems: [],

@@ -4,7 +4,7 @@ import { buildChunkMesh } from "../packages/core/src/world/mesher.ts";
 import type { MeshData } from "../packages/core/src/types.ts";
 import { VoxelWorld } from "../packages/core/src/world/world.ts";
 
-const FLOATS_PER_VERTEX = 6;
+const FLOATS_PER_VERTEX = 8;
 const VERTICES_PER_FACE = 4;
 const UV_EPSILON = 1e-6;
 

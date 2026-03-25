@@ -88,6 +88,25 @@ test("play HUD renders the current biome above the hotbar", () => {
   );
 });
 
+test("play HUD renders an authoritative world clock", () => {
+  const hud = buildPlayHud(1280, 720, {
+    inventory: createDefaultInventory(),
+    worldTime: {
+      dayCount: 2,
+      timeOfDayTicks: 18_000,
+    },
+  });
+
+  expect(hud).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "clock-badge-label",
+        text: "DAY 3  18:00",
+      }),
+    ]),
+  );
+});
+
 test("play HUD renders chat and creative mode indicators", () => {
   const hud = buildPlayHud(1280, 720, {
     inventory: createDefaultInventory(),

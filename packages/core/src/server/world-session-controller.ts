@@ -1,4 +1,8 @@
 import {
+  resolveTimesetPreset,
+  setWorldTimeOfDay,
+} from "../shared/lighting.ts";
+import {
   type JoinedWorldPayload,
   type LoadingProgressPayload,
   type SaveStatusPayload,
@@ -129,6 +133,7 @@ export class WorldSessionController implements WorldSessionPeer {
 
     const payload: JoinedWorldPayload = {
       world: world.summary,
+      worldTime: world.getWorldTimeState(),
       clientPlayerName: playerName,
       clientPlayer: joinedPlayer.clientPlayer,
       players: joinedPlayer.players,
@@ -345,6 +350,9 @@ export class WorldSessionController implements WorldSessionPeer {
       case "gamemode":
         await this.handleGamemodeCommand(world, playerEntityId, args);
         return;
+      case "timeset":
+        await this.handleTimesetCommand(world, args);
+        return;
       default:
         this.emitSystemMessage(`Unknown command: ${commandName}`);
     }
@@ -371,6 +379,33 @@ export class WorldSessionController implements WorldSessionPeer {
       gamemode === 1
         ? "Gamemode set to creative."
         : "Gamemode set to normal.",
+    );
+  }
+
+  private async handleTimesetCommand(
+    world: AuthoritativeWorld,
+    args: string[],
+  ): Promise<void> {
+    const [value] = args;
+    if (!value) {
+      this.emitSystemMessage("Usage: /timeset <ticks|sunrise|day|noon|sunset|night|midnight>");
+      return;
+    }
+
+    const presetTicks = resolveTimesetPreset(value);
+    const parsedTicks = presetTicks ?? Number(value);
+    if (!Number.isFinite(parsedTicks)) {
+      this.emitSystemMessage("Usage: /timeset <ticks|sunrise|day|noon|sunset|night|midnight>");
+      return;
+    }
+
+    const worldTime = await world.setWorldTime(setWorldTimeOfDay(parsedTicks));
+    this.host.broadcast({
+      type: "worldTimeUpdated",
+      payload: { worldTime },
+    });
+    this.emitSystemMessage(
+      `Time set to Day ${worldTime.dayCount + 1} ${worldTime.timeOfDayTicks}.`,
     );
   }
 

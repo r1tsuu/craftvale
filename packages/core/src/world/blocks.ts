@@ -19,6 +19,7 @@ export interface BlockDefinition {
   occlusion: BlockOcclusionMode;
   renderPass: BlockRenderPass | null;
   dropItemId: ItemId | null;
+  emittedLightLevel: number;
   color: [number, number, number];
   tiles?: BlockTiles;
 }
@@ -32,6 +33,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     occlusion: "none",
     renderPass: null,
     dropItemId: null,
+    emittedLightLevel: 0,
     color: [0, 0, 0],
   },
   1: {
@@ -42,6 +44,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 101,
+    emittedLightLevel: 0,
     color: [0.42, 0.71, 0.31],
     tiles: {
       top: "grass-top",
@@ -57,6 +60,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 102,
+    emittedLightLevel: 0,
     color: [0.48, 0.34, 0.2],
     tiles: {
       top: "dirt",
@@ -72,6 +76,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 103,
+    emittedLightLevel: 0,
     color: [0.5, 0.5, 0.56],
     tiles: {
       top: "stone",
@@ -87,6 +92,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 104,
+    emittedLightLevel: 0,
     color: [0.48, 0.37, 0.24],
     tiles: {
       top: "log-top",
@@ -102,6 +108,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     occlusion: "self",
     renderPass: "cutout",
     dropItemId: 105,
+    emittedLightLevel: 0,
     color: [0.32, 0.58, 0.22],
     tiles: {
       top: "leaves",
@@ -117,6 +124,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 106,
+    emittedLightLevel: 0,
     color: [0.84, 0.78, 0.52],
     tiles: {
       top: "sand",
@@ -132,6 +140,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 107,
+    emittedLightLevel: 0,
     color: [0.72, 0.55, 0.31],
     tiles: {
       top: "planks",
@@ -147,6 +156,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 108,
+    emittedLightLevel: 0,
     color: [0.58, 0.58, 0.61],
     tiles: {
       top: "cobblestone",
@@ -162,6 +172,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: 109,
+    emittedLightLevel: 0,
     color: [0.69, 0.27, 0.22],
     tiles: {
       top: "brick",
@@ -177,11 +188,28 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     occlusion: "full",
     renderPass: "opaque",
     dropItemId: null,
+    emittedLightLevel: 0,
     color: [0.24, 0.24, 0.27],
     tiles: {
       top: "bedrock",
       bottom: "bedrock",
       side: "bedrock",
+    },
+  },
+  11: {
+    id: 11,
+    name: "glowstone",
+    collidable: true,
+    breakable: true,
+    occlusion: "full",
+    renderPass: "opaque",
+    dropItemId: 110,
+    emittedLightLevel: 15,
+    color: [0.94, 0.79, 0.37],
+    tiles: {
+      top: "glowstone",
+      bottom: "glowstone",
+      side: "glowstone",
     },
   },
 };
@@ -191,6 +219,9 @@ export const isSolidBlock = (blockId: BlockId): boolean => Blocks[blockId].colli
 export const isBreakableBlock = (blockId: BlockId): boolean => Blocks[blockId].breakable;
 
 export const getDroppedItemIdForBlock = (blockId: BlockId): ItemId | null => Blocks[blockId].dropItemId;
+
+export const getBlockEmittedLightLevel = (blockId: BlockId): number =>
+  Blocks[blockId].emittedLightLevel;
 
 export const isCollectibleBlock = (blockId: BlockId): boolean => getDroppedItemIdForBlock(blockId) !== null;
 

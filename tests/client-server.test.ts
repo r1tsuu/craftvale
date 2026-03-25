@@ -85,6 +85,9 @@ const createHarness = async (): Promise<{
   client.eventBus.on("chatMessage", ({ entry }) => {
     worldRuntime.appendChatMessage(entry);
   });
+  client.eventBus.on("worldTimeUpdated", ({ worldTime }) => {
+    worldRuntime.applyWorldTime(worldTime);
+  });
   client.eventBus.on("loadingProgress", (payload) => {
     loadingProgressEvents.push(payload);
   });
@@ -175,7 +178,10 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
       ),
     ).toBe(true);
     expect(
-      harness.worldRuntime.inventory.main.every(
+      harness.worldRuntime.inventory.main[0],
+    ).toEqual({ itemId: 110, count: DEFAULT_INVENTORY_STACK_SIZE });
+    expect(
+      harness.worldRuntime.inventory.main.slice(1).every(
         (slot) => slot.itemId === 0 && slot.count === 0,
       ),
     ).toBe(true);
@@ -223,7 +229,10 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     expect(changedChunkReceived).toBe(true);
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(0);
     expect(
-      harness.worldRuntime.inventory.main.every(
+      harness.worldRuntime.inventory.main[0],
+    ).toEqual({ itemId: 110, count: DEFAULT_INVENTORY_STACK_SIZE });
+    expect(
+      harness.worldRuntime.inventory.main.slice(1).every(
         (slot) => slot.itemId === 0 && slot.count === 0,
       ),
     ).toBe(true);
@@ -279,18 +288,18 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
       type: "interactInventorySlot",
       payload: {
         section: "main",
-        slot: 1,
+        slot: 2,
       },
     });
     await Bun.sleep(SERVER_TICK_WAIT_MS);
     expect(harness.worldRuntime.inventory.cursor).toBeNull();
-    expect(harness.worldRuntime.inventory.main[1]).toEqual({ itemId: 109, count: 64 });
+    expect(harness.worldRuntime.inventory.main[2]).toEqual({ itemId: 109, count: 64 });
 
     harness.client.eventBus.send({
       type: "interactInventorySlot",
       payload: {
         section: "main",
-        slot: 1,
+        slot: 2,
       },
     });
     await Bun.sleep(SERVER_TICK_WAIT_MS);
@@ -351,6 +360,16 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     await Bun.sleep(0);
     expect(harness.worldRuntime.getClientPlayer()?.gamemode).toBe(1);
     expect(harness.worldRuntime.chatMessages.at(-1)?.text).toContain("creative");
+
+    harness.client.eventBus.send({
+      type: "submitChat",
+      payload: {
+        text: "/timeset night",
+      },
+    });
+    await Bun.sleep(0);
+    expect(harness.worldRuntime.worldTime.timeOfDayTicks).toBe(13_000);
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toContain("Time set");
 
     harness.client.eventBus.send({
       type: "submitChat",

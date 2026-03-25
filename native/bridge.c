@@ -346,6 +346,10 @@ void bridge_gl_uniform1i(int location, int value) {
   glUniform1i(location, value);
 }
 
+void bridge_gl_uniform1f(int location, float value) {
+  glUniform1f(location, value);
+}
+
 GLuint bridge_gl_gen_vertex_array(void) {
   GLuint vao = 0;
   glGenVertexArrays(1, &vao);

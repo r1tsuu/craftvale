@@ -8,12 +8,14 @@ import type {
   PlayerName,
   PlayerSnapshot,
   PlayerState,
+  WorldTimeState,
 } from "@craftvale/core/shared";
 import type { ChunkPayload, JoinedWorldPayload } from "@craftvale/core/shared";
 import {
   ACTIVE_CHUNK_RADIUS,
   STARTUP_CHUNK_RADIUS,
   VoxelWorld,
+  createDefaultWorldTimeState,
   createDefaultInventory,
   getChunkCoordsAroundPosition,
   isBreakableBlock,
@@ -26,6 +28,7 @@ const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
 export class ClientWorldRuntime {
   public readonly world = new VoxelWorld();
   public inventory: InventorySnapshot = createDefaultInventory();
+  public worldTime: WorldTimeState = createDefaultWorldTimeState();
   public clientPlayerName: PlayerName | null = null;
   public clientPlayerEntityId: EntityId | null = null;
   public readonly players = new Map<EntityId, PlayerSnapshot>();
@@ -43,6 +46,7 @@ export class ClientWorldRuntime {
   public reset(): void {
     this.world.clear();
     this.inventory = createDefaultInventory();
+    this.worldTime = createDefaultWorldTimeState();
     this.clientPlayerName = null;
     this.clientPlayerEntityId = null;
     this.players.clear();
@@ -54,7 +58,13 @@ export class ClientWorldRuntime {
   }
 
   public applyChunk(chunk: ChunkPayload): void {
-    this.world.replaceChunk(chunk.coord, chunk.blocks, chunk.revision);
+    this.world.replaceChunk(
+      chunk.coord,
+      chunk.blocks,
+      chunk.revision,
+      chunk.skyLight,
+      chunk.blockLight,
+    );
     this.pendingChunkKeys.delete(chunkKey(chunk.coord));
     this.resolveWaiters();
   }
@@ -83,6 +93,10 @@ export class ClientWorldRuntime {
   }
 
   public applyJoinedWorld(joined: JoinedWorldPayload): void {
+    this.worldTime = {
+      dayCount: joined.worldTime.dayCount,
+      timeOfDayTicks: joined.worldTime.timeOfDayTicks,
+    };
     this.clientPlayerName = joined.clientPlayerName;
     this.clientPlayerEntityId = joined.clientPlayer.entityId;
     this.players.clear();
@@ -96,6 +110,13 @@ export class ClientWorldRuntime {
       this.applyDroppedItem(item);
     }
     this.applyInventory(joined.inventory);
+  }
+
+  public applyWorldTime(worldTime: WorldTimeState): void {
+    this.worldTime = {
+      dayCount: worldTime.dayCount,
+      timeOfDayTicks: worldTime.timeOfDayTicks,
+    };
   }
 
   public applyPlayer(player: PlayerSnapshot): void {

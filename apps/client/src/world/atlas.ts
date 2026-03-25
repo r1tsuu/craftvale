@@ -1,6 +1,6 @@
 import { loadBinaryAsset } from "../platform/native.ts";
 import { decodePng } from "../platform/png.ts";
-export {
+import {
   ATLAS_COLUMNS,
   ATLAS_HEIGHT,
   ATLAS_ROWS,
@@ -12,7 +12,18 @@ export {
   type AtlasTileId,
   type AtlasUvRect,
 } from "@craftvale/core/shared";
-import { ATLAS_HEIGHT, ATLAS_WIDTH } from "@craftvale/core/shared";
+export {
+  ATLAS_COLUMNS,
+  ATLAS_HEIGHT,
+  ATLAS_ROWS,
+  ATLAS_TILE_SIZE,
+  ATLAS_WIDTH,
+  AtlasTiles,
+  getAtlasUvRect,
+  type AtlasTileCoord,
+  type AtlasTileId,
+  type AtlasUvRect,
+};
 
 export const VOXEL_ATLAS_ASSET_PATH = "assets/textures/voxel-atlas.png";
 

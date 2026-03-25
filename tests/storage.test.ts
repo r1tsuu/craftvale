@@ -7,6 +7,7 @@ import {
   DedicatedWorldStorage,
   DEDICATED_WORLD_DIRECTORY_NAME,
 } from "../packages/core/src/server/world-storage.ts";
+import { setWorldTimeOfDay } from "../packages/core/src/shared/lighting.ts";
 import { CHUNK_VOLUME } from "../packages/core/src/world/constants.ts";
 
 const PLAYER_A = "Alice";
@@ -41,6 +42,8 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
     await storage.saveChunk("Alpha", {
       coord: { x: 0, y: 0, z: 0 },
       blocks,
+      skyLight: new Uint8Array(CHUNK_VOLUME).fill(15),
+      blockLight: new Uint8Array(CHUNK_VOLUME).fill(2),
       revision: 7,
     });
 
@@ -49,6 +52,15 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
     expect(loaded?.revision).toBe(7);
     expect(loaded?.blocks[0]).toBe(3);
     expect(loaded?.blocks[17]).toBe(2);
+    expect(loaded?.skyLight?.[0]).toBe(15);
+    expect(loaded?.blockLight?.[0]).toBe(2);
+    expect(loaded?.hasLightData).toBe(true);
+
+    await storage.saveWorldTime("Alpha", setWorldTimeOfDay(18_000, 2));
+    await expect(storage.loadWorldTime("Alpha")).resolves.toEqual({
+      dayCount: 2,
+      timeOfDayTicks: 18_000,
+    });
 
     await storage.savePlayer("Alpha", {
       snapshot: {

@@ -95,6 +95,7 @@ export class ServerRuntime {
     this.timer = setInterval(() => {
       void this.processPendingTicks();
     }, this.tickIntervalMs);
+    this.timer.unref?.();
   }
 
   public stop(): void {
@@ -274,6 +275,13 @@ export class ServerRuntime {
   }
 
   private emitTickResult(result: WorldTickResult): void {
+    if (result.worldTime) {
+      this.broadcast({
+        type: "worldTimeUpdated",
+        payload: { worldTime: result.worldTime },
+      });
+    }
+
     for (const chunk of result.changedChunks) {
       this.broadcast({
         type: "chunkChanged",

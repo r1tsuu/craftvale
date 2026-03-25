@@ -1,6 +1,6 @@
 export const ATLAS_TILE_SIZE = 16;
 export const ATLAS_COLUMNS = 4;
-export const ATLAS_ROWS = 3;
+export const ATLAS_ROWS = 4;
 export const ATLAS_WIDTH = ATLAS_TILE_SIZE * ATLAS_COLUMNS;
 export const ATLAS_HEIGHT = ATLAS_TILE_SIZE * ATLAS_ROWS;
 
@@ -16,7 +16,8 @@ export type AtlasTileId =
   | "sand"
   | "planks"
   | "cobblestone"
-  | "brick";
+  | "brick"
+  | "glowstone";
 
 export interface AtlasTileCoord {
   x: number;
@@ -43,6 +44,7 @@ export const AtlasTiles: Record<AtlasTileId, AtlasTileCoord> = {
   cobblestone: { x: 1, y: 2 },
   brick: { x: 2, y: 2 },
   bedrock: { x: 3, y: 2 },
+  glowstone: { x: 0, y: 3 },
 };
 
 const UV_INSET_X = 0.5 / ATLAS_WIDTH;

@@ -57,6 +57,18 @@ export class VoxelWorld {
     return chunk ? chunk.get(coords.local.x, coords.local.y, coords.local.z) : 0;
   }
 
+  public getSkyLight(worldX: number, worldY: number, worldZ: number): number {
+    const coords = worldToChunkCoord(worldX, worldY, worldZ);
+    const chunk = this.getChunk(coords.chunk);
+    return chunk ? chunk.getSkyLight(coords.local.x, coords.local.y, coords.local.z) : 0;
+  }
+
+  public getBlockLight(worldX: number, worldY: number, worldZ: number): number {
+    const coords = worldToChunkCoord(worldX, worldY, worldZ);
+    const chunk = this.getChunk(coords.chunk);
+    return chunk ? chunk.getBlockLight(coords.local.x, coords.local.y, coords.local.z) : 0;
+  }
+
   public setBlock(worldX: number, worldY: number, worldZ: number, blockId: BlockId): void {
     const coords = worldToChunkCoord(worldX, worldY, worldZ);
     const chunk = this.ensureChunk(coords.chunk);
@@ -64,9 +76,15 @@ export class VoxelWorld {
     this.markNeighborBoundaries(coords.chunk, coords.local);
   }
 
-  public replaceChunk(coord: ChunkCoord, blocks: Uint8Array, revision = 0): Chunk {
+  public replaceChunk(
+    coord: ChunkCoord,
+    blocks: Uint8Array,
+    revision = 0,
+    skyLight?: Uint8Array,
+    blockLight?: Uint8Array,
+  ): Chunk {
     const chunk = this.ensureChunk(coord);
-    chunk.replace(blocks, revision);
+    chunk.replace(blocks, revision, skyLight, blockLight);
     this.markAdjacentChunksDirty(coord);
     return chunk;
   }

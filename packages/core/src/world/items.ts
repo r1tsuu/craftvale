@@ -91,6 +91,14 @@ export const Items: Record<ItemId, ItemDefinition> = {
     placesBlockId: 9,
     renderBlockId: 9,
   },
+  110: {
+    id: 110,
+    name: "glowstone",
+    color: [0.94, 0.79, 0.37],
+    maxStackSize: 64,
+    placesBlockId: 11,
+    renderBlockId: 11,
+  },
 };
 
 export const HOTBAR_ITEM_IDS = [
@@ -107,7 +115,7 @@ export const HOTBAR_ITEM_IDS = [
 
 export const isValidItemId = (itemId: number): itemId is ItemId =>
   Number.isInteger(itemId) &&
-  (itemId === 0 || (itemId >= 101 && itemId <= 109));
+  (itemId === 0 || (itemId >= 101 && itemId <= 110));
 
 export const getItemDefinition = (itemId: ItemId): ItemDefinition => Items[itemId];
 

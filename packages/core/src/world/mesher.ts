@@ -121,6 +121,16 @@ interface MeshAccumulator {
   baseIndex: number;
 }
 
+interface FaceLightingDefinition {
+  faceRole: BlockFaceRole;
+  normal: readonly [number, number, number];
+  shade: number;
+  vertices: readonly (readonly [number, number, number])[];
+  uvs: readonly (readonly [number, number])[];
+  skyLight: number;
+  blockLight: number;
+}
+
 const createMeshAccumulator = (): MeshAccumulator => ({
   vertices: [],
   indices: [],
@@ -145,7 +155,7 @@ const pushFace = (
   worldX: number,
   worldY: number,
   worldZ: number,
-  face: (typeof FACE_DEFINITIONS)[number],
+  face: FaceLightingDefinition,
 ): void => {
   const tile = getBlockFaceTile(blockId, face.faceRole as BlockFaceRole);
   if (!tile) {
@@ -168,6 +178,8 @@ const pushFace = (
       atlasU,
       atlasV,
       shade,
+      face.skyLight,
+      face.blockLight,
     );
   }
 
@@ -222,7 +234,14 @@ export const buildChunkMesh = (
             continue;
           }
 
-          pushFace(targetMesh, blockId, worldX, worldY, worldZ, face);
+          const skyLight = world.getSkyLight(worldX + dx, worldY + dy, worldZ + dz);
+          const blockLight = world.getBlockLight(worldX + dx, worldY + dy, worldZ + dz);
+
+          pushFace(targetMesh, blockId, worldX, worldY, worldZ, {
+            ...face,
+            skyLight,
+            blockLight,
+          });
         }
       }
     }
