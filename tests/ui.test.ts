@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createButton, createSlider, evaluateUi } from "../apps/client/src/ui/components.ts";
+import { insetRect, stackX, stackY } from "../apps/client/src/ui/layout.ts";
 
 test("button triggers action when primary press lands inside bounds", () => {
   const button = createButton({
@@ -140,5 +141,48 @@ test("slider clamps values at the min and max edges", () => {
   ]);
   expect(insideHighEvaluation.sliderChanges).toEqual([
     { action: "set-setting:renderDistance", value: 8 },
+  ]);
+});
+
+test("layout helpers inset and stack rects predictably", () => {
+  const inset = insetRect({ x: 100, y: 80, width: 300, height: 200 }, {
+    top: 10,
+    right: 20,
+    bottom: 30,
+    left: 40,
+  });
+  const column = stackY(
+    { x: 20, y: 40, width: 200, height: 200 },
+    [
+      { width: 120, height: 24 },
+      { width: 80, height: 40 },
+    ],
+    12,
+    "center",
+  );
+  const row = stackX(
+    { x: 10, y: 12, width: 300, height: 40 },
+    [
+      { width: 90 },
+      {},
+      { width: 60 },
+    ],
+    10,
+  );
+
+  expect(inset).toEqual({
+    x: 140,
+    y: 90,
+    width: 240,
+    height: 160,
+  });
+  expect(column).toEqual([
+    { x: 60, y: 40, width: 120, height: 24 },
+    { x: 80, y: 76, width: 80, height: 40 },
+  ]);
+  expect(row).toEqual([
+    { x: 10, y: 12, width: 90, height: 40 },
+    { x: 110, y: 12, width: 130, height: 40 },
+    { x: 250, y: 12, width: 60, height: 40 },
   ]);
 });

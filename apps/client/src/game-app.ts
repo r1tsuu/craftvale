@@ -1291,7 +1291,7 @@ export class GameApp {
     }
 
     if (action === "pause-exit-to-menu") {
-      await this.exitToMainMenu("RETURNED TO MENU");
+      await this.exitToMainMenu("Returned to title screen");
       return;
     }
 

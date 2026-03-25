@@ -30,7 +30,8 @@ const getButtonActions = (components: ReturnType<typeof buildMainMenu>): string[
     .map((component) => component.action);
 
 test("play screen centers on play and quit actions", () => {
-  const actions = getButtonActions(buildMainMenu(1280, 720, createViewModel({ activeScreen: "play" })));
+  const components = buildMainMenu(1280, 720, createViewModel({ activeScreen: "play" }));
+  const actions = getButtonActions(components);
 
   expect(actions).toContain("open-worlds");
   expect(actions).toContain("open-multiplayer");
@@ -38,6 +39,12 @@ test("play screen centers on play and quit actions", () => {
   expect(actions).toContain("quit-game");
   expect(actions).not.toContain("create-world");
   expect(actions).not.toContain("join-world");
+
+  const quitButton = components.find((component) => component.id === "quit-button");
+  const statusPanel = components.find((component) => component.id === "menu-status-panel");
+  expect(quitButton?.kind).toBe("button");
+  expect(statusPanel?.kind).toBe("panel");
+  expect(statusPanel?.rect.y).toBeGreaterThan((quitButton?.rect.y ?? 0) + (quitButton?.rect.height ?? 0));
 });
 
 test("multiplayer screen exposes saved-server actions", () => {

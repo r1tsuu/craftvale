@@ -295,6 +295,13 @@ test("play HUD renders a pause menu overlay over gameplay", () => {
       }),
     ]),
   );
+
+  const resumeButton = hud.find((component) => component.id === "pause-resume-button");
+  const settingsButton = hud.find((component) => component.id === "pause-settings-button");
+  const exitButton = hud.find((component) => component.id === "pause-exit-button");
+  expect(settingsButton?.rect.y).toBe((resumeButton?.rect.y ?? 0) + (resumeButton?.rect.height ?? 0) + 18);
+  expect(exitButton?.rect.y).toBe((settingsButton?.rect.y ?? 0) + (settingsButton?.rect.height ?? 0) + 18);
+  expect(hud.some((component) => component.id === "pause-status-label")).toBe(false);
 });
 
 test("play HUD reuses the settings panel from pause context", () => {

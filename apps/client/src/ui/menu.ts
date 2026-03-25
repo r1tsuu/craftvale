@@ -13,7 +13,9 @@ import {
   createPanel,
   createSlider,
   type UiComponent,
+  type UiRect,
 } from "./components.ts";
+import { centerRect, insetRect, stackX, stackY } from "./layout.ts";
 
 export interface MainMenuViewModel {
   activeScreen: MenuScreen;
@@ -201,6 +203,81 @@ const formatInputValue = (
 
 const formatToggleValue = (enabled: boolean): string => (enabled ? "ON" : "OFF");
 
+const SHELL_SHADOW_SIZE = 10;
+const SHELL_FRAME_SIZE = 4;
+const SHELL_PADDING = {
+  top: 26,
+  right: 36,
+  bottom: 28,
+  left: 36,
+};
+const SHELL_HEADER_GAP = 2;
+const SHELL_SECTION_GAP = 24;
+const SHELL_STATUS_HEIGHT = 38;
+const SHELL_FOOTER_GAP = 18;
+const STATUS_BAR_PADDING_X = 14;
+
+interface ScreenShell {
+  panelRect: UiRect;
+  contentRect: UiRect;
+  bodyRect: UiRect;
+  footerRect: UiRect;
+  panelX: number;
+  panelY: number;
+  components: UiComponent[];
+}
+
+interface ShellPalette {
+  shadow: readonly [number, number, number, number?];
+  frame: readonly [number, number, number, number?];
+  panel: readonly [number, number, number, number?];
+  title: readonly [number, number, number, number?];
+  subtitle: readonly [number, number, number, number?];
+}
+
+const DEFAULT_SHELL_PALETTE: ShellPalette = {
+  shadow: [0.08, 0.09, 0.1],
+  frame: [0.22, 0.23, 0.24],
+  panel: [0.16, 0.18, 0.2],
+  title: [0.98, 0.98, 0.98],
+  subtitle: [0.82, 0.86, 0.89],
+};
+
+const buildFramedPanel = (
+  idPrefix: string,
+  panelRect: UiRect,
+  palette: ShellPalette,
+): UiComponent[] => [
+  createPanel({
+    id: `${idPrefix}-shadow`,
+    kind: "panel",
+    rect: {
+      x: panelRect.x - SHELL_SHADOW_SIZE,
+      y: panelRect.y - SHELL_SHADOW_SIZE,
+      width: panelRect.width + SHELL_SHADOW_SIZE * 2,
+      height: panelRect.height + SHELL_SHADOW_SIZE * 2,
+    },
+    color: palette.shadow,
+  }),
+  createPanel({
+    id: `${idPrefix}-frame`,
+    kind: "panel",
+    rect: {
+      x: panelRect.x - SHELL_FRAME_SIZE,
+      y: panelRect.y - SHELL_FRAME_SIZE,
+      width: panelRect.width + SHELL_FRAME_SIZE * 2,
+      height: panelRect.height + SHELL_FRAME_SIZE * 2,
+    },
+    color: palette.frame,
+  }),
+  createPanel({
+    id: `${idPrefix}-panel`,
+    kind: "panel",
+    rect: panelRect,
+    color: palette.panel,
+  }),
+];
+
 const buildMenuShell = (
   width: number,
   height: number,
@@ -209,82 +286,136 @@ const buildMenuShell = (
   seed: number,
   panelWidth: number,
   panelHeight: number,
-): {
-  components: UiComponent[];
-  panelX: number;
-  panelY: number;
-} => {
-  const panelX = Math.round((width - panelWidth) / 2);
-  const panelY = Math.round((height - panelHeight) / 2);
+  options?: {
+    idPrefix?: string;
+    backgroundComponents?: UiComponent[];
+    footerHeight?: number;
+    palette?: ShellPalette;
+  },
+): ScreenShell => {
+  const idPrefix = options?.idPrefix ?? "menu";
+  const footerHeight = options?.footerHeight ?? SHELL_STATUS_HEIGHT;
+  const palette = options?.palette ?? DEFAULT_SHELL_PALETTE;
+  const viewportRect = { x: 0, y: 0, width, height };
+  const panelRect = centerRect(viewportRect, panelWidth, panelHeight);
+  const contentRect = insetRect(panelRect, SHELL_PADDING);
+  const [titleRect, subtitleRect] = stackY(
+    {
+      x: contentRect.x,
+      y: contentRect.y,
+      width: contentRect.width,
+      height: 58 + SHELL_HEADER_GAP + 30,
+    },
+    [
+      { height: 58 },
+      { height: 30 },
+    ],
+    SHELL_HEADER_GAP,
+  );
+  const footerRect = {
+    x: contentRect.x,
+    y: panelRect.y + panelRect.height - SHELL_PADDING.bottom - footerHeight,
+    width: contentRect.width,
+    height: footerHeight,
+  };
+  const bodyTop = subtitleRect.y + subtitleRect.height + SHELL_SECTION_GAP;
+  const bodyBottom = footerHeight > 0
+    ? footerRect.y - SHELL_FOOTER_GAP
+    : panelRect.y + panelRect.height - SHELL_PADDING.bottom;
+  const bodyRect = {
+    x: contentRect.x,
+    y: bodyTop,
+    width: contentRect.width,
+    height: Math.max(0, bodyBottom - bodyTop),
+  };
 
   return {
-    panelX,
-    panelY,
+    panelRect,
+    contentRect,
+    bodyRect,
+    footerRect,
+    panelX: panelRect.x,
+    panelY: panelRect.y,
     components: [
-      ...buildVoxelBackdrop(width, height, seed),
-      createPanel({
-        id: "menu-shadow",
-        kind: "panel",
-        rect: {
-          x: panelX - 10,
-          y: panelY - 10,
-          width: panelWidth + 20,
-          height: panelHeight + 20,
-        },
-        color: [0.08, 0.09, 0.1],
-      }),
-      createPanel({
-        id: "menu-frame",
-        kind: "panel",
-        rect: {
-          x: panelX - 4,
-          y: panelY - 4,
-          width: panelWidth + 8,
-          height: panelHeight + 8,
-        },
-        color: [0.22, 0.23, 0.24],
-      }),
-      createPanel({
-        id: "menu-panel",
-        kind: "panel",
-        rect: {
-          x: panelX,
-          y: panelY,
-          width: panelWidth,
-          height: panelHeight,
-        },
-        color: [0.16, 0.18, 0.2],
-      }),
+      ...(options?.backgroundComponents ?? buildVoxelBackdrop(width, height, seed)),
+      ...buildFramedPanel(idPrefix, panelRect, palette),
       createLabel({
-        id: "menu-title",
+        id: `${idPrefix}-title`,
         kind: "label",
-        rect: {
-          x: panelX + 30,
-          y: panelY + 26,
-          width: panelWidth - 60,
-          height: 58,
-        },
+        rect: titleRect,
         text: title,
         scale: 5,
-        color: [0.98, 0.98, 0.98],
+        color: palette.title,
         centered: true,
       }),
       createLabel({
-        id: "menu-subtitle",
+        id: `${idPrefix}-subtitle`,
         kind: "label",
-        rect: {
-          x: panelX + 30,
-          y: panelY + 86,
-          width: panelWidth - 60,
-          height: 30,
-        },
+        rect: subtitleRect,
         text: subtitle,
         scale: 2,
-        color: [0.82, 0.86, 0.89],
+        color: palette.subtitle,
         centered: true,
       }),
     ],
   };
+};
+
+const buildStatusBar = (
+  idPrefix: string,
+  rect: UiRect,
+  text: string,
+  busy: boolean,
+  centered = true,
+): UiComponent[] => {
+  if (!text) {
+    return [];
+  }
+
+  const innerRect = insetRect(rect, 2);
+  const accentColor: readonly [number, number, number] = busy
+    ? [0.56, 0.46, 0.15]
+    : [0.2, 0.35, 0.48];
+
+  return [
+    createPanel({
+      id: `${idPrefix}-status-frame`,
+      kind: "panel",
+      rect,
+      color: [0.11, 0.12, 0.13, 0.95],
+    }),
+    createPanel({
+      id: `${idPrefix}-status-panel`,
+      kind: "panel",
+      rect: innerRect,
+      color: [0.2, 0.22, 0.24, 0.96],
+    }),
+    createPanel({
+      id: `${idPrefix}-status-accent`,
+      kind: "panel",
+      rect: {
+        x: innerRect.x,
+        y: innerRect.y,
+        width: 6,
+        height: innerRect.height,
+      },
+      color: accentColor,
+    }),
+    createLabel({
+      id: `${idPrefix}-status-label`,
+      kind: "label",
+      rect: insetRect(innerRect, {
+        top: 8,
+        right: STATUS_BAR_PADDING_X,
+        bottom: 8,
+        left: STATUS_BAR_PADDING_X + 8,
+      }),
+      text,
+      scale: 2,
+      color: busy ? [0.96, 0.86, 0.56] : [0.88, 0.91, 0.94],
+      centered,
+    }),
+  ];
 };
 
 const buildPlayMenu = (
@@ -294,7 +425,7 @@ const buildPlayMenu = (
   seed: number,
 ): UiComponent[] => {
   const panelWidth = 620;
-  const panelHeight = 460;
+  const panelHeight = 560;
   const shell = buildMenuShell(
     width,
     height,
@@ -304,21 +435,29 @@ const buildPlayMenu = (
     panelWidth,
     panelHeight,
   );
-  const buttonWidth = 320;
-  const buttonHeight = 56;
-  const buttonX = shell.panelX + Math.round((panelWidth - buttonWidth) / 2);
+  const [labelRect, ...buttonRects] = stackY(
+    insetRect(shell.bodyRect, {
+      top: 6,
+      left: 28,
+      right: 28,
+    }),
+    [
+      { width: shell.bodyRect.width - 56, height: 34 },
+      { width: 320, height: 56 },
+      { width: 320, height: 56 },
+      { width: 320, height: 56 },
+      { width: 320, height: 56 },
+    ],
+    18,
+    "center",
+  );
 
   return [
     ...shell.components,
     createLabel({
       id: "play-screen-label",
       kind: "label",
-      rect: {
-        x: shell.panelX + 70,
-        y: shell.panelY + 140,
-        width: panelWidth - 140,
-        height: 34,
-      },
+      rect: labelRect,
       text: "CHOOSE SINGLEPLAYER OR MULTIPLAYER",
       scale: 2,
       color: [0.9, 0.92, 0.95],
@@ -327,12 +466,7 @@ const buildPlayMenu = (
     createButton({
       id: "singleplayer-button",
       kind: "button",
-      rect: {
-        x: buttonX,
-        y: shell.panelY + 168,
-        width: buttonWidth,
-        height: buttonHeight,
-      },
+      rect: buttonRects[0],
       text: "SINGLEPLAYER",
       action: "open-worlds",
       scale: 3,
@@ -342,12 +476,7 @@ const buildPlayMenu = (
     createButton({
       id: "multiplayer-button",
       kind: "button",
-      rect: {
-        x: buttonX,
-        y: shell.panelY + 242,
-        width: buttonWidth,
-        height: buttonHeight,
-      },
+      rect: buttonRects[1],
       text: "MULTIPLAYER",
       action: "open-multiplayer",
       scale: 3,
@@ -357,12 +486,7 @@ const buildPlayMenu = (
     createButton({
       id: "settings-button",
       kind: "button",
-      rect: {
-        x: buttonX,
-        y: shell.panelY + 316,
-        width: buttonWidth,
-        height: buttonHeight,
-      },
+      rect: buttonRects[2],
       text: "SETTINGS",
       action: "open-settings",
       scale: 3,
@@ -372,41 +496,34 @@ const buildPlayMenu = (
     createButton({
       id: "quit-button",
       kind: "button",
-      rect: {
-        x: buttonX,
-        y: shell.panelY + 390,
-        width: buttonWidth,
-        height: buttonHeight,
-      },
+      rect: buttonRects[3],
       text: "QUIT GAME",
       action: "quit-game",
       scale: 3,
       variant: "secondary",
     }),
-    createLabel({
-      id: "status-label",
-      kind: "label",
-      rect: {
-        x: shell.panelX + 36,
-        y: shell.panelY + 432,
-        width: panelWidth - 72,
-        height: 24,
-      },
-      text: viewModel.statusText,
-      scale: 2,
-      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
-      centered: true,
-    }),
+    ...buildStatusBar("menu", shell.footerRect, viewModel.statusText, viewModel.busy),
   ];
 };
 
 const buildWorldList = (
   viewModel: MainMenuViewModel,
-  listX: number,
-  listY: number,
-  listWidth: number,
+  listRect: UiRect,
 ): UiComponent[] => {
   const visibleWorlds = viewModel.worlds.slice(0, 6);
+  const itemArea = insetRect(listRect, {
+    top: 56,
+    right: 22,
+    bottom: 20,
+    left: 22,
+  });
+  const rowRects = stackY(
+    itemArea,
+    visibleWorlds.map(() => ({
+      height: 48,
+    })),
+    12,
+  );
 
   if (visibleWorlds.length === 0) {
     return [
@@ -414,9 +531,9 @@ const buildWorldList = (
         id: "world-empty",
         kind: "label",
         rect: {
-          x: listX + 30,
-          y: listY + 92,
-          width: listWidth - 60,
+          x: listRect.x + 30,
+          y: listRect.y + 92,
+          width: listRect.width - 60,
           height: 40,
         },
         text: "NO WORLDS YET",
@@ -428,9 +545,9 @@ const buildWorldList = (
         id: "world-empty-hint",
         kind: "label",
         rect: {
-          x: listX + 30,
-          y: listY + 136,
-          width: listWidth - 60,
+          x: listRect.x + 30,
+          y: listRect.y + 136,
+          width: listRect.width - 60,
           height: 26,
         },
         text: "CREATE ONE TO START PLAYING",
@@ -446,12 +563,7 @@ const buildWorldList = (
     return createButton({
       id: `world-${index}`,
       kind: "button",
-      rect: {
-        x: listX + 22,
-        y: listY + 56 + index * 60,
-        width: listWidth - 44,
-        height: 48,
-      },
+      rect: rowRects[index]!,
       text: `${selected ? "> " : ""}${world.name}   SEED ${world.seed}`,
       action: `select-world:${world.name}`,
       scale: 2,
@@ -468,7 +580,7 @@ const buildWorldsMenu = (
   seed: number,
 ): UiComponent[] => {
   const panelWidth = 980;
-  const panelHeight = 570;
+  const panelHeight = 650;
   const shell = buildMenuShell(
     width,
     height,
@@ -478,12 +590,34 @@ const buildWorldsMenu = (
     panelWidth,
     panelHeight,
   );
-  const listX = shell.panelX + 36;
-  const listY = shell.panelY + 132;
-  const listWidth = 540;
-  const sideX = shell.panelX + 608;
-  const buttonWidth = 320;
-  const buttonHeight = 52;
+  const [listRect, sideRect] = stackX(
+    shell.bodyRect,
+    [
+      { width: 540 },
+      {},
+    ],
+    32,
+  );
+  const sideContentRect = insetRect(sideRect, 20);
+  const [selectionTitleRect, selectionNameRect, selectionSeedRect, joinRect, createRect, utilityRowRect] = stackY(
+    {
+      x: sideContentRect.x,
+      y: sideContentRect.y,
+      width: sideContentRect.width,
+      height: sideContentRect.height,
+    },
+    [
+      { height: 24 },
+      { height: 44 },
+      { height: 24 },
+      { height: 52 },
+      { height: 52 },
+      { height: 52 },
+    ],
+    10,
+  );
+  const [refreshRect, deleteRect] = stackX(utilityRowRect, [{}, {}], 16);
+  const [backRect, statusRect] = stackX(shell.footerRect, [{ width: 200 }, {}], 18);
   const selectedWorld = viewModel.worlds.find((world) => world.name === viewModel.selectedWorldName) ?? null;
 
   return [
@@ -491,32 +625,22 @@ const buildWorldsMenu = (
     createPanel({
       id: "world-list-frame",
       kind: "panel",
-      rect: {
-        x: listX,
-        y: listY,
-        width: listWidth,
-        height: 364,
-      },
+      rect: listRect,
       color: [0.11, 0.12, 0.13],
     }),
     createPanel({
       id: "world-list-panel",
       kind: "panel",
-      rect: {
-        x: listX + 4,
-        y: listY + 4,
-        width: listWidth - 8,
-        height: 356,
-      },
+      rect: insetRect(listRect, 4),
       color: [0.24, 0.26, 0.28],
     }),
     createLabel({
       id: "world-list-title",
       kind: "label",
       rect: {
-        x: listX + 22,
-        y: listY + 18,
-        width: listWidth - 44,
+        x: listRect.x + 22,
+        y: listRect.y + 18,
+        width: listRect.width - 44,
         height: 24,
       },
       text: "YOUR WORLDS",
@@ -524,27 +648,17 @@ const buildWorldsMenu = (
       color: [0.94, 0.95, 0.96],
       centered: false,
     }),
-    ...buildWorldList(viewModel, listX, listY, listWidth),
+    ...buildWorldList(viewModel, listRect),
     createPanel({
       id: "world-side-panel",
       kind: "panel",
-      rect: {
-        x: sideX,
-        y: listY,
-        width: 336,
-        height: 364,
-      },
+      rect: sideRect,
       color: [0.19, 0.2, 0.22],
     }),
     createLabel({
       id: "world-selection-title",
       kind: "label",
-      rect: {
-        x: sideX + 20,
-        y: listY + 18,
-        width: 296,
-        height: 24,
-      },
+      rect: selectionTitleRect,
       text: "FOCUSED WORLD",
       scale: 3,
       color: [0.94, 0.95, 0.96],
@@ -553,12 +667,7 @@ const buildWorldsMenu = (
     createLabel({
       id: "world-selection-name",
       kind: "label",
-      rect: {
-        x: sideX + 20,
-        y: listY + 64,
-        width: 296,
-        height: 44,
-      },
+      rect: selectionNameRect,
       text: selectedWorld?.name ?? "CLICK A WORLD",
       scale: 3,
       color: selectedWorld ? [0.98, 0.95, 0.76] : [0.8, 0.84, 0.88],
@@ -567,12 +676,7 @@ const buildWorldsMenu = (
     createLabel({
       id: "world-selection-seed",
       kind: "label",
-      rect: {
-        x: sideX + 20,
-        y: listY + 112,
-        width: 296,
-        height: 24,
-      },
+      rect: selectionSeedRect,
       text: selectedWorld ? `SEED ${selectedWorld.seed}` : "FOCUS ONE WITH A MOUSE CLICK",
       scale: 2,
       color: [0.84, 0.88, 0.91],
@@ -581,12 +685,7 @@ const buildWorldsMenu = (
     createButton({
       id: "join-button",
       kind: "button",
-      rect: {
-        x: sideX + 8,
-        y: listY + 166,
-        width: buttonWidth,
-        height: buttonHeight,
-      },
+      rect: joinRect,
       text: viewModel.busy ? "JOINING..." : "PLAY SELECTED WORLD",
       action: "join-world",
       scale: 2,
@@ -596,12 +695,7 @@ const buildWorldsMenu = (
     createButton({
       id: "create-button",
       kind: "button",
-      rect: {
-        x: sideX + 8,
-        y: listY + 230,
-        width: buttonWidth,
-        height: buttonHeight,
-      },
+      rect: createRect,
       text: "CREATE WORLD",
       action: "open-create-world",
       scale: 3,
@@ -611,12 +705,7 @@ const buildWorldsMenu = (
     createButton({
       id: "refresh-button",
       kind: "button",
-      rect: {
-        x: sideX + 8,
-        y: listY + 294,
-        width: 152,
-        height: buttonHeight,
-      },
+      rect: refreshRect,
       text: "REFRESH",
       action: "refresh-worlds",
       scale: 2,
@@ -626,12 +715,7 @@ const buildWorldsMenu = (
     createButton({
       id: "delete-button",
       kind: "button",
-      rect: {
-        x: sideX + 176,
-        y: listY + 294,
-        width: 152,
-        height: buttonHeight,
-      },
+      rect: deleteRect,
       text: "DELETE",
       action: "delete-world",
       scale: 2,
@@ -641,42 +725,35 @@ const buildWorldsMenu = (
     createButton({
       id: "back-button",
       kind: "button",
-      rect: {
-        x: shell.panelX + 36,
-        y: shell.panelY + 514,
-        width: 200,
-        height: 42,
-      },
+      rect: backRect,
       text: "BACK",
       action: "back-to-play",
       scale: 2,
       variant: "secondary",
       disabled: viewModel.busy,
     }),
-    createLabel({
-      id: "status-label",
-      kind: "label",
-      rect: {
-        x: shell.panelX + 254,
-        y: shell.panelY + 514,
-        width: panelWidth - 290,
-        height: 42,
-      },
-      text: viewModel.statusText,
-      scale: 2,
-      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
-      centered: false,
-    }),
+    ...buildStatusBar("menu", statusRect, viewModel.statusText, viewModel.busy, false),
   ];
 };
 
 const buildServerList = (
   viewModel: MainMenuViewModel,
-  listX: number,
-  listY: number,
-  listWidth: number,
+  listRect: UiRect,
 ): UiComponent[] => {
   const visibleServers = viewModel.servers.slice(0, 6);
+  const itemArea = insetRect(listRect, {
+    top: 56,
+    right: 22,
+    bottom: 20,
+    left: 22,
+  });
+  const rowRects = stackY(
+    itemArea,
+    visibleServers.map(() => ({
+      height: 48,
+    })),
+    12,
+  );
 
   if (visibleServers.length === 0) {
     return [
@@ -684,9 +761,9 @@ const buildServerList = (
         id: "server-empty",
         kind: "label",
         rect: {
-          x: listX + 30,
-          y: listY + 92,
-          width: listWidth - 60,
+          x: listRect.x + 30,
+          y: listRect.y + 92,
+          width: listRect.width - 60,
           height: 40,
         },
         text: "NO SAVED SERVERS",
@@ -698,9 +775,9 @@ const buildServerList = (
         id: "server-empty-hint",
         kind: "label",
         rect: {
-          x: listX + 30,
-          y: listY + 136,
-          width: listWidth - 60,
+          x: listRect.x + 30,
+          y: listRect.y + 136,
+          width: listRect.width - 60,
           height: 26,
         },
         text: "ADD ONE TO START PLAYING ONLINE",
@@ -713,17 +790,13 @@ const buildServerList = (
 
   return visibleServers.flatMap((server, index) => {
     const selected = server.id === viewModel.selectedServerId;
-    const rowY = listY + 56 + index * 60;
+    const rowRect = rowRects[index]!;
+    const [mainRect, deleteRect] = stackX(rowRect, [{}, { width: 70 }], 14);
     return [
       createButton({
         id: `server-${index}`,
         kind: "button",
-        rect: {
-          x: listX + 22,
-          y: rowY,
-          width: listWidth - 126,
-          height: 48,
-        },
+        rect: mainRect,
         text: `${selected ? "> " : ""}${server.name}   ${server.address}`,
         action: `select-server:${server.id}`,
         scale: 2,
@@ -733,12 +806,7 @@ const buildServerList = (
       createButton({
         id: `server-delete-${index}`,
         kind: "button",
-        rect: {
-          x: listX + listWidth - 92,
-          y: rowY,
-          width: 70,
-          height: 48,
-        },
+        rect: deleteRect,
         text: "X",
         action: `delete-server:${server.id}`,
         scale: 3,
@@ -756,7 +824,7 @@ const buildMultiplayerMenu = (
   seed: number,
 ): UiComponent[] => {
   const panelWidth = 980;
-  const panelHeight = 570;
+  const panelHeight = 650;
   const shell = buildMenuShell(
     width,
     height,
@@ -766,12 +834,27 @@ const buildMultiplayerMenu = (
     panelWidth,
     panelHeight,
   );
-  const listX = shell.panelX + 36;
-  const listY = shell.panelY + 132;
-  const listWidth = 540;
-  const sideX = shell.panelX + 608;
-  const buttonWidth = 320;
-  const buttonHeight = 52;
+  const [listRect, sideRect] = stackX(
+    shell.bodyRect,
+    [
+      { width: 540 },
+      {},
+    ],
+    32,
+  );
+  const sideContentRect = insetRect(sideRect, 20);
+  const [selectionTitleRect, selectionNameRect, selectionAddressRect, joinRect, addRect] = stackY(
+    sideContentRect,
+    [
+      { height: 24 },
+      { height: 44 },
+      { height: 24 },
+      { height: 52 },
+      { height: 52 },
+    ],
+    20,
+  );
+  const [backRect, statusRect] = stackX(shell.footerRect, [{ width: 200 }, {}], 18);
   const selectedServer = viewModel.servers.find((server) => server.id === viewModel.selectedServerId) ?? null;
 
   return [
@@ -779,32 +862,22 @@ const buildMultiplayerMenu = (
     createPanel({
       id: "server-list-frame",
       kind: "panel",
-      rect: {
-        x: listX,
-        y: listY,
-        width: listWidth,
-        height: 364,
-      },
+      rect: listRect,
       color: [0.11, 0.12, 0.13],
     }),
     createPanel({
       id: "server-list-panel",
       kind: "panel",
-      rect: {
-        x: listX + 4,
-        y: listY + 4,
-        width: listWidth - 8,
-        height: 356,
-      },
+      rect: insetRect(listRect, 4),
       color: [0.24, 0.26, 0.28],
     }),
     createLabel({
       id: "server-list-title",
       kind: "label",
       rect: {
-        x: listX + 22,
-        y: listY + 18,
-        width: listWidth - 44,
+        x: listRect.x + 22,
+        y: listRect.y + 18,
+        width: listRect.width - 44,
         height: 24,
       },
       text: "SAVED SERVERS",
@@ -812,27 +885,17 @@ const buildMultiplayerMenu = (
       color: [0.94, 0.95, 0.96],
       centered: false,
     }),
-    ...buildServerList(viewModel, listX, listY, listWidth),
+    ...buildServerList(viewModel, listRect),
     createPanel({
       id: "server-side-panel",
       kind: "panel",
-      rect: {
-        x: sideX,
-        y: listY,
-        width: 336,
-        height: 364,
-      },
+      rect: sideRect,
       color: [0.19, 0.2, 0.22],
     }),
     createLabel({
       id: "server-selection-title",
       kind: "label",
-      rect: {
-        x: sideX + 20,
-        y: listY + 18,
-        width: 296,
-        height: 24,
-      },
+      rect: selectionTitleRect,
       text: "SELECTED SERVER",
       scale: 3,
       color: [0.94, 0.95, 0.96],
@@ -841,12 +904,7 @@ const buildMultiplayerMenu = (
     createLabel({
       id: "server-selection-name",
       kind: "label",
-      rect: {
-        x: sideX + 20,
-        y: listY + 64,
-        width: 296,
-        height: 44,
-      },
+      rect: selectionNameRect,
       text: selectedServer?.name ?? "CLICK A SERVER",
       scale: 3,
       color: selectedServer ? [0.98, 0.95, 0.76] : [0.8, 0.84, 0.88],
@@ -855,12 +913,7 @@ const buildMultiplayerMenu = (
     createLabel({
       id: "server-selection-address",
       kind: "label",
-      rect: {
-        x: sideX + 20,
-        y: listY + 112,
-        width: 296,
-        height: 24,
-      },
+      rect: selectionAddressRect,
       text: selectedServer?.address ?? "SELECT ONE FROM THE LEFT",
       scale: 2,
       color: [0.84, 0.88, 0.91],
@@ -869,12 +922,7 @@ const buildMultiplayerMenu = (
     createButton({
       id: "join-server-button",
       kind: "button",
-      rect: {
-        x: sideX + 8,
-        y: listY + 166,
-        width: buttonWidth,
-        height: buttonHeight,
-      },
+      rect: joinRect,
       text: viewModel.busy ? "CONNECTING..." : "JOIN SERVER",
       action: "join-server",
       scale: 3,
@@ -884,12 +932,7 @@ const buildMultiplayerMenu = (
     createButton({
       id: "open-add-server-button",
       kind: "button",
-      rect: {
-        x: sideX + 8,
-        y: listY + 230,
-        width: buttonWidth,
-        height: buttonHeight,
-      },
+      rect: addRect,
       text: "ADD SERVER",
       action: "open-add-server",
       scale: 3,
@@ -899,32 +942,14 @@ const buildMultiplayerMenu = (
     createButton({
       id: "multiplayer-back-button",
       kind: "button",
-      rect: {
-        x: shell.panelX + 36,
-        y: shell.panelY + 514,
-        width: 200,
-        height: 42,
-      },
+      rect: backRect,
       text: "BACK",
       action: "back-to-play",
       scale: 2,
       variant: "secondary",
       disabled: viewModel.busy,
     }),
-    createLabel({
-      id: "multiplayer-status-label",
-      kind: "label",
-      rect: {
-        x: shell.panelX + 254,
-        y: shell.panelY + 514,
-        width: panelWidth - 290,
-        height: 42,
-      },
-      text: viewModel.statusText,
-      scale: 2,
-      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
-      centered: false,
-    }),
+    ...buildStatusBar("multiplayer", statusRect, viewModel.statusText, viewModel.busy, false),
   ];
 };
 
@@ -935,7 +960,7 @@ const buildCreateWorldMenu = (
   seed: number,
 ): UiComponent[] => {
   const panelWidth = 760;
-  const panelHeight = 470;
+  const panelHeight = 500;
   const shell = buildMenuShell(
     width,
     height,
@@ -945,21 +970,28 @@ const buildCreateWorldMenu = (
     panelWidth,
     panelHeight,
   );
-  const contentX = shell.panelX + 112;
-  const fieldWidth = 536;
-  const fieldHeight = 60;
+  const contentRect = insetRect(shell.bodyRect, {
+    left: 76,
+    right: 76,
+  });
+  const [hintRect, nameRect, seedRect, actionsRect] = stackY(
+    contentRect,
+    [
+      { height: 28 },
+      { height: 60 },
+      { height: 60 },
+      { height: 54 },
+    ],
+    18,
+  );
+  const [confirmRect, cancelRect] = stackX(actionsRect, [{}, {}], 20);
 
   return [
     ...shell.components,
     createLabel({
       id: "create-world-hint",
       kind: "label",
-      rect: {
-        x: shell.panelX + 80,
-        y: shell.panelY + 136,
-        width: panelWidth - 160,
-        height: 28,
-      },
+      rect: hintRect,
       text: "PRESS TAB TO SWITCH FIELDS",
       scale: 2,
       color: [0.86, 0.9, 0.94],
@@ -968,12 +1000,7 @@ const buildCreateWorldMenu = (
     createButton({
       id: "name-input",
       kind: "button",
-      rect: {
-        x: contentX,
-        y: shell.panelY + 184,
-        width: fieldWidth,
-        height: fieldHeight,
-      },
+      rect: nameRect,
       text: formatInputValue(
         "NAME",
         viewModel.createWorldName,
@@ -988,12 +1015,7 @@ const buildCreateWorldMenu = (
     createButton({
       id: "seed-input",
       kind: "button",
-      rect: {
-        x: contentX,
-        y: shell.panelY + 258,
-        width: fieldWidth,
-        height: fieldHeight,
-      },
+      rect: seedRect,
       text: formatInputValue(
         "SEED",
         viewModel.createSeedText,
@@ -1008,12 +1030,7 @@ const buildCreateWorldMenu = (
     createButton({
       id: "confirm-create-button",
       kind: "button",
-      rect: {
-        x: contentX,
-        y: shell.panelY + 346,
-        width: 258,
-        height: 54,
-      },
+      rect: confirmRect,
       text: viewModel.busy ? "CREATING..." : "CREATE WORLD",
       action: "create-world",
       scale: 3,
@@ -1023,32 +1040,14 @@ const buildCreateWorldMenu = (
     createButton({
       id: "cancel-create-button",
       kind: "button",
-      rect: {
-        x: contentX + 278,
-        y: shell.panelY + 346,
-        width: 258,
-        height: 54,
-      },
+      rect: cancelRect,
       text: "CANCEL",
       action: "back-to-worlds",
       scale: 3,
       variant: "secondary",
       disabled: viewModel.busy,
     }),
-    createLabel({
-      id: "status-label",
-      kind: "label",
-      rect: {
-        x: shell.panelX + 56,
-        y: shell.panelY + 416,
-        width: panelWidth - 112,
-        height: 24,
-      },
-      text: viewModel.statusText,
-      scale: 2,
-      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
-      centered: true,
-    }),
+    ...buildStatusBar("menu", shell.footerRect, viewModel.statusText, viewModel.busy),
   ];
 };
 
@@ -1059,7 +1058,7 @@ const buildAddServerMenu = (
   seed: number,
 ): UiComponent[] => {
   const panelWidth = 760;
-  const panelHeight = 470;
+  const panelHeight = 500;
   const shell = buildMenuShell(
     width,
     height,
@@ -1069,21 +1068,28 @@ const buildAddServerMenu = (
     panelWidth,
     panelHeight,
   );
-  const contentX = shell.panelX + 112;
-  const fieldWidth = 536;
-  const fieldHeight = 60;
+  const contentRect = insetRect(shell.bodyRect, {
+    left: 76,
+    right: 76,
+  });
+  const [hintRect, nameRect, addressRect, actionsRect] = stackY(
+    contentRect,
+    [
+      { height: 28 },
+      { height: 60 },
+      { height: 60 },
+      { height: 54 },
+    ],
+    18,
+  );
+  const [confirmRect, cancelRect] = stackX(actionsRect, [{}, {}], 20);
 
   return [
     ...shell.components,
     createLabel({
       id: "add-server-hint",
       kind: "label",
-      rect: {
-        x: shell.panelX + 80,
-        y: shell.panelY + 136,
-        width: panelWidth - 160,
-        height: 28,
-      },
+      rect: hintRect,
       text: "PRESS TAB TO SWITCH FIELDS",
       scale: 2,
       color: [0.86, 0.9, 0.94],
@@ -1092,12 +1098,7 @@ const buildAddServerMenu = (
     createButton({
       id: "server-name-input",
       kind: "button",
-      rect: {
-        x: contentX,
-        y: shell.panelY + 184,
-        width: fieldWidth,
-        height: fieldHeight,
-      },
+      rect: nameRect,
       text: formatInputValue(
         "NAME",
         viewModel.addServerName,
@@ -1112,12 +1113,7 @@ const buildAddServerMenu = (
     createButton({
       id: "server-address-input",
       kind: "button",
-      rect: {
-        x: contentX,
-        y: shell.panelY + 258,
-        width: fieldWidth,
-        height: fieldHeight,
-      },
+      rect: addressRect,
       text: formatInputValue(
         "ADDRESS",
         viewModel.addServerAddress,
@@ -1132,12 +1128,7 @@ const buildAddServerMenu = (
     createButton({
       id: "confirm-add-server-button",
       kind: "button",
-      rect: {
-        x: contentX,
-        y: shell.panelY + 346,
-        width: 258,
-        height: 54,
-      },
+      rect: confirmRect,
       text: viewModel.busy ? "SAVING..." : "ADD SERVER",
       action: "save-server",
       scale: 3,
@@ -1147,32 +1138,14 @@ const buildAddServerMenu = (
     createButton({
       id: "cancel-add-server-button",
       kind: "button",
-      rect: {
-        x: contentX + 278,
-        y: shell.panelY + 346,
-        width: 258,
-        height: 54,
-      },
+      rect: cancelRect,
       text: "CANCEL",
       action: "back-to-multiplayer",
       scale: 3,
       variant: "secondary",
       disabled: viewModel.busy,
     }),
-    createLabel({
-      id: "add-server-status-label",
-      kind: "label",
-      rect: {
-        x: shell.panelX + 56,
-        y: shell.panelY + 416,
-        width: panelWidth - 112,
-        height: 24,
-      },
-      text: viewModel.statusText,
-      scale: 2,
-      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
-      centered: true,
-    }),
+    ...buildStatusBar("add-server", shell.footerRect, viewModel.statusText, viewModel.busy),
   ];
 };
 
@@ -1183,30 +1156,51 @@ export interface SettingsPanelViewModel {
 }
 
 interface SettingsPanelOptions {
-  panelX: number;
-  panelY: number;
-  panelWidth: number;
-  panelHeight: number;
+  bodyRect: UiRect;
+  footerRect: UiRect;
   viewModel: SettingsPanelViewModel;
   backAction: string;
   idPrefix?: string;
 }
 
 const buildSettingsPanelContents = ({
-  panelX,
-  panelY,
-  panelWidth,
-  panelHeight,
+  bodyRect,
+  footerRect,
   viewModel,
   backAction,
   idPrefix = "settings",
 }: SettingsPanelOptions): UiComponent[] => {
-  const contentX = panelX + 72;
-  const sliderWidth = 540;
+  const bodyContentRect = insetRect(bodyRect, {
+    left: 36,
+    right: 36,
+    top: 4,
+  });
+  const sliderWidth = 420;
   const valueLabelWidth = 150;
   const rowHeight = 58;
-  const sliderX = contentX + 178;
-  const valueX = panelX + panelWidth - valueLabelWidth - 72;
+  const sliderX = bodyContentRect.x + 178;
+  const valueX = bodyContentRect.x + bodyContentRect.width - valueLabelWidth;
+  const [
+    gameplayTitleRect,
+    fovRowRect,
+    sensitivityRowRect,
+    renderDistanceRowRect,
+    graphicsTitleRect,
+    toggleRowRect,
+    actionRowRect,
+  ] = stackY(
+    bodyContentRect,
+    [
+      { height: 24 },
+      { height: 48 },
+      { height: 48 },
+      { height: 48 },
+      { height: 24 },
+      { height: rowHeight },
+      { height: 50 },
+    ],
+    12,
+  );
 
   const sliderRows = [
     {
@@ -1218,7 +1212,7 @@ const buildSettingsPanelContents = ({
       max: CLIENT_SETTINGS_LIMITS.fovDegrees.max,
       step: CLIENT_SETTINGS_LIMITS.fovDegrees.step,
       action: "set-setting:fovDegrees",
-      y: panelY + 176,
+      rect: fovRowRect,
     },
     {
       id: `${idPrefix}-sensitivity`,
@@ -1229,7 +1223,7 @@ const buildSettingsPanelContents = ({
       max: CLIENT_SETTINGS_LIMITS.mouseSensitivity.max,
       step: CLIENT_SETTINGS_LIMITS.mouseSensitivity.step,
       action: "set-setting:mouseSensitivity",
-      y: panelY + 246,
+      rect: sensitivityRowRect,
     },
     {
       id: `${idPrefix}-render-distance`,
@@ -1240,7 +1234,7 @@ const buildSettingsPanelContents = ({
       max: CLIENT_SETTINGS_LIMITS.renderDistance.max,
       step: CLIENT_SETTINGS_LIMITS.renderDistance.step,
       action: "set-setting:renderDistance",
-      y: panelY + 316,
+      rect: renderDistanceRowRect,
     },
   ] as const;
 
@@ -1249,8 +1243,8 @@ const buildSettingsPanelContents = ({
       id: `${row.id}-label`,
       kind: "label",
       rect: {
-        x: contentX,
-        y: row.y + 2,
+        x: bodyContentRect.x,
+        y: row.rect.y + 2,
         width: 170,
         height: 24,
       },
@@ -1264,7 +1258,7 @@ const buildSettingsPanelContents = ({
       kind: "label",
       rect: {
         x: valueX,
-        y: row.y + 2,
+        y: row.rect.y + 2,
         width: valueLabelWidth,
         height: 24,
       },
@@ -1278,7 +1272,7 @@ const buildSettingsPanelContents = ({
       kind: "slider",
       rect: {
         x: sliderX,
-        y: row.y + 26,
+        y: row.rect.y + 26,
         width: sliderWidth,
         height: 22,
       },
@@ -1290,17 +1284,14 @@ const buildSettingsPanelContents = ({
       disabled: viewModel.busy,
     }),
   ]);
+  const [debugRect, crosshairRect] = stackX(toggleRowRect, [{}, {}], 20);
+  const [resetRect, backRect] = stackX(actionRowRect, [{ width: 244 }, { width: 244 }], bodyContentRect.width - 488);
 
   return [
     createLabel({
       id: `${idPrefix}-gameplay-title`,
       kind: "label",
-      rect: {
-        x: contentX,
-        y: panelY + 130,
-        width: panelWidth - 144,
-        height: 24,
-      },
+      rect: gameplayTitleRect,
       text: "GAMEPLAY",
       scale: 3,
       color: [0.98, 0.95, 0.76],
@@ -1310,12 +1301,7 @@ const buildSettingsPanelContents = ({
     createLabel({
       id: `${idPrefix}-graphics-title`,
       kind: "label",
-      rect: {
-        x: contentX,
-        y: panelY + 392,
-        width: panelWidth - 144,
-        height: 24,
-      },
+      rect: graphicsTitleRect,
       text: "GRAPHICS",
       scale: 3,
       color: [0.98, 0.95, 0.76],
@@ -1324,12 +1310,7 @@ const buildSettingsPanelContents = ({
     createButton({
       id: `${idPrefix}-debug-toggle`,
       kind: "button",
-      rect: {
-        x: contentX,
-        y: panelY + 430,
-        width: 336,
-        height: rowHeight,
-      },
+      rect: debugRect,
       text: `DEBUG INFO: ${formatToggleValue(viewModel.settings.showDebugOverlay)}`,
       action: "toggle-setting:showDebugOverlay",
       scale: 2,
@@ -1339,12 +1320,7 @@ const buildSettingsPanelContents = ({
     createButton({
       id: `${idPrefix}-crosshair-toggle`,
       kind: "button",
-      rect: {
-        x: contentX + 356,
-        y: panelY + 430,
-        width: 336,
-        height: rowHeight,
-      },
+      rect: crosshairRect,
       text: `CROSSHAIR: ${formatToggleValue(viewModel.settings.showCrosshair)}`,
       action: "toggle-setting:showCrosshair",
       scale: 2,
@@ -1354,12 +1330,7 @@ const buildSettingsPanelContents = ({
     createButton({
       id: `${idPrefix}-reset`,
       kind: "button",
-      rect: {
-        x: contentX,
-        y: panelY + 512,
-        width: 244,
-        height: 50,
-      },
+      rect: resetRect,
       text: "RESET DEFAULTS",
       action: "reset-settings",
       scale: 2,
@@ -1369,32 +1340,14 @@ const buildSettingsPanelContents = ({
     createButton({
       id: `${idPrefix}-back`,
       kind: "button",
-      rect: {
-        x: panelX + panelWidth - 244 - 72,
-        y: panelY + 512,
-        width: 244,
-        height: 50,
-      },
+      rect: backRect,
       text: "BACK",
       action: backAction,
       scale: 3,
       variant: "primary",
       disabled: viewModel.busy,
     }),
-    createLabel({
-      id: `${idPrefix}-status`,
-      kind: "label",
-      rect: {
-        x: panelX + 72,
-        y: panelY + panelHeight - 44,
-        width: panelWidth - 144,
-        height: 22,
-      },
-      text: viewModel.statusText,
-      scale: 2,
-      color: viewModel.busy ? [0.96, 0.82, 0.46] : [0.86, 0.9, 0.94],
-      centered: true,
-    }),
+    ...buildStatusBar(idPrefix, footerRect, viewModel.statusText, viewModel.busy),
   ];
 };
 
@@ -1419,12 +1372,89 @@ const buildSettingsMenu = (
   return [
     ...shell.components,
     ...buildSettingsPanelContents({
-      panelX: shell.panelX,
-      panelY: shell.panelY,
-      panelWidth,
-      panelHeight,
+      bodyRect: shell.bodyRect,
+      footerRect: shell.footerRect,
       viewModel,
       backAction: "back-to-play",
+    }),
+  ];
+};
+
+export const buildPauseMenuOverlay = (
+  width: number,
+  height: number,
+): UiComponent[] => {
+  const panelWidth = 420;
+  const panelHeight = 380;
+  const shell = buildMenuShell(
+    width,
+    height,
+    "GAME PAUSED",
+    "Esc or Back to Game to resume",
+    0,
+    panelWidth,
+    panelHeight,
+    {
+      idPrefix: "pause",
+      footerHeight: 0,
+      backgroundComponents: [
+        createPanel({
+          id: "pause-dim",
+          kind: "panel",
+          rect: { x: 0, y: 0, width, height },
+          color: [0.03, 0.04, 0.05, 0.58],
+        }),
+      ],
+      palette: {
+        shadow: [0.08, 0.09, 0.1, 0.82],
+        frame: [0.22, 0.23, 0.24, 0.96],
+        panel: [0.16, 0.18, 0.2, 0.97],
+        title: [0.98, 0.98, 0.98],
+        subtitle: [0.82, 0.86, 0.89],
+      },
+    },
+  );
+  const buttonRects = stackY(
+    insetRect(shell.bodyRect, {
+      top: 8,
+    }),
+    [
+      { width: 280, height: 52 },
+      { width: 280, height: 52 },
+      { width: 280, height: 52 },
+    ],
+    18,
+    "center",
+  );
+
+  return [
+    ...shell.components,
+    createButton({
+      id: "pause-resume-button",
+      kind: "button",
+      rect: buttonRects[0]!,
+      text: "BACK TO GAME",
+      action: "pause-back-to-game",
+      scale: 3,
+      variant: "primary",
+    }),
+    createButton({
+      id: "pause-settings-button",
+      kind: "button",
+      rect: buttonRects[1]!,
+      text: "SETTINGS",
+      action: "pause-open-settings",
+      scale: 3,
+      variant: "secondary",
+    }),
+    createButton({
+      id: "pause-exit-button",
+      kind: "button",
+      rect: buttonRects[2]!,
+      text: "EXIT TO MENU",
+      action: "pause-exit-to-menu",
+      scale: 3,
+      variant: "secondary",
     }),
   ];
 };
@@ -1436,82 +1466,39 @@ export const buildPauseSettingsOverlay = (
 ): UiComponent[] => {
   const panelWidth = 860;
   const panelHeight = 620;
-  const panelX = Math.round((width - panelWidth) / 2);
-  const panelY = Math.round((height - panelHeight) / 2);
+  const shell = buildMenuShell(
+    width,
+    height,
+    "SETTINGS",
+    "Adjust settings without leaving your world",
+    0,
+    panelWidth,
+    panelHeight,
+    {
+      idPrefix: "pause-settings",
+      backgroundComponents: [
+        createPanel({
+          id: "pause-settings-dim",
+          kind: "panel",
+          rect: { x: 0, y: 0, width, height },
+          color: [0.03, 0.04, 0.05, 0.62],
+        }),
+      ],
+      palette: {
+        shadow: [0.07, 0.08, 0.1, 0.84],
+        frame: [0.22, 0.23, 0.24, 0.96],
+        panel: [0.16, 0.18, 0.2, 0.97],
+        title: [0.98, 0.98, 0.98],
+        subtitle: [0.82, 0.86, 0.89],
+      },
+    },
+  );
 
   return [
-    createPanel({
-      id: "pause-settings-dim",
-      kind: "panel",
-      rect: { x: 0, y: 0, width, height },
-      color: [0.03, 0.04, 0.05, 0.62],
-    }),
-    createPanel({
-      id: "pause-settings-shadow",
-      kind: "panel",
-      rect: {
-        x: panelX - 10,
-        y: panelY - 10,
-        width: panelWidth + 20,
-        height: panelHeight + 20,
-      },
-      color: [0.07, 0.08, 0.1, 0.84],
-    }),
-    createPanel({
-      id: "pause-settings-frame",
-      kind: "panel",
-      rect: {
-        x: panelX - 4,
-        y: panelY - 4,
-        width: panelWidth + 8,
-        height: panelHeight + 8,
-      },
-      color: [0.22, 0.23, 0.24, 0.96],
-    }),
-    createPanel({
-      id: "pause-settings-panel",
-      kind: "panel",
-      rect: {
-        x: panelX,
-        y: panelY,
-        width: panelWidth,
-        height: panelHeight,
-      },
-      color: [0.16, 0.18, 0.2, 0.97],
-    }),
-    createLabel({
-      id: "pause-settings-title",
-      kind: "label",
-      rect: {
-        x: panelX + 30,
-        y: panelY + 26,
-        width: panelWidth - 60,
-        height: 58,
-      },
-      text: "SETTINGS",
-      scale: 5,
-      color: [0.98, 0.98, 0.98],
-      centered: true,
-    }),
-    createLabel({
-      id: "pause-settings-subtitle",
-      kind: "label",
-      rect: {
-        x: panelX + 30,
-        y: panelY + 86,
-        width: panelWidth - 60,
-        height: 30,
-      },
-      text: "Adjust settings without leaving your world",
-      scale: 2,
-      color: [0.82, 0.86, 0.89],
-      centered: true,
-    }),
+    ...shell.components,
     ...buildSettingsPanelContents({
-      panelX,
-      panelY,
-      panelWidth,
-      panelHeight,
+      bodyRect: shell.bodyRect,
+      footerRect: shell.footerRect,
       viewModel,
       backAction: "back-to-pause",
       idPrefix: "pause-settings",

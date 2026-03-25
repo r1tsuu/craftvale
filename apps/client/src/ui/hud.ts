@@ -1,7 +1,11 @@
 import type { ChatEntry, InventorySlot, InventorySnapshot, PlayerGamemode } from "@voxel/core/shared";
 import type { PauseScreen } from "../game/play-overlay.ts";
 import { measureTextWidth } from "../render/text-mesh.ts";
-import { buildPauseSettingsOverlay, type SettingsPanelViewModel } from "./menu.ts";
+import {
+  buildPauseMenuOverlay,
+  buildPauseSettingsOverlay,
+  type SettingsPanelViewModel,
+} from "./menu.ts";
 import { getItemColor, getItemDisplayName, getSelectedInventorySlot } from "@voxel/core/shared";
 import {
   createButton,
@@ -32,8 +36,6 @@ const INVENTORY_PANEL_WIDTH = 642;
 const INVENTORY_PANEL_HEIGHT = 396;
 const INVENTORY_SLOT_SIZE = 54;
 const INVENTORY_SLOT_GAP = 8;
-const PAUSE_PANEL_WIDTH = 420;
-const PAUSE_PANEL_HEIGHT = 304;
 
 interface VisibleChatLine {
   entry: ChatEntry;
@@ -554,129 +556,6 @@ const buildInventoryOverlay = (
   }
 
   return components;
-};
-
-const buildPauseMenuOverlay = (
-  windowWidth: number,
-  windowHeight: number,
-): UiComponent[] => {
-  const x = Math.round((windowWidth - PAUSE_PANEL_WIDTH) / 2);
-  const y = Math.round((windowHeight - PAUSE_PANEL_HEIGHT) / 2);
-  const buttonWidth = 260;
-  const buttonHeight = 52;
-  const buttonX = x + Math.round((PAUSE_PANEL_WIDTH - buttonWidth) / 2);
-
-  return [
-    createPanel({
-      id: "pause-dim",
-      kind: "panel",
-      rect: { x: 0, y: 0, width: windowWidth, height: windowHeight },
-      color: [0.03, 0.04, 0.05, 0.58],
-    }),
-    createPanel({
-      id: "pause-shadow",
-      kind: "panel",
-      rect: {
-        x: x - 10,
-        y: y - 10,
-        width: PAUSE_PANEL_WIDTH + 20,
-        height: PAUSE_PANEL_HEIGHT + 20,
-      },
-      color: [0.08, 0.09, 0.1, 0.82],
-    }),
-    createPanel({
-      id: "pause-frame",
-      kind: "panel",
-      rect: {
-        x: x - 4,
-        y: y - 4,
-        width: PAUSE_PANEL_WIDTH + 8,
-        height: PAUSE_PANEL_HEIGHT + 8,
-      },
-      color: [0.22, 0.23, 0.24, 0.96],
-    }),
-    createPanel({
-      id: "pause-panel",
-      kind: "panel",
-      rect: {
-        x,
-        y,
-        width: PAUSE_PANEL_WIDTH,
-        height: PAUSE_PANEL_HEIGHT,
-      },
-      color: [0.16, 0.18, 0.2, 0.97],
-    }),
-    createLabel({
-      id: "pause-title",
-      kind: "label",
-      rect: {
-        x: x + 30,
-        y: y + 24,
-        width: PAUSE_PANEL_WIDTH - 60,
-        height: 54,
-      },
-      text: "GAME PAUSED",
-      scale: 4,
-      color: [0.98, 0.98, 0.98],
-      centered: true,
-    }),
-    createLabel({
-      id: "pause-subtitle",
-      kind: "label",
-      rect: {
-        x: x + 30,
-        y: y + 78,
-        width: PAUSE_PANEL_WIDTH - 60,
-        height: 24,
-      },
-      text: "ESC OR BACK TO GAME TO RESUME",
-      scale: 2,
-      color: [0.82, 0.86, 0.89],
-      centered: true,
-    }),
-    createButton({
-      id: "pause-resume-button",
-      kind: "button",
-      rect: {
-        x: buttonX,
-        y: y + 122,
-        width: buttonWidth,
-        height: buttonHeight,
-      },
-      text: "BACK TO GAME",
-      action: "pause-back-to-game",
-      scale: 3,
-      variant: "primary",
-    }),
-    createButton({
-      id: "pause-settings-button",
-      kind: "button",
-      rect: {
-        x: buttonX,
-        y: y + 188,
-        width: buttonWidth,
-        height: buttonHeight,
-      },
-      text: "SETTINGS",
-      action: "pause-open-settings",
-      scale: 3,
-      variant: "secondary",
-    }),
-    createButton({
-      id: "pause-exit-button",
-      kind: "button",
-      rect: {
-        x: buttonX,
-        y: y + 254,
-        width: buttonWidth,
-        height: buttonHeight,
-      },
-      text: "EXIT TO MENU",
-      action: "pause-exit-to-menu",
-      scale: 3,
-      variant: "secondary",
-    }),
-  ];
 };
 
 export interface PlayHudState {
