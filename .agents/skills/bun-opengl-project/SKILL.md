@@ -20,29 +20,48 @@ task touches a feature area with an existing implementation plan.
 1. Read the architecture first.
 2. Inspect the concrete modules you will change instead of inferring behavior
    from the README alone.
-3. Preserve the current client/server ownership model unless the task explicitly
+3. Preserve the current workspace ownership model unless the task explicitly
    changes architecture.
 4. After edits, run `bun test` and `bun run typecheck`.
-5. If you changed the native bridge or other native-facing behavior, also run
-   `bun run build:native`.
+5. If you changed native build/tooling or asset preprocessing, also run the
+   relevant `apps/cli` command such as `bun run build:native`.
 
 ## Architecture Anchors
 
-- `src/game-app.ts`: main app shell and client-side state owner.
-- `src/index.ts`: tiny bootstrap only.
-- `src/client/*`: replicated client runtime and worker-backed client adapter.
-- `src/server/*`: authoritative world runtime, worker host, and binary storage.
-- `src/shared/*`: typed message schemas, transport, and event-bus plumbing.
-- `src/world/*`: chunks, deterministic worldgen, meshing, atlas, inventory
-  helpers, and raycast.
-- `src/render/*` and `src/ui/*`: terrain rendering, text, HUD, and menu/UI
-  rendering.
-- `src/platform/*` and `native/*`: Bun FFI bridge to GLFW/OpenGL.
+- `apps/cli/src/*`: developer tooling, native builds, cleanup, combined dev
+  orchestration, and preprocessing such as atlas generation.
+- `apps/client/src/game-app.ts`: main app shell and client-side state owner.
+- `apps/client/src/index.ts`: client bootstrap only.
+- `apps/client/src/client/*`: replicated client runtime, profiles/settings,
+  server browser, and client transport adapters.
+- `apps/client/src/render/*`, `apps/client/src/ui/*`,
+  `apps/client/src/game/*`, and `apps/client/src/platform/*`: rendering,
+  HUD/menu/UI, player/input logic, and native integration.
+- `apps/client/src/worker/*`: singleplayer worker startup and worker-only glue.
+- `apps/dedicated-server/src/*`: dedicated-only process bootstrap and
+  WebSocket server wiring.
+- `packages/core/src/server/*`: authoritative server/runtime code shared
+  between the singleplayer worker and dedicated server.
+- `packages/core/src/shared/*`: shared message schemas, codecs, transport
+  contracts, CLI helpers, logging, math, and other neutral shared utilities.
+- `packages/core/src/world/*`: chunks, deterministic worldgen, meshing, block
+  and item registries, inventory helpers, and raycast.
+- `native/*`: Bun FFI bridge to GLFW/OpenGL.
 
 ## Repo-Specific Rules
 
 - The worker-backed server is authoritative for chunk generation, block
   mutations, inventory, and persistence.
+- `apps/cli` owns repo tooling and preprocessing; do not leave new build,
+  cleanup, or content-generation scripts at the repo root.
+- `apps/client` owns client-only behavior such as rendering, UI, input, local
+  worker startup, and communication with the authoritative server.
+- `apps/dedicated-server` owns dedicated-only networking/process behavior such
+  as WebSocket serving and dedicated bootstrap.
+- `packages/core/src/server` is for server code that is shared between the
+  singleplayer worker and dedicated server.
+- `packages/core/src/shared` is for shared types, utilities, math, and neutral
+  client/server protocol helpers.
 - `ClientWorldRuntime` is a replicated cache for rendering, raycast, and
   collision, not the source of truth.
 - World generation must stay deterministic from the world seed. Avoid
@@ -61,20 +80,27 @@ task touches a feature area with an existing implementation plan.
 
 ## Common Task Map
 
-- Gameplay/input/UI loop changes: start with `src/game-app.ts`.
+- Tooling, native build flow, cleanup commands, or preprocessing: start with
+  `apps/cli/src/*`.
+- Gameplay/input/UI loop changes: start with `apps/client/src/game-app.ts`.
 - Authoritative block/world/inventory behavior: start with
-  `src/server/runtime.ts` and `src/server/authoritative-world.ts`.
-- Persistence changes: start with `src/server/world-storage.ts`.
-- Worldgen and biome/tree work: start with `src/world/terrain.ts`,
-  `src/world/biomes.ts`, and `src/world/noise.ts`.
-- Meshing/render changes: start with `src/world/mesher.ts`,
-  `src/render/renderer.ts`, and `assets/shaders/`.
-- Worker lifecycle/architecture changes: start with `src/server/worker-host.ts`.
+  `packages/core/src/server/runtime.ts` and
+  `packages/core/src/server/authoritative-world.ts`.
+- Persistence changes: start with `packages/core/src/server/world-storage.ts`.
+- Worldgen and biome/tree work: start with `packages/core/src/world/terrain.ts`,
+  `packages/core/src/world/biomes.ts`, and `packages/core/src/world/noise.ts`.
+- Meshing/render changes: start with `packages/core/src/world/mesher.ts`,
+  `apps/client/src/render/renderer.ts`, and `apps/client/assets/shaders/`.
+- Dedicated WebSocket/bootstrap changes: start with
+  `apps/dedicated-server/src/index.ts` and
+  `apps/dedicated-server/src/dedicated-server.ts`.
+- Singleplayer worker lifecycle changes: start with
+  `apps/client/src/worker/*`.
 
 ## Validation
 
 - Baseline: `bun test`
 - Static check: `bun run typecheck`
-- Native bridge touched: `bun run build:native`
+- Native bridge or tooling touched: `bun run build:native`
 - Docs/plans touched: confirm `README.md`, `architecture.md`, and relevant
   `plans/` entries still match the code
