@@ -163,14 +163,14 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 
 ## Code Size Snapshot
 
-Source-line snapshot as of 2026-03-25 using `wc -l` over TypeScript, C, and GLSL files. This excludes docs, JSON/package metadata, lockfiles, and binary assets.
+Source-line snapshot as of 2026-03-25 using `wc -l` over TypeScript, C, and shader files. This excludes docs, JSON/package metadata, lockfiles, and binary assets.
 
-- `apps/client/src`: 8,516 lines of TypeScript
-- `apps/client/assets/shaders`: 78 lines of GLSL
-- `apps/dedicated-server`: 376 lines of TypeScript
-- `packages/core`: 5,676 lines of TypeScript
-- `apps/cli/src`: 681 lines of TypeScript
-- `native`: 429 lines of C
-- `tests`: 3,447 lines of TypeScript
-- Total source lines including tests: 19,203
-- Total source lines excluding tests: 15,756
+- `apps/client/src`: 9,310 lines of TypeScript
+- `apps/client/assets/shaders`: 90 lines of GLSL
+- `apps/dedicated-server`: 338 lines of TypeScript
+- `packages/core`: 6,953 lines of TypeScript
+- `apps/cli/src`: 723 lines of TypeScript
+- `native`: 459 lines of C
+- `tests`: 3,999 lines of TypeScript
+- Total source lines including tests: 21,872
+- Total source lines excluding tests: 17,873
