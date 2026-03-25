@@ -32,6 +32,14 @@ const shouldUseColor = (): boolean =>
   process.env.NO_COLOR === undefined &&
   process.env.TERM !== "dumb";
 
+const formatTimestamp = (): string => {
+  const now = new Date();
+  const hours = `${now.getHours()}`.padStart(2, "0");
+  const minutes = `${now.getMinutes()}`.padStart(2, "0");
+  const seconds = `${now.getSeconds()}`.padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+};
+
 const formatPrefix = (prefix: string, color: LoggerColor): string => {
   const label = `[${prefix}]`;
   if (!shouldUseColor()) {
@@ -51,7 +59,7 @@ export const createLogger = (
     writer: (...args: unknown[]) => void,
     message: string,
   ): void => {
-    writer(`${formattedPrefix} ${message}`);
+    writer(`${formatTimestamp()} ${formattedPrefix} ${message}`);
   };
 
   return {
