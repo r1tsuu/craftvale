@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { getHeldItemBlockId, collectVisibleRemotePlayers } from "../apps/client/src/render/player-model.ts";
+import {
+  getFirstPersonSwingAmount,
+  getHeldItemBlockId,
+  collectVisibleRemotePlayers,
+} from "../apps/client/src/render/player-model.ts";
 import type { PlayerSnapshot } from "../packages/core/src/types.ts";
 import { createDefaultInventory, setSelectedInventorySlot } from "../packages/core/src/world/inventory.ts";
 
@@ -63,4 +67,12 @@ test("getHeldItemBlockId follows the selected hotbar slot and treats empty slots
     ),
   };
   expect(getHeldItemBlockId(emptySelected)).toBeNull();
+});
+
+test("first-person swing amount peaks mid-animation and clamps at the ends", () => {
+  expect(getFirstPersonSwingAmount(-1)).toBe(0);
+  expect(getFirstPersonSwingAmount(0)).toBe(0);
+  expect(getFirstPersonSwingAmount(0.5)).toBeCloseTo(1, 5);
+  expect(getFirstPersonSwingAmount(1)).toBeCloseTo(0, 5);
+  expect(getFirstPersonSwingAmount(2)).toBeCloseTo(0, 5);
 });

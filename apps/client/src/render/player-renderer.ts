@@ -16,6 +16,7 @@ import {
   FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET,
   FIRST_PERSON_HELD_ITEM_SCALE,
   PLAYER_BODY_PARTS,
+  getFirstPersonSwingAmount,
 } from "./player-model.ts";
 
 interface RenderableMesh {
@@ -91,29 +92,34 @@ export class PlayerRenderer {
   public renderFirstPersonViewModel(
     player: PlayerController,
     heldBlockId: BlockId | null,
+    swingProgress = 0,
   ): void {
     const eye = player.getEyePositionVec3();
     const cameraForward = player.getForwardVector();
     const cameraBasis = createOrientationBasis(cameraForward);
+    const swingAmount = getFirstPersonSwingAmount(swingProgress);
 
     const armPosition = addScaled(
       addScaled(
         addScaled(
           eye,
           cameraBasis.right,
-          FIRST_PERSON_ARM_CAMERA_OFFSET.right,
+          FIRST_PERSON_ARM_CAMERA_OFFSET.right - swingAmount * 0.18,
         ),
         cameraBasis.up,
-        FIRST_PERSON_ARM_CAMERA_OFFSET.up,
+        FIRST_PERSON_ARM_CAMERA_OFFSET.up - swingAmount * 0.14,
       ),
       cameraForward,
-      FIRST_PERSON_ARM_CAMERA_OFFSET.forward,
+      FIRST_PERSON_ARM_CAMERA_OFFSET.forward - swingAmount * 0.1,
     );
     this.renderCuboid(
       FIRST_PERSON_ARM_PART.blockId,
       armPosition,
       FIRST_PERSON_ARM_PART.size,
-      createForwardVector(player.state.yaw - 0.5, player.state.pitch + 0.7),
+      createForwardVector(
+        player.state.yaw - 0.5 + swingAmount * 0.35,
+        player.state.pitch + 0.7 - swingAmount * 0.5,
+      ),
     );
 
     if (heldBlockId === null) {
@@ -125,13 +131,13 @@ export class PlayerRenderer {
         addScaled(
           eye,
           cameraBasis.right,
-          FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET.right,
+          FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET.right - swingAmount * 0.14,
         ),
         cameraBasis.up,
-        FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET.up,
+        FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET.up - swingAmount * 0.18,
       ),
       cameraForward,
-      FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET.forward,
+      FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET.forward - swingAmount * 0.12,
     );
     this.renderCuboid(
       heldBlockId,
@@ -141,7 +147,10 @@ export class PlayerRenderer {
         FIRST_PERSON_HELD_ITEM_SCALE,
         FIRST_PERSON_HELD_ITEM_SCALE,
       ],
-      createForwardVector(player.state.yaw - 0.35, player.state.pitch + 0.42),
+      createForwardVector(
+        player.state.yaw - 0.35 + swingAmount * 0.28,
+        player.state.pitch + 0.42 - swingAmount * 0.42,
+      ),
     );
   }
 

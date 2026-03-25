@@ -312,6 +312,7 @@ export class VoxelRenderer {
     players: readonly PlayerSnapshot[],
     clientPlayerEntityId: string | null,
     inventory: InventorySnapshot,
+    firstPersonSwingProgress: number,
     renderDistance: number,
     width: number,
     height: number,
@@ -398,6 +399,7 @@ export class VoxelRenderer {
     this.playerRenderer.renderFirstPersonViewModel(
       player,
       getHeldItemBlockId(inventory),
+      firstPersonSwingProgress,
     );
     this.nativeBridge.gl.bindVertexArray(0);
     this.nativeBridge.gl.enable(GL.DEPTH_TEST);

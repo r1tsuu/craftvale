@@ -61,6 +61,7 @@ import {
 } from "@voxel/core/shared";
 
 const FIXED_TIMESTEP = 1 / 60;
+const FIRST_PERSON_SWING_DURATION = 0.18;
 const appLogger = createLogger("app", "cyan");
 
 export type AppMode = "menu" | "loading" | "playing";
@@ -80,6 +81,7 @@ export interface GameAppState {
   smoothedFps: number;
   previousPrimaryDown: boolean;
   previousSecondaryDown: boolean;
+  firstPersonSwingRemaining: number;
   appMode: AppMode;
   menuState: MenuState;
   loadingState: WorldLoadingState | null;
@@ -126,6 +128,7 @@ export class GameApp {
       smoothedFps: 60,
       previousPrimaryDown: false,
       previousSecondaryDown: false,
+      firstPersonSwingRemaining: 0,
       appMode: "menu",
       menuState: createMenuState(),
       loadingState: null,
@@ -188,6 +191,10 @@ export class GameApp {
     const deltaTime = Math.min(currentTime - this.state.previousTime, 0.25);
     this.state.previousTime = currentTime;
     this.state.accumulator += deltaTime;
+    this.state.firstPersonSwingRemaining = Math.max(
+      0,
+      this.state.firstPersonSwingRemaining - deltaTime,
+    );
 
     if (deltaTime > 0) {
       const instantaneousFps = 1 / deltaTime;
@@ -259,6 +266,16 @@ export class GameApp {
     } else {
       const worldRuntime = this.getWorldRuntime();
       this.handlePlayOverlayInput(input);
+      if (
+        (primaryPressed || (input.placeBlock && !this.state.previousSecondaryDown)) &&
+        !isGameplaySuppressed({
+          chatOpen: this.state.chatOpen,
+          inventoryOpen: this.state.inventoryOpen,
+          pauseScreen: this.state.pauseScreen,
+        })
+      ) {
+        this.state.firstPersonSwingRemaining = FIRST_PERSON_SWING_DURATION;
+      }
       if (
         !this.state.chatOpen &&
         !this.state.inventoryOpen &&
@@ -1493,6 +1510,7 @@ export class GameApp {
       worldRuntime ? [...worldRuntime.players.values()] : [],
       worldRuntime?.clientPlayerEntityId ?? null,
       worldRuntime?.inventory ?? createDefaultInventory(),
+      this.getFirstPersonSwingProgress(),
       this.state.clientSettings.renderDistance,
       framebufferWidth,
       framebufferHeight,
@@ -1504,6 +1522,14 @@ export class GameApp {
       windowHeight,
     );
     this.deps.nativeBridge.endFrame();
+  }
+
+  private getFirstPersonSwingProgress(): number {
+    if (this.state.firstPersonSwingRemaining <= 0) {
+      return 0;
+    }
+
+    return 1 - this.state.firstPersonSwingRemaining / FIRST_PERSON_SWING_DURATION;
   }
 }
 

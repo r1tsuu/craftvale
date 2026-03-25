@@ -85,6 +85,11 @@ export const FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET = {
 
 export const FIRST_PERSON_HELD_ITEM_SCALE = 0.28;
 
+export const getFirstPersonSwingAmount = (progress: number): number => {
+  const clamped = Math.min(Math.max(progress, 0), 1);
+  return Math.sin(clamped * Math.PI);
+};
+
 export const collectVisibleRemotePlayers = (
   players: readonly PlayerSnapshot[],
   clientPlayerEntityId: EntityId | null,
