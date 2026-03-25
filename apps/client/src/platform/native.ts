@@ -286,7 +286,9 @@ export class NativeBridge {
       placeBlock: Boolean(
         library.symbols.bridge_is_mouse_button_down(GLFW_MOUSE_BUTTON_RIGHT),
       ),
-      exit: Boolean(library.symbols.bridge_is_key_down(GLFW_KEY_ESCAPE)),
+      exitPressed: Boolean(
+        library.symbols.bridge_consume_key_press(GLFW_KEY_ESCAPE),
+      ),
       mouseDeltaX: cursorX - this.lastCursorX,
       mouseDeltaY: cursorY - this.lastCursorY,
       cursorX,

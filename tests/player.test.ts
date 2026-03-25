@@ -14,7 +14,7 @@ const createInput = (overrides: Partial<InputState> = {}): InputState => ({
   moveDown: false,
   breakBlock: false,
   placeBlock: false,
-  exit: false,
+  exitPressed: false,
   mouseDeltaX: 0,
   mouseDeltaY: 0,
   cursorX: 0,

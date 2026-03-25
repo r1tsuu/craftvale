@@ -1209,7 +1209,7 @@ export class GameApp {
   private handlePlayOverlayInput(
     input: ReturnType<NativeBridge["pollInput"]>,
   ): void {
-    if (input.exit) {
+    if (input.exitPressed) {
       this.handlePlayEscape();
       return;
     }
