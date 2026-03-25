@@ -83,7 +83,10 @@ Separate inventory items from world blocks completely so gameplay no longer trea
 - World persistence should store item stacks as item ids in:
   - player inventory state
   - dropped-item save data
-- This migration should be intentional and version-aware where practical, since old saves currently encode block-based inventory and floor loot state.
+- Backward compatibility is not required for this refactor:
+  - old block-based inventory and dropped-item save data does not need to load
+  - older protocol payload shapes do not need compatibility shims
+  - we can replace the persisted/runtime formats directly as part of the migration
 
 ### Preserve first-pass behavior through explicit mappings
 - To avoid a huge gameplay redesign in one step, the first item registry can stay close to the current block set:
@@ -129,7 +132,7 @@ Separate inventory items from world blocks completely so gameplay no longer trea
 4. Update placement to resolve `placesBlockId` from the selected item.
 5. Update break/drop rules so broken blocks spawn explicit item drops.
 6. Update rendering and HUD code to derive names and visuals from items, using block relationships only when item definitions say to.
-7. Update docs and save-compatibility notes once the new data model lands.
+7. Update docs to reflect the new data model and explicitly call out that old save data is not preserved across the refactor.
 
 ## Test Plan
 - Item registry tests:
@@ -152,7 +155,6 @@ Separate inventory items from world blocks completely so gameplay no longer trea
 - Persistence tests:
   - player inventories round-trip with item ids
   - dropped items round-trip with item ids
-  - old save compatibility behavior is either migrated correctly or rejected with a clear policy
 - Manual smoke tests:
   - break a block, observe an item drop, pick it up, and place it back through the selected item
   - confirm hotbar labels still read correctly
@@ -162,4 +164,5 @@ Separate inventory items from world blocks completely so gameplay no longer trea
 - Use the next plan filename in sequence: `0024-separate-items-from-blocks.md`.
 - This plan changes the data model, not the basic block game loop. Existing place/break/pickup interactions should remain familiar after the refactor.
 - A one-to-one mapping between many current blocks and items is acceptable in the first pass, as long as ids and registries remain separate.
+- Backward compatibility is intentionally out of scope. Old save data, old dropped-item payloads, and old inventory encodings do not need migration support.
 - The authoritative server remains the source of truth for placement, breaking, pickup, inventory mutation, and persistence.
