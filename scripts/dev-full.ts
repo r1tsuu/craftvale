@@ -1,4 +1,8 @@
-import { ensurePortAvailable } from "../src/server/port-availability.ts";
+import {
+  ensurePortAvailable,
+  forceReleasePort,
+} from "../src/server/port-availability.ts";
+import { fileURLToPath } from "node:url";
 
 const SERVER_PORT = 3210;
 const SERVER_NAME = "Local Server";
@@ -6,6 +10,33 @@ const SERVER_ADDRESS = `127.0.0.1:${SERVER_PORT}`;
 const SERVER_SHUTDOWN_TIMEOUT_MS = 3_000;
 const SERVER_READY_TIMEOUT_MS = 5_000;
 const SERVER_READY_POLL_INTERVAL_MS = 100;
+const projectRoot = fileURLToPath(new URL("..", import.meta.url));
+const bunExecutable = Bun.which("bun") ?? process.execPath;
+
+const spawnRuntimeProcess = (
+  entryRelativePath: string,
+  options: {
+    stdin: "ignore" | "inherit";
+    env: Record<string, string | undefined>;
+    extraArgs?: string[];
+  },
+): Bun.Subprocess => {
+  const entryPath = fileURLToPath(new URL(`../${entryRelativePath}`, import.meta.url));
+  return Bun.spawn(
+    [bunExecutable, entryPath, ...(options.extraArgs ?? [])],
+    {
+      cwd: projectRoot,
+      stdout: "inherit",
+      stderr: "inherit",
+      stdin: options.stdin,
+      env: options.env,
+    },
+  );
+};
+
+const logInfo = (message: string): void => {
+  console.log(`[dev:full] ${message}`);
+};
 
 const waitForServerReady = async (
   process: Bun.Subprocess,
@@ -14,6 +45,7 @@ const waitForServerReady = async (
 ): Promise<void> => {
   const deadline = Date.now() + timeoutMs;
   const url = `ws://${address}/ws`;
+  logInfo(`waiting for dedicated server readiness at ${url}`);
 
   while (Date.now() < deadline) {
     if (process.exitCode !== null) {
@@ -63,6 +95,7 @@ const waitForServerReady = async (
     });
 
     if (ready) {
+      logInfo(`dedicated server accepted a WebSocket connection at ${url}`);
       return;
     }
 
@@ -72,37 +105,31 @@ const waitForServerReady = async (
   throw new Error(`Timed out waiting for dedicated server readiness at ${url}.`);
 };
 
+logInfo(`ensuring port ${SERVER_PORT} is available`);
 await ensurePortAvailable(SERVER_PORT);
 
-const server = Bun.spawn(
-  ["bun", "run", "src/server/standalone-entry.ts", `--port=${SERVER_PORT}`],
-  {
-    stdout: "inherit",
-    stderr: "inherit",
-    stdin: "ignore",
-    env: {
-      ...Bun.env,
-      APP_ENV: "development",
-    },
+logInfo(`spawning dedicated server on port ${SERVER_PORT}`);
+const server = spawnRuntimeProcess("src/server/standalone-entry.ts", {
+  stdin: "ignore",
+  extraArgs: [`--port=${SERVER_PORT}`],
+  env: {
+    ...Bun.env,
+    APP_ENV: "development",
   },
-);
+});
 
 await waitForServerReady(server, SERVER_ADDRESS, SERVER_READY_TIMEOUT_MS);
 
-const client = Bun.spawn(
-  ["bun", "run", "src/index.ts"],
-  {
-    stdout: "inherit",
-    stderr: "inherit",
-    stdin: "inherit",
-    env: {
-      ...Bun.env,
-      APP_ENV: "development",
-      APP_DEV_PREFILL_SERVER_NAME: SERVER_NAME,
-      APP_DEV_PREFILL_SERVER_ADDRESS: SERVER_ADDRESS,
-    },
+logInfo("spawning desktop client");
+const client = spawnRuntimeProcess("src/index.ts", {
+  stdin: "inherit",
+  env: {
+    ...Bun.env,
+    APP_ENV: "development",
+    APP_DEV_PREFILL_SERVER_NAME: SERVER_NAME,
+    APP_DEV_PREFILL_SERVER_ADDRESS: SERVER_ADDRESS,
   },
-);
+});
 
 let shutdownStarted = false;
 
@@ -119,26 +146,51 @@ const waitForExitOrTimeout = async (
 
 const shutdown = async (): Promise<void> => {
   if (shutdownStarted) {
+    logInfo("shutdown already in progress");
     return;
   }
 
   shutdownStarted = true;
+  logInfo("starting coordinated shutdown");
 
   if (!client.killed) {
+    logInfo("sending SIGTERM to desktop client");
     client.kill("SIGTERM");
-    await waitForExitOrTimeout(client, 500);
+    const clientExitedGracefully = await waitForExitOrTimeout(client, 500);
+    logInfo(
+      clientExitedGracefully
+        ? `desktop client exited with code ${client.exitCode}`
+        : "desktop client did not exit before timeout",
+    );
   }
 
   if (!server.killed) {
+    logInfo("sending SIGTERM to dedicated server");
     server.kill("SIGTERM");
     const exitedGracefully = await waitForExitOrTimeout(
       server,
       SERVER_SHUTDOWN_TIMEOUT_MS,
     );
+    logInfo(
+      exitedGracefully
+        ? `dedicated server exited with code ${server.exitCode}`
+        : `dedicated server did not exit within ${SERVER_SHUTDOWN_TIMEOUT_MS}ms`,
+    );
     if (!exitedGracefully && !server.killed) {
+      logInfo("sending SIGKILL to dedicated server");
       server.kill("SIGKILL");
       await server.exited;
+      logInfo(`dedicated server exited with code ${server.exitCode} after SIGKILL`);
     }
+  }
+
+  const releasedPids = await forceReleasePort(SERVER_PORT);
+  if (releasedPids.length > 0) {
+    logInfo(
+      `force-released port ${SERVER_PORT} by terminating PID(s) ${releasedPids.join(", ")}`,
+    );
+  } else {
+    logInfo(`confirmed port ${SERVER_PORT} is free`);
   }
 };
 
@@ -151,7 +203,9 @@ process.on("SIGTERM", () => {
 });
 
 const exitCode = await client.exited;
+logInfo(`desktop client process exited with code ${exitCode}`);
 await shutdown();
+logInfo(`dev-full exiting with code ${exitCode}`);
 process.exit(exitCode);
 
 export {};

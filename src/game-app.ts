@@ -155,6 +155,7 @@ export class GameApp {
     }
 
     this.initialized = true;
+    this.logInfo(`starting desktop app as "${this.deps.playerName}"`);
     this.state.previousTime = this.deps.nativeBridge.getTime();
     await this.syncSavedServers();
   }
@@ -165,6 +166,7 @@ export class GameApp {
     }
 
     this.shutdownStarted = true;
+    this.logInfo("shutting down desktop app");
     await this.flushSettingsSave();
     await this.saveCurrentWorld();
     this.disconnectClient();
@@ -348,6 +350,11 @@ export class GameApp {
   }
 
   private disconnectClient(): void {
+    if (this.clientAdapter) {
+      this.logInfo(
+        `disconnecting ${this.connectionMode ?? "unknown"} session${this.state.currentWorldName ? ` for "${this.state.currentWorldName}"` : ""}`,
+      );
+    }
     for (const unsubscribe of this.connectionUnsubscribers.splice(0)) {
       unsubscribe();
     }
@@ -365,6 +372,7 @@ export class GameApp {
       throw new Error(`World "${worldName}" does not exist.`);
     }
 
+    this.logInfo(`connecting local singleplayer worker for "${worldName}"`);
     this.disconnectClient();
     const adapter = new WorkerClientAdapter({ world });
     this.clientAdapter = adapter;
@@ -384,6 +392,7 @@ export class GameApp {
       return;
     }
 
+    this.logInfo(`connecting to multiplayer server at ${normalizedAddress}`);
     this.disconnectClient();
     const adapter = await WebSocketClientAdapter.connect(this.toWebSocketUrl(normalizedAddress));
     this.clientAdapter = adapter;
@@ -468,6 +477,7 @@ export class GameApp {
     }
 
     if (action === "quit-game") {
+      this.logInfo("quit requested from menu");
       this.deps.nativeBridge.requestClose();
     }
   }
@@ -711,6 +721,7 @@ export class GameApp {
   }
 
   private async joinWorld(worldName: string): Promise<void> {
+    this.logInfo(`joining local world "${worldName}"`);
     const loadingToken = this.beginLoading({
       entryMode: "local",
       targetName: worldName,
@@ -762,6 +773,7 @@ export class GameApp {
       return;
     }
 
+    this.logInfo(`joining multiplayer server "${server.name}" at ${server.address}`);
     const loadingToken = this.beginLoading({
       entryMode: "remote",
       targetName: server.name,
@@ -910,6 +922,9 @@ export class GameApp {
     this.syncCursorMode();
     this.state.accumulator = 0;
     this.state.lastServerMessage = options.connectedMessage;
+    this.logInfo(
+      `entered ${currentLoadingState?.entryMode === "remote" ? "multiplayer server" : "local world"} "${joined.world.name}"`,
+    );
     this.state.menuState = setMenuBusy(
       setMenuStatus(this.state.menuState, options.successStatusText),
       false,
@@ -921,6 +936,7 @@ export class GameApp {
       return;
     }
 
+    this.logInfo(statusText);
     this.disconnectClient();
     this.state.loadingState = null;
     this.state.appMode = "menu";
@@ -1322,6 +1338,9 @@ export class GameApp {
   }
 
   private async exitToMainMenu(statusText: string): Promise<void> {
+    if (this.state.currentWorldName) {
+      this.logInfo(`leaving "${this.state.currentWorldName}" and returning to menu`);
+    }
     await this.saveCurrentWorld();
     this.state.appMode = "menu";
     this.state.loadingState = null;
@@ -1369,6 +1388,10 @@ export class GameApp {
 
   private applyClientSettings(settings: ClientSettings): void {
     this.deps.player.applyClientSettings(settings);
+  }
+
+  private logInfo(message: string): void {
+    console.log(`[app] ${message}`);
   }
 
   private areClientSettingsEqual(

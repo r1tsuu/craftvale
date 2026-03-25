@@ -144,3 +144,13 @@ export const ensurePortAvailable = async (port: number): Promise<void> => {
     await killPortProcesses(port, pids);
   }
 };
+
+export const forceReleasePort = async (port: number): Promise<number[]> => {
+  const pids = await findListeningPids(port);
+  if (pids.length === 0) {
+    return [];
+  }
+
+  await killPortProcesses(port, pids);
+  return [...new Set(pids)];
+};
