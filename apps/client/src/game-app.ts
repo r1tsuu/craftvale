@@ -317,7 +317,15 @@ export class GameApp {
 
       focusedBlock = focusHit?.hit ?? null;
       overlayText = this.state.clientSettings.showDebugOverlay
-        ? this.buildOverlayText(x, y, z, yawDegrees, pitchDegrees)
+        ? this.buildOverlayText(
+            worldRuntime.world,
+            x,
+            y,
+            z,
+            yawDegrees,
+            pitchDegrees,
+            focusedBlock,
+          )
         : [];
       const playHud = buildPlayHud(input.windowWidth, input.windowHeight, {
         inventory: worldRuntime.inventory,
@@ -662,12 +670,23 @@ export class GameApp {
   }
 
   private buildOverlayText(
+    world: VoxelWorld,
     x: number,
     y: number,
     z: number,
     yawDegrees: number,
     pitchDegrees: number,
+    focusedBlock: Vec3 | null,
   ): TextDrawCommand[] {
+    const playerBlockX = Math.floor(x);
+    const playerBlockY = Math.floor(y);
+    const playerBlockZ = Math.floor(z);
+    const playerSkyLight = world.getSkyLight(playerBlockX, playerBlockY, playerBlockZ);
+    const playerBlockLight = world.getBlockLight(playerBlockX, playerBlockY, playerBlockZ);
+    const focusedLightText = focusedBlock
+      ? `  FOCUS S:${world.getSkyLight(focusedBlock.x, focusedBlock.y, focusedBlock.z)} B:${world.getBlockLight(focusedBlock.x, focusedBlock.y, focusedBlock.z)}`
+      : "";
+
     return [
       {
         text: `FPS: ${this.state.smoothedFps.toFixed(1)}`,
@@ -705,6 +724,14 @@ export class GameApp {
         text: `ROT YAW:${yawDegrees.toFixed(1)} PITCH:${pitchDegrees.toFixed(1)}`,
         x: 20,
         y: 147,
+        scale: 3,
+        color: [0.98, 0.98, 0.98],
+        shadowColor: [0.05, 0.06, 0.08],
+      },
+      {
+        text: `LIGHT PLAYER S:${playerSkyLight} B:${playerBlockLight}${focusedLightText}`,
+        x: 20,
+        y: 180,
         scale: 3,
         color: [0.98, 0.98, 0.98],
         shadowColor: [0.05, 0.06, 0.08],
