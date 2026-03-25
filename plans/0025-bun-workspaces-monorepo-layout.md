@@ -28,6 +28,15 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
   - a single-point authentication/account server for a verified online mode
 - A workspace monorepo makes those additions much easier because each new runtime can be its own app while still sharing core protocols, data types, and server/runtime primitives where appropriate.
 
+### Better modding and external tooling surfaces
+- A well-bounded `packages/core` can become the natural dependency surface for mods and external tools.
+- That would let modding or tooling projects depend on shared primitives such as:
+  - protocol/message types
+  - world/item/block data structures
+  - persistence formats
+  - server/runtime helpers where intentionally exposed
+- This is much cleaner than asking mods or tools to import from a client app package or from unstable deep file paths in one flat source tree.
+
 ### Better pathing and asset semantics
 - `apps/client/assets` makes runtime asset ownership obvious.
 - Root `native/` remains centralized without forcing client render assets to be repo-global too.
