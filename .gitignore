@@ -1,4 +1,5 @@
 /node_modules
+/client
 /native/libvoxel_bridge.dylib
 /apps/client/dist
 /apps/dedicated-server/dist

@@ -1,6 +1,7 @@
-import { AuthoritativeWorld, BinaryWorldStorage, DEFAULT_WORLD_STORAGE_ROOT, ServerRuntime, type StoredWorldRecord } from "@voxel/core/server";
+import { AuthoritativeWorld, BinaryWorldStorage, ServerRuntime, type StoredWorldRecord } from "@voxel/core/server";
 import { createLogger, type ClientToServerMessage, type ServerToClientMessage } from "@voxel/core/shared";
 import { ServerEventBus } from "@voxel/core/shared";
+import { DEFAULT_LOCAL_WORLD_STORAGE_ROOT } from "../client/local-world-storage.ts";
 
 const workerLogger = createLogger("worker", "green");
 
@@ -64,7 +65,7 @@ export class WorkerServerHost {
       `booting local singleplayer worker for world "${world.name}" (seed ${world.seed})`,
     );
     const adapter = new WorkerServerAdapter(this.scope);
-    const storage = new BinaryWorldStorage(storageRoot ?? DEFAULT_WORLD_STORAGE_ROOT);
+    const storage = new BinaryWorldStorage(storageRoot ?? DEFAULT_LOCAL_WORLD_STORAGE_ROOT);
     this.adapter = adapter;
     this.runtime = new ServerRuntime(
       {

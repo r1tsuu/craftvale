@@ -1,19 +1,9 @@
-import { join } from "node:path";
 import type { IServerAdapter } from "./server-adapter.ts";
 import { AuthoritativeWorld } from "./authoritative-world.ts";
 import {
   WorldSessionController,
   type WorldSessionHost,
 } from "./world-session-controller.ts";
-
-const packageRoot = import.meta.dir.endsWith("/packages/core/src/server")
-  ? import.meta.dir.slice(0, -"/src/server".length)
-  : import.meta.dir;
-const projectRoot = packageRoot.endsWith("/packages/core")
-  ? packageRoot.slice(0, -"/packages/core".length)
-  : packageRoot;
-
-export const DEFAULT_WORLD_STORAGE_ROOT = join(projectRoot, "client", "worlds");
 
 export class ServerRuntime {
   private readonly session: WorldSessionController;

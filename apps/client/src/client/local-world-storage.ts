@@ -1,16 +1,18 @@
 import type { WorldSummary } from "@voxel/core/shared";
 import {
   BinaryWorldStorage,
-  DEFAULT_WORLD_STORAGE_ROOT,
   type StoredWorldRecord,
   type WorldStorage,
 } from "@voxel/core/server";
+import { DEFAULT_CLIENT_STORAGE_ROOT } from "./player-profile.ts";
+
+export const DEFAULT_LOCAL_WORLD_STORAGE_ROOT = DEFAULT_CLIENT_STORAGE_ROOT;
 
 export class LocalWorldStorage {
   public readonly storageRoot: string;
 
   public constructor(
-    storageRoot = DEFAULT_WORLD_STORAGE_ROOT,
+    storageRoot = DEFAULT_LOCAL_WORLD_STORAGE_ROOT,
     private readonly storage: WorldStorage = new BinaryWorldStorage(storageRoot),
   ) {
     this.storageRoot = storageRoot;
