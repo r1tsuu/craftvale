@@ -17,7 +17,7 @@ import {
   createDefaultInventory,
   getChunkCoordsAroundPosition,
   normalizeInventorySnapshot,
-} from "@voxel/core/client";
+} from "@voxel/core/shared";
 import type { IClientAdapter } from "./client-adapter.ts";
 
 const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;

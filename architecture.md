@@ -20,7 +20,6 @@ At a high level:
 The intended shared import surfaces are:
 
 - `@voxel/core/shared`
-- `@voxel/core/client`
 - `@voxel/core/server`
 
 ## Runtime Topology

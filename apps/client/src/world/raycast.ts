@@ -1,1 +1,1 @@
-export * from "@voxel/core/client";
+export * from "@voxel/core/shared";

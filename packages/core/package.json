@@ -4,7 +4,6 @@
   "type": "module",
   "exports": {
     "./shared": "./src/shared/index.ts",
-    "./client": "./src/client/index.ts",
     "./server": "./src/server/index.ts"
   },
   "scripts": {
