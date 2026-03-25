@@ -20,6 +20,14 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client a
 - Refactors become safer because moving client code should not affect dedicated-server packaging by accident.
 - Future packaging, build, and test improvements can happen per workspace instead of through one oversized app surface.
 
+### Easier future expansion
+- New apps can be added without forcing them into the desktop client or dedicated server structure.
+- Good future examples:
+  - a game launcher app, potentially using Electron
+  - game-development tooling apps
+  - a single-point authentication/account server for a verified online mode
+- A workspace monorepo makes those additions much easier because each new runtime can be its own app while still sharing core protocols, data types, and server/runtime primitives where appropriate.
+
 ### Better pathing and asset semantics
 - `apps/client/assets` makes runtime asset ownership obvious.
 - Root `native/` remains centralized without forcing client render assets to be repo-global too.
