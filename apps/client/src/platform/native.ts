@@ -1,7 +1,7 @@
 import { dlopen, FFIType, ptr } from "bun:ffi";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { InputState, WindowConfig } from "../types.ts";
+import type { InputState, WindowConfig } from "@voxel/core/shared";
 
 const clientRoot = import.meta.dir.endsWith("/apps/client/src/platform")
   ? import.meta.dir.slice(0, -"/src/platform".length)

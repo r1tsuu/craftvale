@@ -1,4 +1,4 @@
-import type { Vec3 } from "./math/vec3.ts";
+import type { Vec3 } from "@voxel/core/shared";
 import {
   cloneClientSettings,
   createDefaultClientSettings,
@@ -40,20 +40,25 @@ import type { TextDrawCommand } from "./render/text.ts";
 import type {
   JoinedWorldPayload,
   LoadingProgressPayload,
-} from "./shared/messages.ts";
-import type { ClientSettings, PlayerName } from "./types.ts";
+  ClientSettings,
+  PlayerName,
+} from "@voxel/core/shared";
 import { evaluateUi, type UiResolvedComponent } from "./ui/components.ts";
 import { buildPlayHud } from "./ui/hud.ts";
 import { buildLoadingScreen } from "./ui/loading.ts";
 import { buildMainMenu } from "./ui/menu.ts";
-import { createLogger } from "./utils/logger.ts";
-import { Biomes, getBiomeAt } from "./world/biomes.ts";
-import { STARTUP_CHUNK_RADIUS } from "./world/constants.ts";
-import { createDefaultInventory } from "./world/inventory.ts";
-import { getSelectedInventorySlot } from "./world/inventory.ts";
-import { getItemDisplayName, getPlacedBlockIdForItem } from "./world/items.ts";
-import { raycastVoxel } from "./world/raycast.ts";
-import { VoxelWorld } from "./world/world.ts";
+import {
+  Biomes,
+  STARTUP_CHUNK_RADIUS,
+  VoxelWorld,
+  createDefaultInventory,
+  createLogger,
+  getBiomeAt,
+  getItemDisplayName,
+  getPlacedBlockIdForItem,
+  getSelectedInventorySlot,
+  raycastVoxel,
+} from "@voxel/core/shared";
 
 const FIXED_TIMESTEP = 1 / 60;
 const appLogger = createLogger("app", "cyan");

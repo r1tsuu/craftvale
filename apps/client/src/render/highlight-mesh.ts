@@ -1,4 +1,4 @@
-import type { Vec3 } from "../math/vec3.ts";
+import type { Vec3 } from "@voxel/core/shared";
 
 const HIGHLIGHT_COLOR: readonly [number, number, number] = [0.97, 0.97, 0.97];
 const HIGHLIGHT_EXPANSION = 0.002;

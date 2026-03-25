@@ -1,7 +1,12 @@
-import type { BlockId, EntityId, InventorySnapshot, PlayerSnapshot } from "../types.ts";
-import { CHUNK_SIZE } from "../world/constants.ts";
-import { getSelectedInventorySlot } from "../world/inventory.ts";
-import { getItemRenderBlockId } from "../world/items.ts";
+import {
+  CHUNK_SIZE,
+  getItemRenderBlockId,
+  getSelectedInventorySlot,
+  type BlockId,
+  type EntityId,
+  type InventorySnapshot,
+  type PlayerSnapshot,
+} from "@voxel/core/shared";
 
 export interface CuboidPartDefinition {
   id: string;

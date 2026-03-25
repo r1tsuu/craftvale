@@ -6,9 +6,10 @@ import {
   normalizeVec3,
   scaleVec3,
   vec3,
+  type BlockId,
+  type PlayerSnapshot,
   type Vec3,
-} from "../math/vec3.ts";
-import type { BlockId, PlayerSnapshot } from "../types.ts";
+} from "@voxel/core/shared";
 import {
   FIRST_PERSON_ARM_CAMERA_OFFSET,
   FIRST_PERSON_ARM_PART,

@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ClientSettings } from "../types.ts";
+import type { ClientSettings } from "@voxel/core/shared";
 import { DEFAULT_CLIENT_STORAGE_ROOT } from "./player-profile.ts";
 
 const SETTINGS_VERSION = 1;

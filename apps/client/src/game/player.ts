@@ -1,22 +1,22 @@
-import { createLookAtMat4, createPerspectiveMat4, multiplyMat4 } from "../math/mat4.ts";
 import {
   addVec3,
   crossVec3,
+  createLookAtMat4,
+  createPerspectiveMat4,
   lengthVec3,
+  multiplyMat4,
   normalizeVec3,
   scaleVec3,
   vec3,
+  type ClientSettings,
+  type InputState,
+  type PlayerGamemode,
+  type PlayerSnapshot,
+  type PlayerState,
   type Vec3,
-} from "../math/vec3.ts";
-import type {
-  ClientSettings,
-  InputState,
-  PlayerGamemode,
-  PlayerSnapshot,
-  PlayerState,
-} from "../types.ts";
-import { isSolidBlock } from "../world/blocks.ts";
-import { VoxelWorld } from "../world/world.ts";
+  VoxelWorld,
+  isSolidBlock,
+} from "@voxel/core/shared";
 
 const WORLD_UP = vec3(0, 1, 0);
 const MOVE_SPEED = 4.75;

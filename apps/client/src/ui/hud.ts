@@ -1,14 +1,8 @@
-import type {
-  ChatEntry,
-  InventorySlot,
-  InventorySnapshot,
-  PlayerGamemode,
-} from "../types.ts";
+import type { ChatEntry, InventorySlot, InventorySnapshot, PlayerGamemode } from "@voxel/core/shared";
 import type { PauseScreen } from "../game/play-overlay.ts";
 import { measureTextWidth } from "../render/text-mesh.ts";
 import { buildPauseSettingsOverlay, type SettingsPanelViewModel } from "./menu.ts";
-import { getSelectedInventorySlot } from "../world/inventory.ts";
-import { getItemColor, getItemDisplayName } from "../world/items.ts";
+import { getItemColor, getItemDisplayName, getSelectedInventorySlot } from "@voxel/core/shared";
 import {
   createButton,
   createHotspot,

@@ -1,7 +1,6 @@
 import { DedicatedServer, DEFAULT_DEDICATED_SERVER_PORT } from "./dedicated-server.ts";
 import { ensurePortAvailable } from "./port-availability.ts";
-import { createLogger } from "./utils/logger.ts";
-import { parseCliFlagValue, parseServerDir } from "./utils/cli.ts";
+import { createLogger, parseCliFlagValue, parseServerDir } from "@voxel/core/shared";
 
 const serverLogger = createLogger("server", "magenta");
 

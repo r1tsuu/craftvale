@@ -5,8 +5,7 @@ import {
   formatRenderDistanceSetting,
   formatSensitivitySetting,
 } from "../client/client-settings.ts";
-import type { WorldSummary } from "../shared/messages.ts";
-import type { ClientSettings, SavedServerRecord } from "../types.ts";
+import type { ClientSettings, SavedServerRecord, WorldSummary } from "@voxel/core/shared";
 import {
   createButton,
   createLabel,

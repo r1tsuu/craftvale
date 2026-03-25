@@ -7,7 +7,7 @@ import {
 } from "./client/player-profile.ts";
 import { JsonSavedServerStorage } from "./client/saved-servers.ts";
 import { createDefaultGameApp } from "./game-app.ts";
-import { parseClientDir } from "./utils/cli.ts";
+import { parseClientDir } from "@voxel/core/shared";
 
 const argv = Bun.argv.slice(2);
 const clientStorageRoot = parseClientDir(argv);

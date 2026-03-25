@@ -1,7 +1,4 @@
 import { join } from "node:path";
-import { decodeClientToServerMessage, encodeTransportMessage } from "./shared/message-codec.ts";
-import { type ServerEventMap } from "./shared/messages.ts";
-import type { EntityId, PlayerSnapshot } from "./types.ts";
 import {
   AuthoritativeWorld,
   DedicatedWorldStorage,
@@ -10,8 +7,17 @@ import {
   type WorldStorage,
   type WorldSessionPeer,
 } from "@voxel/core/server";
-import { createLogger } from "./utils/logger.ts";
-import type { TransportPort } from "./shared/transport.ts";
+import {
+  createLogger,
+  decodeClientToServerMessage,
+  encodeTransportMessage,
+  type ClientToServerMessage,
+  type EntityId,
+  type PlayerSnapshot,
+  type ServerEventMap,
+  type ServerToClientMessage,
+  type TransportPort,
+} from "@voxel/core/shared";
 
 const appRoot = import.meta.dir.endsWith("/apps/dedicated-server/src")
   ? import.meta.dir.slice(0, -"/src".length)
@@ -70,17 +76,17 @@ export const loadOrCreateDedicatedWorld = async (
   return new AuthoritativeWorld(storedWorld, storage);
 };
 
-class DedicatedServerTransport implements TransportPort<import("./shared/messages.ts").ClientToServerMessage, import("./shared/messages.ts").ServerToClientMessage> {
-  private messageHandler: ((message: import("./shared/messages.ts").ClientToServerMessage) => void) | null = null;
+class DedicatedServerTransport implements TransportPort<ClientToServerMessage, ServerToClientMessage> {
+  private messageHandler: ((message: ClientToServerMessage) => void) | null = null;
 
   public constructor(private readonly socket: Bun.ServerWebSocket<DedicatedSocketData>) {}
 
-  public postMessage(message: import("./shared/messages.ts").ServerToClientMessage): void {
+  public postMessage(message: ServerToClientMessage): void {
     this.socket.send(encodeTransportMessage(message));
   }
 
   public setMessageHandler(
-    handler: (message: import("./shared/messages.ts").ClientToServerMessage) => void,
+    handler: (message: ClientToServerMessage) => void,
   ): void {
     this.messageHandler = handler;
   }

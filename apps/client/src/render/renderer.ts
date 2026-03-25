@@ -1,22 +1,24 @@
-import { createIdentityMat4 } from "../math/mat4.ts";
-import type { Vec3 } from "../math/vec3.ts";
+import {
+  CHUNK_SIZE,
+  VoxelWorld,
+  buildChunkMesh,
+  createIdentityMat4,
+  getBlockFaceTile,
+  getBlockRenderPass,
+  getItemRenderBlockId,
+  type BlockFaceRole,
+  type BlockId,
+  type ChunkCoord,
+  type DroppedItemSnapshot,
+  type InventorySnapshot,
+  type MeshData,
+  type PlayerSnapshot,
+  type Vec3,
+} from "@voxel/core/shared";
 import { PlayerController } from "../game/player.ts";
 import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
-import type {
-  BlockId,
-  ChunkCoord,
-  DroppedItemSnapshot,
-  InventorySnapshot,
-  MeshData,
-  PlayerSnapshot,
-} from "../types.ts";
 import { UiRenderer } from "../ui/renderer.ts";
 import { getAtlasUvRect, loadVoxelAtlasImageData } from "../world/atlas.ts";
-import { getBlockFaceTile, getBlockRenderPass, type BlockFaceRole } from "../world/blocks.ts";
-import { CHUNK_SIZE } from "../world/constants.ts";
-import { buildChunkMesh } from "../world/mesher.ts";
-import { getItemRenderBlockId } from "../world/items.ts";
-import { VoxelWorld } from "../world/world.ts";
 import type { UiResolvedComponent } from "../ui/components.ts";
 import { FocusHighlightRenderer } from "./highlight.ts";
 import {

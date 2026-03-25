@@ -1,4 +1,4 @@
-import type { Vec3 } from "../math/vec3.ts";
+import type { Vec3 } from "@voxel/core/shared";
 import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
 import { buildFocusHighlightMesh } from "./highlight-mesh.ts";
 

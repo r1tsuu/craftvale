@@ -1,4 +1,4 @@
-import { createOrthographicMat4 } from "../math/mat4.ts";
+import { createOrthographicMat4 } from "@voxel/core/shared";
 import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
 import { buildTextMesh } from "./text-mesh.ts";
 
