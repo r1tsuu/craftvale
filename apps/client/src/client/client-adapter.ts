@@ -3,7 +3,7 @@ import {
   type ClientToServerMessage,
   type ServerToClientMessage,
   type TransportPort,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 
 export interface IClientAdapter {
   readonly eventBus: ClientEventBus;

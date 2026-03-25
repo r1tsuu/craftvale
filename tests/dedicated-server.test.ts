@@ -135,7 +135,7 @@ const createDedicatedSessionHarness = (
 };
 
 test("dedicated multiplayer sessions share one generated world and only support joinServer", async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-dedicated-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-dedicated-"));
   const storage = new DedicatedWorldStorage(rootDir);
 
   try {

@@ -14,7 +14,7 @@ const createStorage = async (): Promise<{
   rootDir: string;
   storage: JsonPlayerProfileStorage;
 }> => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-player-profile-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-player-profile-"));
   return {
     rootDir,
     storage: new JsonPlayerProfileStorage(rootDir),

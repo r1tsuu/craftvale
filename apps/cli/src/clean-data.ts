@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import { parseClientDir, parseServerDir, createLogger } from "@voxel/core/shared";
+import { parseClientDir, parseServerDir, createLogger } from "@craftvale/core/shared";
 import { clientAppRoot, serverAppRoot } from "./paths.ts";
 
 const argv = Bun.argv.slice(2);

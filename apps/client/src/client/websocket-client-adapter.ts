@@ -5,7 +5,7 @@ import {
   type ClientToServerMessage,
   type ServerToClientMessage,
   type TransportPort,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 
 const createWebSocketTransport = (
   socket: WebSocket,

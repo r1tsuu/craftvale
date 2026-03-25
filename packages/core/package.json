@@ -1,5 +1,5 @@
 {
-  "name": "@voxel/core",
+  "name": "@craftvale/core",
   "private": true,
   "type": "module",
   "exports": {

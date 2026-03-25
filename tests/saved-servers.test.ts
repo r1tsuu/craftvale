@@ -14,7 +14,7 @@ const createStorage = async (): Promise<{
   rootDir: string;
   storage: JsonSavedServerStorage;
 }> => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-saved-servers-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-saved-servers-"));
   return {
     rootDir,
     storage: new JsonSavedServerStorage(rootDir),

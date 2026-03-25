@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { ClientWorldRuntime } from "../apps/client/src/client/world-runtime.ts";
 import type { IClientAdapter } from "../apps/client/src/client/client-adapter.ts";
-import { raycastVoxel, vec3 } from "@voxel/core/shared";
+import { raycastVoxel, vec3 } from "@craftvale/core/shared";
 
 const createClientRuntime = (): ClientWorldRuntime =>
   new ClientWorldRuntime({

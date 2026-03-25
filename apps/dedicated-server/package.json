@@ -1,5 +1,5 @@
 {
-  "name": "@voxel/dedicated-server",
+  "name": "@craftvale/dedicated-server",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,6 +7,6 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "@voxel/core": "workspace:*"
+    "@craftvale/core": "workspace:*"
   }
 }

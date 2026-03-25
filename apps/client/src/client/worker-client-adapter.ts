@@ -1,11 +1,11 @@
-import type { StoredWorldRecord } from "@voxel/core/server";
+import type { StoredWorldRecord } from "@craftvale/core/server";
 import { PortClientAdapter } from "./client-adapter.ts";
 import type {
   ClientToServerMessage,
   ServerToClientMessage,
   TransferList,
   TransportPort,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 import type { WorkerInitMessage } from "../worker/host.ts";
 
 type WorkerInboundMessage = ServerToClientMessage;

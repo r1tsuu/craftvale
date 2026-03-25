@@ -1,4 +1,4 @@
-import type { Vec3 } from "@voxel/core/shared";
+import type { Vec3 } from "@craftvale/core/shared";
 import {
   cloneClientSettings,
   createDefaultClientSettings,
@@ -49,7 +49,7 @@ import type {
   JoinedWorldPayload,
   LoadingProgressPayload,
   PlayerName,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 import type { ClientSettings } from "./types.ts";
 import { evaluateUi, type UiResolvedComponent } from "./ui/components.ts";
 import { buildPlayHud } from "./ui/hud.ts";
@@ -66,7 +66,7 @@ import {
   getPlacedBlockIdForItem,
   getSelectedInventorySlot,
   raycastVoxel,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 
 const FIXED_TIMESTEP = 1 / 60;
 const FIRST_PERSON_SWING_DURATION = 0.18;
@@ -1561,7 +1561,7 @@ export const createDefaultGameApp = (options: {
   nativeBridge.initWindow({
     width: 1440,
     height: 900,
-    title: `Minecraft Clone - ${options.playerName}`,
+    title: `Craftvale - ${options.playerName}`,
   });
   nativeBridge.setCursorDisabled(false);
 

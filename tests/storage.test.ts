@@ -16,7 +16,7 @@ const createTempStorage = async (): Promise<{
   rootDir: string;
   storage: BinaryWorldStorage;
 }> => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-storage-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-storage-"));
   return {
     rootDir,
     storage: new BinaryWorldStorage(rootDir),
@@ -155,7 +155,7 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
 });
 
 test("dedicated world storage uses one fixed world directory", async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-dedicated-storage-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-dedicated-storage-"));
   const storage = new DedicatedWorldStorage(rootDir);
 
   try {
@@ -180,7 +180,7 @@ test("dedicated world storage uses one fixed world directory", async () => {
 });
 
 test("dedicated world storage keeps the current world record available after metadata is removed", async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-dedicated-storage-cache-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-dedicated-storage-cache-"));
   const storage = new DedicatedWorldStorage(rootDir);
 
   try {

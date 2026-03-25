@@ -1,6 +1,6 @@
-import { AuthoritativeWorld, BinaryWorldStorage, ServerRuntime, type StoredWorldRecord } from "@voxel/core/server";
-import { createLogger, type ClientToServerMessage, type ServerToClientMessage } from "@voxel/core/shared";
-import { ServerEventBus } from "@voxel/core/shared";
+import { AuthoritativeWorld, BinaryWorldStorage, ServerRuntime, type StoredWorldRecord } from "@craftvale/core/server";
+import { createLogger, type ClientToServerMessage, type ServerToClientMessage } from "@craftvale/core/shared";
+import { ServerEventBus } from "@craftvale/core/shared";
 import { DEFAULT_LOCAL_WORLD_STORAGE_ROOT } from "../client/local-world-storage.ts";
 
 const workerLogger = createLogger("worker", "green");

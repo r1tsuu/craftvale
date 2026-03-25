@@ -4,7 +4,7 @@ import {
   parseClientDir,
   parseServerDir,
   createLogger,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 import { clientAppRoot, projectRoot, serverAppRoot } from "./paths.ts";
 
 const SERVER_PORT = 3210;

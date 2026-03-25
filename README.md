@@ -1,4 +1,4 @@
-# Minecraft Clone
+# Craftvale
 
 A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing and OpenGL rendering. The repo now uses Bun workspaces so the desktop client, dedicated server, and shared gameplay/runtime code live in explicit packages instead of one flat source tree.
 
@@ -98,7 +98,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `apps/client` desktop app package with the app bootstrap, `GameApp`, client runtime, rendering, UI, input, singleplayer worker startup, and runtime assets under `apps/client/assets`
 - `apps/dedicated-server` dedicated WebSocket server package with process startup and server lifecycle wiring
 - `apps/cli` developer CLI workspace with native build, combined dev flow, data cleanup, and asset-generation scripts
-- `packages/core` shared package published internally as `@voxel/core`, with stable export surfaces at `@voxel/core/shared` and `@voxel/core/server`
+- `packages/core` shared package published internally as `@craftvale/core`, with stable export surfaces at `@craftvale/core/shared` and `@craftvale/core/server`
 - `packages/core/src/shared` typed message schemas, transport, event-bus plumbing, shared CLI parsing, and shared logging helpers
 - `packages/core/src/server` authoritative world runtime, world-level entity state, player system, dropped item system, world-session control, and binary world storage
 - `packages/core/src/world` chunks, biome/terrain generation, meshing, atlas metadata/UVs, inventory helpers, item/block registries, and raycasting
@@ -121,8 +121,8 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 
 - Local singleplayer worlds are created from the menu. A dedicated multiplayer server creates or loads exactly one world when it starts.
 - In local singleplayer, world list/create/delete lives on the app side; the worker only boots for the selected world and runs gameplay for that one world.
-- The repo is organized as Bun workspaces: `@voxel/client`, `@voxel/dedicated-server`, and `@voxel/core`.
-- Shared imports should prefer the package export surfaces `@voxel/core/shared` and `@voxel/core/server` instead of deep relative cross-workspace imports.
+- The repo is organized as Bun workspaces: `@craftvale/client`, `@craftvale/dedicated-server`, and `@craftvale/core`.
+- Shared imports should prefer the package export surfaces `@craftvale/core/shared` and `@craftvale/core/server` instead of deep relative cross-workspace imports.
 - Entering a world now follows a menu -> loading -> play flow instead of dropping straight into partially streamed terrain.
 - Biomes, terrain, and trees are all derived deterministically from the world seed.
 - World state is authoritative on the server side in both local worker mode and dedicated WebSocket mode.

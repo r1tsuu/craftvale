@@ -1,4 +1,4 @@
-import type { ChatEntry, InventorySlot, InventorySnapshot, PlayerGamemode } from "@voxel/core/shared";
+import type { ChatEntry, InventorySlot, InventorySnapshot, PlayerGamemode } from "@craftvale/core/shared";
 import type { PauseScreen } from "../game/play-overlay.ts";
 import { measureTextWidth } from "../render/text-mesh.ts";
 import {
@@ -6,7 +6,7 @@ import {
   buildPauseSettingsOverlay,
   type SettingsPanelViewModel,
 } from "./menu.ts";
-import { getItemColor, getItemDisplayName, getSelectedInventorySlot } from "@voxel/core/shared";
+import { getItemColor, getItemDisplayName, getSelectedInventorySlot } from "@craftvale/core/shared";
 import {
   createButton,
   createHotspot,

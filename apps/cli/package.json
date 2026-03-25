@@ -1,5 +1,5 @@
 {
-  "name": "@voxel/cli",
+  "name": "@craftvale/cli",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,6 @@
     "generate-voxel-atlas": "bun run src/generate-voxel-atlas.ts"
   },
   "dependencies": {
-    "@voxel/core": "workspace:*"
+    "@craftvale/core": "workspace:*"
   }
 }

@@ -9,7 +9,7 @@ import {
 } from "./client/player-profile.ts";
 import { JsonSavedServerStorage } from "./client/saved-servers.ts";
 import { createDefaultGameApp } from "./game-app.ts";
-import { parseClientDir } from "@voxel/core/shared";
+import { parseClientDir } from "@craftvale/core/shared";
 
 const appRoot = import.meta.dir.endsWith("/apps/client/src")
   ? import.meta.dir.slice(0, -"/src".length)

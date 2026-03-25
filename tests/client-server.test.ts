@@ -36,7 +36,7 @@ const createHarness = async (): Promise<{
   serverRuntime: ServerRuntime;
   loadingProgressEvents: LoadingProgressPayload[];
 }> => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-runtime-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-runtime-"));
   const transport = createInMemoryTransportPair<
     ServerToClientMessage,
     ClientToServerMessage,

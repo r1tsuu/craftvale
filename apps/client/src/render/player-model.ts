@@ -6,7 +6,7 @@ import {
   type EntityId,
   type InventorySnapshot,
   type PlayerSnapshot,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 
 export interface CuboidPartDefinition {
   id: string;

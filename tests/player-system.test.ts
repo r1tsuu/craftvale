@@ -7,7 +7,7 @@ import { BinaryWorldStorage } from "../packages/core/src/server/world-storage.ts
 import { WorldEntityState } from "../packages/core/src/server/world-entity-state.ts";
 
 test("player system allocates player entities from the shared world entity registry", async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-player-system-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-player-system-"));
   const storage = new BinaryWorldStorage(rootDir);
 
   try {

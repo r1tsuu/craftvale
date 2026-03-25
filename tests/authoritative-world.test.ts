@@ -13,7 +13,7 @@ const PLAYER_A = "Alice";
 const PLAYER_B = "Bob";
 
 test("authoritative world keeps per-player state separate and persists it by player name", async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-authoritative-world-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-authoritative-world-"));
   const storage = new BinaryWorldStorage(rootDir);
 
   try {
@@ -79,7 +79,7 @@ test("authoritative world keeps per-player state separate and persists it by pla
 });
 
 test("authoritative world spawns and persists dropped items until players pick them up", async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-authoritative-world-drops-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-authoritative-world-drops-"));
   const storage = new BinaryWorldStorage(rootDir);
 
   try {
@@ -122,7 +122,7 @@ test("authoritative world spawns and persists dropped items until players pick t
 });
 
 test("authoritative world pregenerates and persists the startup chunk set", async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-authoritative-world-startup-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-authoritative-world-startup-"));
   const storage = new BinaryWorldStorage(rootDir);
 
   try {
@@ -166,7 +166,7 @@ test("authoritative world pregenerates and persists the startup chunk set", asyn
 });
 
 test("survival cannot break bedrock but creative can", async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-authoritative-world-bedrock-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-authoritative-world-bedrock-"));
   const storage = new BinaryWorldStorage(rootDir);
 
   try {

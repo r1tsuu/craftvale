@@ -9,7 +9,7 @@ import {
   type BlockId,
   type PlayerSnapshot,
   type Vec3,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 import {
   FIRST_PERSON_ARM_CAMERA_OFFSET,
   FIRST_PERSON_ARM_PART,

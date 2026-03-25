@@ -1,0 +1,4 @@
+interface:
+  display_name: "Craftvale"
+  short_description: "Repo workflow for Craftvale"
+  default_prompt: "Use $craftvale to work safely and consistently in this voxel sandbox repository."

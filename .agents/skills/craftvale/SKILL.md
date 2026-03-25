@@ -1,13 +1,13 @@
 ---
-name: bun-opengl-project
+name: craftvale
 description:
-  Use when working in the bun-opengl repository on gameplay, world generation,
+  Use when working in the Craftvale repository on gameplay, world generation,
   rendering, persistence, UI, plans, or architecture/docs updates. This skill
   gives the repo-specific workflow, file map, and validation steps needed to
   make consistent changes safely.
 ---
 
-# Bun OpenGL Project
+# Craftvale
 
 ## Overview
 

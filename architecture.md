@@ -21,8 +21,8 @@ At a high level:
 
 The intended shared import surfaces are:
 
-- `@voxel/core/shared`
-- `@voxel/core/server`
+- `@craftvale/core/shared`
+- `@craftvale/core/server`
 
 ## Runtime Topology
 
@@ -42,9 +42,9 @@ The local worker hosts the authoritative gameplay server for one selected world:
 
 - boots through `apps/client/src/worker-entry.ts`
 - is attached to a client-owned `WorkerServerHost` from `apps/client/src/worker/host.ts`
-- constructs a `ServerRuntime` from `@voxel/core/server`
+- constructs a `ServerRuntime` from `@craftvale/core/server`
 - is initialized with one chosen local world record
-- saves that world through `BinaryWorldStorage` from `@voxel/core/server`
+- saves that world through `BinaryWorldStorage` from `@craftvale/core/server`
 - generates chunks, applies block mutations, and owns the authoritative state for that one world
 
 This separation means the client never directly mutates authoritative world state. It asks the server to do so and then applies the resulting authoritative updates.
@@ -108,7 +108,7 @@ Shutdown is also instance-owned. `GameApp` saves the current world, closes the c
 
 ## Messaging And Adapters
 
-The client/server boundary is strongly typed through `packages/core/src/shared/messages.ts` and re-exported at `@voxel/core/shared`.
+The client/server boundary is strongly typed through `packages/core/src/shared/messages.ts` and re-exported at `@craftvale/core/shared`.
 
 There are three main categories:
 

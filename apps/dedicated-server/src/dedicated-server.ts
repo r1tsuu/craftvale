@@ -7,7 +7,7 @@ import {
   WorldSessionController,
   type WorldStorage,
   type WorldSessionPeer,
-} from "@voxel/core/server";
+} from "@craftvale/core/server";
 import {
   createLogger,
   decodeClientToServerMessage,
@@ -15,7 +15,7 @@ import {
   type ClientToServerMessage,
   type ServerToClientMessage,
   type TransportPort,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 
 const appRoot = import.meta.dir.endsWith("/apps/dedicated-server/src")
   ? import.meta.dir.slice(0, -"/src".length)

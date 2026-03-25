@@ -8,8 +8,8 @@ import type {
   PlayerName,
   PlayerSnapshot,
   PlayerState,
-} from "@voxel/core/shared";
-import type { ChunkPayload, JoinedWorldPayload } from "@voxel/core/shared";
+} from "@craftvale/core/shared";
+import type { ChunkPayload, JoinedWorldPayload } from "@craftvale/core/shared";
 import {
   ACTIVE_CHUNK_RADIUS,
   STARTUP_CHUNK_RADIUS,
@@ -18,7 +18,7 @@ import {
   getChunkCoordsAroundPosition,
   isBreakableBlock,
   normalizeInventorySnapshot,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 import type { IClientAdapter } from "./client-adapter.ts";
 
 const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;

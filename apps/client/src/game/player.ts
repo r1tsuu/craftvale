@@ -13,9 +13,9 @@ import {
   type Vec3,
   VoxelWorld,
   isSolidBlock,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 import type { ClientSettings, InputState } from "../types.ts";
-import type { PlayerState } from "@voxel/core/shared";
+import type { PlayerState } from "@craftvale/core/shared";
 
 const WORLD_UP = vec3(0, 1, 0);
 const MOVE_SPEED = 4.75;

@@ -11,7 +11,7 @@ import type { ClientToServerMessage, ServerToClientMessage } from "../packages/c
 import { createInMemoryTransportPair } from "../packages/core/src/shared/transport.ts";
 
 test("server runtime applies queued gameplay only on tick boundaries and preserves order within a tick", async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-server-runtime-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-server-runtime-"));
   let nowMs = 0;
 
   try {
@@ -73,7 +73,7 @@ test("server runtime applies queued gameplay only on tick boundaries and preserv
 });
 
 test("server runtime caps catch-up work when the authoritative tick loop falls behind", async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-server-runtime-cap-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-server-runtime-cap-"));
   let nowMs = 0;
 
   try {

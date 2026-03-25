@@ -14,7 +14,7 @@ import {
   type MeshData,
   type PlayerSnapshot,
   type Vec3,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 import { PlayerController } from "../game/player.ts";
 import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
 import { UiRenderer } from "../ui/renderer.ts";

@@ -11,8 +11,8 @@ export {
   type AtlasTileCoord,
   type AtlasTileId,
   type AtlasUvRect,
-} from "@voxel/core/shared";
-import { ATLAS_HEIGHT, ATLAS_WIDTH } from "@voxel/core/shared";
+} from "@craftvale/core/shared";
+import { ATLAS_HEIGHT, ATLAS_WIDTH } from "@craftvale/core/shared";
 
 export const VOXEL_ATLAS_ASSET_PATH = "assets/textures/voxel-atlas.png";
 

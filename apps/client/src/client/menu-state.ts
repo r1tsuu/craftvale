@@ -1,4 +1,4 @@
-import type { WorldSummary } from "@voxel/core/shared";
+import type { WorldSummary } from "@craftvale/core/shared";
 import type { InputState, SavedServerRecord } from "../types.ts";
 
 export type MenuScreen =

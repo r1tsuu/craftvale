@@ -5,7 +5,7 @@ import {
   formatRenderDistanceSetting,
   formatSensitivitySetting,
 } from "../client/client-settings.ts";
-import type { WorldSummary } from "@voxel/core/shared";
+import type { WorldSummary } from "@craftvale/core/shared";
 import type { ClientSettings, SavedServerRecord } from "../types.ts";
 import {
   createButton,
@@ -429,7 +429,7 @@ const buildPlayMenu = (
   const shell = buildMenuShell(
     width,
     height,
-    "MINECRAFT CLONE",
+    "CRAFTVALE",
     "Local worlds and dedicated multiplayer",
     seed,
     panelWidth,

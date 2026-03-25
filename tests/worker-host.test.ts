@@ -46,7 +46,7 @@ test("worker host rejects gameplay messages before initialization", () => {
 });
 
 test("worker host initializes once and dispatches requests through owned instance state", async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-worker-host-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-worker-host-"));
   const { scope, messages } = createScope();
   const host = new WorkerServerHost(scope);
   const storage = new BinaryWorldStorage(rootDir);

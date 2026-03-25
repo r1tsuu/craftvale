@@ -4,7 +4,7 @@ import {
   ensurePortAvailable,
   parseCliFlagValue,
   parseServerDir,
-} from "@voxel/core/shared";
+} from "@craftvale/core/shared";
 
 const serverLogger = createLogger("server", "magenta");
 

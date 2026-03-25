@@ -12,7 +12,7 @@ const createStorage = async (): Promise<{
   rootDir: string;
   storage: JsonClientSettingsStorage;
 }> => {
-  const rootDir = await mkdtemp(join(tmpdir(), "bun-opengl-client-settings-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-client-settings-"));
   return {
     rootDir,
     storage: new JsonClientSettingsStorage(rootDir),

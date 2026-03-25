@@ -1,9 +1,9 @@
-import type { WorldSummary } from "@voxel/core/shared";
+import type { WorldSummary } from "@craftvale/core/shared";
 import {
   BinaryWorldStorage,
   type StoredWorldRecord,
   type WorldStorage,
-} from "@voxel/core/server";
+} from "@craftvale/core/server";
 import { DEFAULT_CLIENT_STORAGE_ROOT } from "./player-profile.ts";
 
 export const DEFAULT_LOCAL_WORLD_STORAGE_ROOT = DEFAULT_CLIENT_STORAGE_ROOT;

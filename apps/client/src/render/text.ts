@@ -1,4 +1,4 @@
-import { createOrthographicMat4 } from "@voxel/core/shared";
+import { createOrthographicMat4 } from "@craftvale/core/shared";
 import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
 import { buildTextMesh } from "./text-mesh.ts";
 
