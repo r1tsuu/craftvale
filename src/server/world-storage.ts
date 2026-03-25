@@ -1,10 +1,10 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
-  BlockId,
   ChunkCoord,
   DroppedItemSnapshot,
   InventorySnapshot,
+  ItemId,
   PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
@@ -18,8 +18,8 @@ const PLAYER_MAGIC = "VPLY";
 const DROPPED_ITEMS_MAGIC = "VDRP";
 const REGISTRY_VERSION = 1;
 const CHUNK_VERSION = 1;
-const PLAYER_VERSION = 4;
-const DROPPED_ITEMS_VERSION = 1;
+const PLAYER_VERSION = 5;
+const DROPPED_ITEMS_VERSION = 2;
 
 export interface StoredWorldRecord extends WorldSummary {
   directoryName: string;
@@ -215,12 +215,12 @@ const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
   view.setUint32(52, inventory.selectedSlot >>> 0, true);
   view.setUint32(56, inventory.hotbar.length, true);
   view.setUint32(60, inventory.main.length, true);
-  view.setUint32(64, inventory.cursor?.blockId ?? 0, true);
+  view.setUint32(64, inventory.cursor?.itemId ?? 0, true);
   view.setUint32(68, inventory.cursor?.count ?? 0, true);
 
   let offset = 72;
   for (const slot of [...inventory.hotbar, ...inventory.main]) {
-    view.setUint32(offset, slot.blockId >>> 0, true);
+    view.setUint32(offset, slot.itemId >>> 0, true);
     view.setUint32(offset + 4, Math.max(0, Math.trunc(slot.count)) >>> 0, true);
     offset += 8;
   }
@@ -250,7 +250,7 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
   const selectedSlot = view.getUint32(52, true);
   const hotbarCount = view.getUint32(56, true);
   const mainCount = view.getUint32(60, true);
-  const cursorBlockId = view.getUint32(64, true) as BlockId;
+  const cursorItemId = view.getUint32(64, true) as ItemId;
   const cursorCount = view.getUint32(68, true);
   const hotbar: InventorySnapshot["hotbar"] = [];
   const main: InventorySnapshot["main"] = [];
@@ -258,7 +258,7 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
 
   for (let index = 0; index < hotbarCount; index += 1) {
     hotbar.push({
-      blockId: view.getUint32(offset, true) as BlockId,
+      itemId: view.getUint32(offset, true) as ItemId,
       count: view.getUint32(offset + 4, true),
     });
     offset += 8;
@@ -266,7 +266,7 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
 
   for (let index = 0; index < mainCount; index += 1) {
     main.push({
-      blockId: view.getUint32(offset, true) as BlockId,
+      itemId: view.getUint32(offset, true) as ItemId,
       count: view.getUint32(offset + 4, true),
     });
     offset += 8;
@@ -280,7 +280,7 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
     selectedSlot,
     cursor: cursorCount > 0
       ? {
-          blockId: cursorBlockId,
+          itemId: cursorItemId,
           count: cursorCount,
         }
       : null,
@@ -325,7 +325,7 @@ const encodeDroppedItems = (items: readonly DroppedItemSnapshot[]): Uint8Array =
     view.setFloat64(offset + 24, item.velocity[0], true);
     view.setFloat64(offset + 32, item.velocity[1], true);
     view.setFloat64(offset + 40, item.velocity[2], true);
-    view.setUint32(offset + 48, item.blockId >>> 0, true);
+    view.setUint32(offset + 48, item.itemId >>> 0, true);
     view.setUint32(offset + 52, Math.max(0, Math.trunc(item.count)) >>> 0, true);
     offset += 56;
     offset = writeString(bytes, offset, item.entityId);
@@ -367,7 +367,7 @@ const decodeDroppedItems = (bytes: Uint8Array): DroppedItemSnapshot[] => {
       view.getFloat64(offset + 32, true),
       view.getFloat64(offset + 40, true),
     ];
-    const blockId = view.getUint32(offset + 48, true) as BlockId;
+    const itemId = view.getUint32(offset + 48, true) as ItemId;
     const countValue = view.getUint32(offset + 52, true);
     offset += 56;
     const entityId = readString(bytes, offset);
@@ -378,7 +378,7 @@ const decodeDroppedItems = (bytes: Uint8Array): DroppedItemSnapshot[] => {
       entityId: entityId.value,
       position,
       velocity,
-      blockId,
+      itemId,
       count: countValue,
       pickupCooldownMs,
     });

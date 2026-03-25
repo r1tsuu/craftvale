@@ -108,7 +108,7 @@ export class ClientWorldRuntime {
       entityId: item.entityId,
       position: [...item.position],
       velocity: [...item.velocity],
-      blockId: item.blockId,
+      itemId: item.itemId,
       count: item.count,
       pickupCooldownMs: item.pickupCooldownMs,
     });

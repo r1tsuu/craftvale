@@ -1,7 +1,7 @@
 import type {
-  BlockId,
   EntityId,
   InventorySnapshot,
+  ItemId,
   PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
@@ -211,12 +211,12 @@ export class PlayerSystem {
 
   public addInventoryItem(
     entityId: EntityId,
-    blockId: BlockId,
+    itemId: ItemId,
     count: number,
   ): AddedInventoryItemResult {
     const inventory = this.requireComponent(this.entities.playerInventory, entityId, "player inventory");
     const persistence = this.requireComponent(this.entities.playerPersistence, entityId, "player persistence");
-    const added = addInventoryItem(inventory.inventory, blockId, count);
+    const added = addInventoryItem(inventory.inventory, itemId, count);
 
     if (added.added > 0) {
       this.entities.playerInventory.set(entityId, { inventory: added.inventory });
@@ -242,13 +242,13 @@ export class PlayerSystem {
 
   public removeSelectedInventoryItem(
     entityId: EntityId,
-    expectedBlockId: BlockId,
+    expectedItemId: ItemId,
     count: number,
   ): RemovedSelectedInventoryItemResult {
     const inventory = this.requireComponent(this.entities.playerInventory, entityId, "player inventory");
     const persistence = this.requireComponent(this.entities.playerPersistence, entityId, "player persistence");
     const selectedSlot = getSelectedInventorySlot(inventory.inventory);
-    if (selectedSlot.blockId !== expectedBlockId || selectedSlot.count < count) {
+    if (selectedSlot.itemId !== expectedItemId || selectedSlot.count < count) {
       return {
         inventory: this.cloneInventory(inventory.inventory),
         inventoryChanged: false,

@@ -7,8 +7,8 @@ import type {
 import type { PauseScreen } from "../game/play-overlay.ts";
 import { measureTextWidth } from "../render/text-mesh.ts";
 import { buildPauseSettingsOverlay, type SettingsPanelViewModel } from "./menu.ts";
-import { Blocks } from "../world/blocks.ts";
 import { getSelectedInventorySlot } from "../world/inventory.ts";
+import { getItemColor, getItemDisplayName } from "../world/items.ts";
 import {
   createButton,
   createHotspot,
@@ -47,7 +47,7 @@ interface VisibleChatLine {
 }
 
 const isEmptyInventorySlot = (slot: InventorySlot | null | undefined): boolean =>
-  !slot || slot.blockId === 0 || slot.count <= 0;
+  !slot || slot.itemId === 0 || slot.count <= 0;
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 
@@ -92,7 +92,7 @@ const getVisibleChatLines = (
 };
 
 const getSlotDisplayName = (slot: InventorySlot): string =>
-  isEmptyInventorySlot(slot) ? "EMPTY" : Blocks[slot.blockId].name.toUpperCase();
+  isEmptyInventorySlot(slot) ? "EMPTY" : getItemDisplayName(slot.itemId).toUpperCase();
 
 const buildCrosshair = (windowWidth: number, windowHeight: number): UiComponent[] => {
   const centerX = Math.round(windowWidth / 2);
@@ -172,7 +172,7 @@ const buildInventorySlotVisual = (
           width: rect.width - 28,
           height: rect.height - 28,
         },
-        color: Blocks[slot.blockId].color,
+        color: getItemColor(slot.itemId),
       }),
       createLabel({
         id: `${idPrefix}-count`,

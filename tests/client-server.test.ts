@@ -15,6 +15,7 @@ import { PortServerAdapter } from "../src/server/server-adapter.ts";
 import { ServerRuntime } from "../src/server/runtime.ts";
 import { BinaryWorldStorage } from "../src/server/world-storage.ts";
 import { DEFAULT_INVENTORY_STACK_SIZE } from "../src/world/inventory.ts";
+import { getDroppedItemIdForBlock } from "../src/world/blocks.ts";
 import { getTerrainHeight } from "../src/world/terrain.ts";
 
 const PLAYER_NAME = "Alice";
@@ -172,13 +173,15 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     ).toBe(true);
     expect(
       harness.worldRuntime.inventory.main.every(
-        (slot) => slot.blockId === 0 && slot.count === 0,
+        (slot) => slot.itemId === 0 && slot.count === 0,
       ),
     ).toBe(true);
 
     const targetY = getTerrainHeight(joined.world.seed, 1, 1);
     const targetBlockId = harness.worldRuntime.world.getBlock(1, targetY, 1);
+    const targetItemId = getDroppedItemIdForBlock(targetBlockId);
     expect(targetBlockId).not.toBe(0);
+    expect(targetItemId).not.toBeNull();
 
     let changedChunkReceived = false;
     harness.client.eventBus.on("chunkChanged", () => {
@@ -218,7 +221,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(0);
     expect(
       harness.worldRuntime.inventory.main.every(
-        (slot) => slot.blockId === 0 && slot.count === 0,
+        (slot) => slot.itemId === 0 && slot.count === 0,
       ),
     ).toBe(true);
     expect(harness.worldRuntime.droppedItems.size).toBe(1);
@@ -243,12 +246,12 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     });
     await Bun.sleep(0);
 
-    const collectedSlot = harness.worldRuntime.inventory.main.find((slot) => slot.blockId === targetBlockId);
+    const collectedSlot = harness.worldRuntime.inventory.main.find((slot) => slot.itemId === targetItemId);
     expect(collectedSlot?.count).toBe(1);
     expect(harness.worldRuntime.droppedItems.size).toBe(0);
 
     const collectedSlotIndex = harness.worldRuntime.inventory.hotbar.findIndex(
-      (slot) => slot.blockId === targetBlockId,
+      (slot) => slot.itemId === targetItemId,
     );
     harness.client.eventBus.send({
       type: "selectInventorySlot",
@@ -267,7 +270,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
       },
     });
     await Bun.sleep(0);
-    expect(harness.worldRuntime.inventory.cursor).toEqual({ blockId: 9, count: 64 });
+    expect(harness.worldRuntime.inventory.cursor).toEqual({ itemId: 109, count: 64 });
 
     harness.client.eventBus.send({
       type: "interactInventorySlot",
@@ -278,7 +281,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     });
     await Bun.sleep(0);
     expect(harness.worldRuntime.inventory.cursor).toBeNull();
-    expect(harness.worldRuntime.inventory.main[1]).toEqual({ blockId: 9, count: 64 });
+    expect(harness.worldRuntime.inventory.main[1]).toEqual({ itemId: 109, count: 64 });
 
     harness.client.eventBus.send({
       type: "interactInventorySlot",
@@ -296,7 +299,7 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
       },
     });
     await Bun.sleep(0);
-    expect(harness.worldRuntime.inventory.hotbar[8]).toEqual({ blockId: 9, count: 64 });
+    expect(harness.worldRuntime.inventory.hotbar[8]).toEqual({ itemId: 109, count: 64 });
     expect(harness.worldRuntime.inventory.cursor).toBeNull();
 
     harness.client.eventBus.send({
@@ -330,10 +333,10 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
 
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(targetBlockId);
     expect(
-      harness.worldRuntime.inventory.hotbar.find((slot) => slot.blockId === targetBlockId)?.count,
+      harness.worldRuntime.inventory.hotbar.find((slot) => slot.itemId === targetItemId)?.count,
     ).toBe(DEFAULT_INVENTORY_STACK_SIZE - 1);
     expect(
-      harness.worldRuntime.inventory.main.find((slot) => slot.blockId === targetBlockId)?.count,
+      harness.worldRuntime.inventory.main.find((slot) => slot.itemId === targetItemId)?.count,
     ).toBe(1);
 
     harness.client.eventBus.send({

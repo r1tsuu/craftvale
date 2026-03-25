@@ -1,7 +1,7 @@
 import type {
-  BlockId,
   EntityId,
   InventorySnapshot,
+  ItemId,
   PlayerGamemode,
   PlayerName,
   PlayerState,
@@ -43,7 +43,7 @@ export interface DroppedItemTransformComponent {
 }
 
 export interface DroppedItemStackComponent {
-  blockId: BlockId;
+  itemId: ItemId;
   count: number;
 }
 

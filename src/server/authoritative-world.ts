@@ -4,6 +4,7 @@ import type {
   DroppedItemSnapshot,
   EntityId,
   InventorySnapshot,
+  ItemId,
   PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
@@ -14,12 +15,13 @@ import {
   type WorldSummary,
 } from "../shared/messages.ts";
 import { Chunk } from "../world/chunk.ts";
-import { isCollectibleBlock, isPlaceableBlock } from "../world/blocks.ts";
+import { getDroppedItemIdForBlock, isCollectibleBlock } from "../world/blocks.ts";
 import {
   CHUNK_SIZE,
   STARTUP_CHUNK_RADIUS,
   WORLD_LAYER_CHUNKS_Y,
 } from "../world/constants.ts";
+import { getPlacedBlockIdForItem } from "../world/items.ts";
 import { getChunkCoordsAroundPosition } from "../world/chunk-coords.ts";
 import { createGeneratedChunk, getTerrainHeight } from "../world/terrain.ts";
 import { worldToChunkCoord } from "../world/world.ts";
@@ -240,8 +242,9 @@ export class AuthoritativeWorld {
         };
       }
 
-      if (isCollectibleBlock(current)) {
-        const droppedItems = await this.droppedItemSystem.spawnBlockDrop(current, 1, [
+      const droppedItemId = getDroppedItemIdForBlock(current);
+      if (isCollectibleBlock(current) && droppedItemId !== null) {
+        const droppedItems = await this.droppedItemSystem.spawnBlockDrop(droppedItemId, 1, [
           worldX + 0.5,
           worldY + 0.75,
           worldZ + 0.5,
@@ -259,7 +262,7 @@ export class AuthoritativeWorld {
         };
       }
     } else {
-      if (current !== 0 || !isPlaceableBlock(blockId)) {
+      if (current !== 0) {
         return {
           changedChunks: [],
           inventory: nextInventory,
@@ -269,7 +272,8 @@ export class AuthoritativeWorld {
       }
 
       const selectedSlot = this.playerSystem.getSelectedInventorySlot(entityId);
-      if (selectedSlot.blockId !== blockId || selectedSlot.count <= 0) {
+      const placedBlockId = getPlacedBlockIdForItem(selectedSlot.itemId);
+      if (selectedSlot.count <= 0 || placedBlockId === null || placedBlockId !== blockId) {
         return {
           changedChunks: [],
           inventory: nextInventory,
@@ -278,7 +282,7 @@ export class AuthoritativeWorld {
         };
       }
 
-      const removed = this.playerSystem.removeSelectedInventoryItem(entityId, blockId, 1);
+      const removed = this.playerSystem.removeSelectedInventoryItem(entityId, selectedSlot.itemId, 1);
       if (removed.removed <= 0) {
         return {
           changedChunks: [],
@@ -327,7 +331,7 @@ export class AuthoritativeWorld {
     const result = await this.droppedItemSystem.update(
       deltaSeconds,
       this.playerSystem.getActivePlayers(),
-      (playerEntityId, blockId, count) => this.playerSystem.addInventoryItem(playerEntityId, blockId, count),
+      (playerEntityId, itemId, count) => this.playerSystem.addInventoryItem(playerEntityId, itemId, count),
     );
     return this.toWorldSimulationResult(result);
   }

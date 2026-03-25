@@ -65,15 +65,15 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
       },
       inventory: {
         hotbar: [
-          { blockId: 1, count: 3 },
-          { blockId: 2, count: 4 },
-          { blockId: 3, count: 5 },
-          { blockId: 4, count: 6 },
-          { blockId: 5, count: 7 },
+          { itemId: 101, count: 3 },
+          { itemId: 102, count: 4 },
+          { itemId: 103, count: 5 },
+          { itemId: 104, count: 6 },
+          { itemId: 105, count: 7 },
         ],
-        main: [{ blockId: 6, count: 9 }],
+        main: [{ itemId: 106, count: 9 }],
         selectedSlot: 2,
-        cursor: { blockId: 7, count: 2 },
+        cursor: { itemId: 107, count: 2 },
       },
     });
 
@@ -91,7 +91,7 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
         },
       },
       inventory: {
-        hotbar: [{ blockId: 4, count: 9 }],
+        hotbar: [{ itemId: 104, count: 9 }],
         main: [],
         selectedSlot: 0,
         cursor: null,
@@ -109,23 +109,23 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
     expect(loadedPlayerA?.inventory.selectedSlot).toBe(2);
     expect(loadedPlayerA?.inventory.hotbar).toHaveLength(9);
     expect(loadedPlayerA?.inventory.main).toHaveLength(27);
-    expect(loadedPlayerA?.inventory.hotbar.find((slot) => slot.blockId === 3)?.count).toBe(5);
-    expect(loadedPlayerA?.inventory.main.find((slot) => slot.blockId === 6)?.count).toBe(9);
-    expect(loadedPlayerA?.inventory.cursor).toEqual({ blockId: 7, count: 2 });
+    expect(loadedPlayerA?.inventory.hotbar.find((slot) => slot.itemId === 103)?.count).toBe(5);
+    expect(loadedPlayerA?.inventory.main.find((slot) => slot.itemId === 106)?.count).toBe(9);
+    expect(loadedPlayerA?.inventory.cursor).toEqual({ itemId: 107, count: 2 });
 
     const loadedPlayerB = await storage.loadPlayer("Alpha", PLAYER_B);
     expect(loadedPlayerB).not.toBeNull();
     expect(loadedPlayerB?.snapshot.entityId).toBe("player:8");
     expect(loadedPlayerB?.snapshot.gamemode).toBe(0);
     expect(loadedPlayerB?.snapshot.state.position).toEqual([1, 2, 3]);
-    expect(loadedPlayerB?.inventory.hotbar.find((slot) => slot.blockId === 4)?.count).toBe(9);
+    expect(loadedPlayerB?.inventory.hotbar.find((slot) => slot.itemId === 104)?.count).toBe(9);
 
     await storage.saveDroppedItems("Alpha", [
       {
         entityId: "drop:3",
         position: [4.5, 65.25, -2.5],
         velocity: [0.5, 1.75, -0.25],
-        blockId: 3,
+        itemId: 103,
         count: 12,
         pickupCooldownMs: 180,
       },
@@ -137,7 +137,7 @@ test("binary world storage creates, persists, and deletes worlds", async () => {
         entityId: "drop:3",
         position: [4.5, 65.25, -2.5],
         velocity: [0.5, 1.75, -0.25],
-        blockId: 3,
+        itemId: 103,
         count: 12,
         pickupCooldownMs: 180,
       },

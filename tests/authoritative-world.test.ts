@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AuthoritativeWorld } from "../src/server/authoritative-world.ts";
 import { BinaryWorldStorage } from "../src/server/world-storage.ts";
+import { getDroppedItemIdForBlock } from "../src/world/blocks.ts";
 import { CHUNK_SIZE } from "../src/world/constants.ts";
 import { getTerrainHeight } from "../src/world/terrain.ts";
 import type { BlockId } from "../src/types.ts";
@@ -39,10 +40,10 @@ test("authoritative world keeps per-player state separate and persists it by pla
     const playerAInventory = await world.selectInventorySlot(joinedA.clientPlayer.entityId, 4);
     expect(playerAInventory.selectedSlot).toBe(4);
     const liftedStack = await world.interactInventorySlot(joinedA.clientPlayer.entityId, "hotbar", 8);
-    expect(liftedStack.cursor).toEqual({ blockId: 9, count: 64 });
+    expect(liftedStack.cursor).toEqual({ itemId: 109, count: 64 });
     const placedStack = await world.interactInventorySlot(joinedA.clientPlayer.entityId, "main", 0);
     expect(placedStack.cursor).toBeNull();
-    expect(placedStack.main[0]).toEqual({ blockId: 9, count: 64 });
+    expect(placedStack.main[0]).toEqual({ itemId: 109, count: 64 });
 
     const joinedB = await world.joinPlayer(PLAYER_B);
     expect(joinedB.clientPlayer.name).toBe(PLAYER_B);
@@ -65,7 +66,7 @@ test("authoritative world keeps per-player state separate and persists it by pla
     expect(rejoinedA.clientPlayer.gamemode).toBe(1);
     expect(rejoinedA.clientPlayer.flying).toBe(false);
     expect(rejoinedA.inventory.selectedSlot).toBe(4);
-    expect(rejoinedA.inventory.main[0]).toEqual({ blockId: 9, count: 64 });
+    expect(rejoinedA.inventory.main[0]).toEqual({ itemId: 109, count: 64 });
 
     const rejoinedB = await reloadedWorld.joinPlayer(PLAYER_B);
     expect(rejoinedB.clientPlayer.entityId).toBe(joinedB.clientPlayer.entityId);
@@ -93,6 +94,8 @@ test("authoritative world spawns and persists dropped items until players pick t
     const localIndex = targetX + (targetZ * CHUNK_SIZE) + (targetY * CHUNK_SIZE * CHUNK_SIZE);
     const blockId = chunk.blocks[localIndex] as BlockId;
     expect(blockId).not.toBe(0);
+    const droppedItemId = getDroppedItemIdForBlock(blockId);
+    expect(droppedItemId).not.toBeNull();
 
     const broken = await world.applyBlockMutation(
       joined.clientPlayer.entityId,
@@ -103,7 +106,7 @@ test("authoritative world spawns and persists dropped items until players pick t
     );
     expect(broken.inventoryChanged).toBe(false);
     expect(broken.droppedItems.spawnedDroppedItems).toHaveLength(1);
-    expect(broken.droppedItems.spawnedDroppedItems[0]?.blockId).toBe(blockId);
+    expect(broken.droppedItems.spawnedDroppedItems[0]?.itemId).toBe(droppedItemId!);
 
     await world.save();
 
@@ -112,7 +115,7 @@ test("authoritative world spawns and persists dropped items until players pick t
     const reloadedWorld = new AuthoritativeWorld(reloadedRecord!, storage);
     const rejoined = await reloadedWorld.joinPlayer(PLAYER_A);
     expect(rejoined.droppedItems).toHaveLength(1);
-    expect(rejoined.droppedItems[0]?.blockId).toBe(blockId);
+    expect(rejoined.droppedItems[0]?.itemId).toBe(droppedItemId!);
   } finally {
     await rm(rootDir, { recursive: true, force: true });
   }

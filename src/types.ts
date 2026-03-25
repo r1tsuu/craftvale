@@ -32,6 +32,7 @@ export interface InputState {
 }
 
 export type BlockId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type ItemId = 0 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109;
 
 export interface ChunkCoord {
   x: number;
@@ -51,7 +52,7 @@ export interface TerrainMeshData {
 }
 
 export interface InventorySlot {
-  blockId: BlockId;
+  itemId: ItemId;
   count: number;
 }
 
@@ -102,7 +103,7 @@ export interface DroppedItemSnapshot {
   entityId: EntityId;
   position: [number, number, number];
   velocity: [number, number, number];
-  blockId: BlockId;
+  itemId: ItemId;
   count: number;
   pickupCooldownMs: number;
 }

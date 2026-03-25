@@ -1,4 +1,4 @@
-import type { BlockId, ChunkCoord, DroppedItemSnapshot, EntityId, PlayerSnapshot } from "../types.ts";
+import type { BlockId, ChunkCoord, DroppedItemSnapshot, EntityId, ItemId, PlayerSnapshot } from "../types.ts";
 import { isSolidBlock } from "../world/blocks.ts";
 import { worldToChunkCoord } from "../world/world.ts";
 import type { AddedInventoryItemResult } from "./player-system.ts";
@@ -61,12 +61,12 @@ export class DroppedItemSystem {
   }
 
   public async spawnBlockDrop(
-    blockId: BlockId,
+    itemId: ItemId,
     count: number,
     position: readonly [number, number, number],
   ): Promise<DroppedItemSimulationResult> {
     await this.ensureLoaded();
-    const item = this.createDroppedItem(blockId, count, position);
+    const item = this.createDroppedItem(itemId, count, position);
     this.saveDirty = true;
     return {
       ...emptySimulationResult(),
@@ -79,7 +79,7 @@ export class DroppedItemSystem {
     players: readonly PlayerSnapshot[],
     addInventoryItem: (
       entityId: EntityId,
-      blockId: BlockId,
+      itemId: ItemId,
       count: number,
     ) => AddedInventoryItemResult,
   ): Promise<DroppedItemSimulationResult> {
@@ -179,7 +179,7 @@ export class DroppedItemSystem {
           continue;
         }
 
-        const added = addInventoryItem(player.entityId, stack.blockId, stack.count);
+        const added = addInventoryItem(player.entityId, stack.itemId, stack.count);
         if (added.added <= 0) {
           continue;
         }
@@ -196,7 +196,7 @@ export class DroppedItemSystem {
         }
 
         this.entities.droppedItemStack.set(entityId, {
-          blockId: stack.blockId,
+          itemId: stack.itemId,
           count: added.remaining,
         });
         updatedEntityIds.add(entityId);
@@ -257,7 +257,7 @@ export class DroppedItemSystem {
         velocity: cloneVec3(item.velocity),
       });
       this.entities.droppedItemStack.set(item.entityId, {
-        blockId: item.blockId,
+        itemId: item.itemId,
         count: item.count,
       });
       this.entities.droppedItemLifecycle.set(item.entityId, {
@@ -268,7 +268,7 @@ export class DroppedItemSystem {
   }
 
   private createDroppedItem(
-    blockId: BlockId,
+    itemId: ItemId,
     count: number,
     position: readonly [number, number, number],
   ): DroppedItemSnapshot {
@@ -291,7 +291,7 @@ export class DroppedItemSystem {
       velocity,
     });
     this.entities.droppedItemStack.set(entityId, {
-      blockId,
+      itemId,
       count: Math.max(1, Math.trunc(count)),
     });
     this.entities.droppedItemLifecycle.set(entityId, {
@@ -321,7 +321,7 @@ export class DroppedItemSystem {
       entityId,
       position: cloneVec3(transform.position),
       velocity: cloneVec3(transform.velocity),
-      blockId: stack.blockId,
+      itemId: stack.itemId,
       count: stack.count,
       pickupCooldownMs: lifecycle.pickupCooldownMs,
     };

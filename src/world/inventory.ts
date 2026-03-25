@@ -1,18 +1,22 @@
-import type { BlockId, InventorySection, InventorySnapshot, InventorySlot } from "../types.ts";
-import { Blocks } from "./blocks.ts";
+import type { InventorySection, InventorySnapshot, InventorySlot, ItemId } from "../types.ts";
+import {
+  HOTBAR_ITEM_IDS,
+  getItemMaxStackSize,
+  isPlaceableItem,
+  isValidItemId,
+} from "./items.ts";
 
-export const HOTBAR_BLOCK_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const satisfies readonly BlockId[];
-export const HOTBAR_SLOT_COUNT = HOTBAR_BLOCK_IDS.length;
+export const HOTBAR_SLOT_COUNT = HOTBAR_ITEM_IDS.length;
 export const MAIN_INVENTORY_SLOT_COUNT = 27;
 export const DEFAULT_INVENTORY_STACK_SIZE = 64;
 
 const EMPTY_INVENTORY_SLOT: InventorySlot = {
-  blockId: 0,
+  itemId: 0,
   count: 0,
 };
 
-const clampCount = (count: number): number =>
-  Math.max(0, Math.min(DEFAULT_INVENTORY_STACK_SIZE, Math.trunc(count)));
+const clampCount = (count: number, max = DEFAULT_INVENTORY_STACK_SIZE): number =>
+  Math.max(0, Math.min(max, Math.trunc(count)));
 
 const clampHotbarSlotIndex = (slot: number): number =>
   Math.max(0, Math.min(HOTBAR_SLOT_COUNT - 1, Math.trunc(slot)));
@@ -23,27 +27,24 @@ const clampInventorySlotIndex = (slot: number, section: InventorySection): numbe
     Math.min((section === "hotbar" ? HOTBAR_SLOT_COUNT : MAIN_INVENTORY_SLOT_COUNT) - 1, Math.trunc(slot)),
   );
 
-const isValidInventoryBlockId = (blockId: number): blockId is BlockId =>
-  Number.isInteger(blockId) && blockId >= 0 && blockId <= 9;
-
 const normalizeSlot = (slot: InventorySlot | null | undefined): InventorySlot => {
-  if (!slot || !isValidInventoryBlockId(slot.blockId)) {
+  if (!slot || !isValidItemId(slot.itemId)) {
     return { ...EMPTY_INVENTORY_SLOT };
   }
 
-  const count = clampCount(slot.count);
-  if (slot.blockId === 0 || count === 0) {
+  const count = clampCount(slot.count, getItemMaxStackSize(slot.itemId));
+  if (slot.itemId === 0 || count === 0) {
     return { ...EMPTY_INVENTORY_SLOT };
   }
 
   return {
-    blockId: slot.blockId,
+    itemId: slot.itemId,
     count,
   };
 };
 
 const cloneSlot = (slot: InventorySlot): InventorySlot => ({
-  blockId: slot.blockId,
+  itemId: slot.itemId,
   count: slot.count,
 });
 
@@ -79,19 +80,20 @@ const withSectionSlot = (
 };
 
 const isEmptySlot = (slot: InventorySlot | null | undefined): boolean =>
-  !slot || slot.blockId === 0 || slot.count <= 0;
+  !slot || slot.itemId === 0 || slot.count <= 0;
 
 const clearSlot = (): InventorySlot => ({ ...EMPTY_INVENTORY_SLOT });
 
 const findPartialStackSlot = (
   inventory: InventorySnapshot,
-  blockId: BlockId,
+  itemId: ItemId,
 ): { section: InventorySection; slot: number } | null => {
   for (const section of ["hotbar", "main"] as const) {
     const slots = getSection(inventory, section);
     for (let slot = 0; slot < slots.length; slot += 1) {
       const entry = slots[slot]!;
-      if (entry.blockId === blockId && entry.count > 0 && entry.count < DEFAULT_INVENTORY_STACK_SIZE) {
+      const maxStackSize = getItemMaxStackSize(entry.itemId);
+      if (entry.itemId === itemId && entry.count > 0 && entry.count < maxStackSize) {
         return { section, slot };
       }
     }
@@ -116,8 +118,8 @@ const findEmptySlot = (inventory: InventorySnapshot): { section: InventorySectio
 export const createEmptyInventorySlot = (): InventorySlot => ({ ...EMPTY_INVENTORY_SLOT });
 
 export const createDefaultInventory = (): InventorySnapshot => ({
-  hotbar: HOTBAR_BLOCK_IDS.map((blockId): InventorySlot => ({
-    blockId,
+  hotbar: HOTBAR_ITEM_IDS.map((itemId): InventorySlot => ({
+    itemId,
     count: DEFAULT_INVENTORY_STACK_SIZE,
   })),
   main: Array.from({ length: MAIN_INVENTORY_SLOT_COUNT }, () => createEmptyInventorySlot()),
@@ -145,16 +147,16 @@ export const getSelectedInventorySlot = (
   inventory: InventorySnapshot,
 ): InventorySlot => inventory.hotbar[clampHotbarSlotIndex(inventory.selectedSlot)] ?? createEmptyInventorySlot();
 
-export const getSelectedInventoryBlockId = (
+export const getSelectedInventoryItemId = (
   inventory: InventorySnapshot,
-): BlockId => getSelectedInventorySlot(inventory).blockId;
+): ItemId => getSelectedInventorySlot(inventory).itemId;
 
 export const getInventoryCount = (
   inventory: InventorySnapshot,
-  blockId: BlockId,
+  itemId: ItemId,
 ): number =>
   [...inventory.hotbar, ...inventory.main].reduce(
-    (total, slot) => total + (slot.blockId === blockId ? slot.count : 0),
+    (total, slot) => total + (slot.itemId === itemId ? slot.count : 0),
     0,
   );
 
@@ -202,10 +204,11 @@ export const interactInventorySlot = (
     };
   }
 
-  if (held.blockId === target.blockId && target.count < DEFAULT_INVENTORY_STACK_SIZE) {
-    const transfer = Math.min(DEFAULT_INVENTORY_STACK_SIZE - target.count, held.count);
+  const maxStackSize = getItemMaxStackSize(target.itemId);
+  if (held.itemId === target.itemId && target.count < maxStackSize) {
+    const transfer = Math.min(maxStackSize - target.count, held.count);
     const nextTarget: InventorySlot = {
-      blockId: target.blockId,
+      itemId: target.itemId,
       count: target.count + transfer,
     };
     const remaining = held.count - transfer;
@@ -213,7 +216,7 @@ export const interactInventorySlot = (
       ...withSectionSlot(normalized, section, clampedSlot, nextTarget),
       cursor: remaining > 0
         ? {
-            blockId: held.blockId,
+            itemId: held.itemId,
             count: remaining,
           }
         : null,
@@ -228,22 +231,22 @@ export const interactInventorySlot = (
 
 export const addInventoryItem = (
   inventory: InventorySnapshot,
-  blockId: BlockId,
+  itemId: ItemId,
   count: number,
 ): { inventory: InventorySnapshot; added: number; remaining: number } => {
   let next = normalizeInventorySnapshot(inventory);
   let remaining = Math.max(0, Math.trunc(count));
 
   while (remaining > 0) {
-    const partial = findPartialStackSlot(next, blockId);
+    const partial = findPartialStackSlot(next, itemId);
     if (!partial) {
       break;
     }
 
     const target = getInventorySlot(next, partial.section, partial.slot);
-    const transfer = Math.min(DEFAULT_INVENTORY_STACK_SIZE - target.count, remaining);
+    const transfer = Math.min(getItemMaxStackSize(target.itemId) - target.count, remaining);
     next = withSectionSlot(next, partial.section, partial.slot, {
-      blockId,
+      itemId,
       count: target.count + transfer,
     });
     remaining -= transfer;
@@ -255,9 +258,9 @@ export const addInventoryItem = (
       break;
     }
 
-    const transfer = Math.min(DEFAULT_INVENTORY_STACK_SIZE, remaining);
+    const transfer = Math.min(getItemMaxStackSize(itemId), remaining);
     next = withSectionSlot(next, empty.section, empty.slot, {
-      blockId,
+      itemId,
       count: transfer,
     });
     remaining -= transfer;
@@ -288,14 +291,11 @@ export const removeFromSelectedInventorySlot = (
     selectedSlot,
     nextCount > 0
       ? {
-          blockId: target.blockId,
+          itemId: target.itemId,
           count: nextCount,
         }
       : clearSlot(),
   );
 };
 
-export const isInventoryBlockSelectable = (blockId: BlockId): boolean => {
-  const block = Blocks[blockId];
-  return Boolean(block?.placeable && block.collectible);
-};
+export const isInventoryItemSelectable = (itemId: ItemId): boolean => isPlaceableItem(itemId);

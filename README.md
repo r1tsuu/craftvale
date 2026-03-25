@@ -26,7 +26,8 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Creative-mode flight toggled by double-tapping `Space`
 - Per-world save/load with named worlds and binary chunk persistence
 - Server-authoritative full inventory with a 9-slot hotbar, main storage grid, stack movement, and per-player persistence
-- Nine placeable hotbar block types including terrain, wood, and masonry-style blocks
+- Separate item and block registries, with explicit item-to-block placement and block-to-item drop mappings
+- Nine placeable hotbar items for terrain, wood, and masonry-style blocks
 - Create, join, delete, and save worlds from the menu
 - Multiplayer server browser with saved servers, a built-in localhost entry, add/delete controls, and direct join flow
 - Explicit world loading screen for local singleplayer and multiplayer joins
@@ -80,7 +81,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Double-tap `Space` toggles creative flight after `/gamemode 1`
 - `Shift` descends while flying
 - Left click break block
-- Right click place the selected hotbar block
+- Right click place the selected hotbar item if it places a block
 - `1`-`9` select hotbar slots
 - `E` opens and closes the inventory
 - `Enter` opens chat
@@ -121,8 +122,9 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - World state is authoritative on the server side in both local worker mode and dedicated WebSocket mode.
 - Local singleplayer reports real startup loading progress from the worker, while multiplayer uses a simpler loading screen until the first startup chunk set is ready.
 - `AuthoritativeWorld` owns chunk/world authority while `PlayerSystem` mutates player components inside shared world-owned entity state.
-- Broken collectible blocks spawn dropped item actors in that same world-owned entity space, and players pick them up through a server-authoritative proximity check.
-- The client renders remote players as simple cube-based bodies and reuses that same cuboid visual language for the local first-person arm and held block.
+- Broken collectible blocks resolve explicit dropped item ids, spawn dropped item actors in that same world-owned entity space, and players pick them up through a server-authoritative proximity check.
+- The client inventory, dropped-item state, HUD, and held-item rendering are item-based even when a first-pass item still maps one-to-one to a placeable block.
+- The client renders remote players as simple cube-based bodies and reuses that same cuboid visual language for the local first-person arm and held item.
 - Dedicated servers expose one generated world only; clients do not browse remote world lists.
 - Player identity is stored separately from world saves in `client/player-profile.json`.
 - The default layout separates desktop-client data under `client/` from dedicated-server data under `server/`.

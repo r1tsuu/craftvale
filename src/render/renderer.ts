@@ -15,6 +15,7 @@ import { getAtlasUvRect, loadVoxelAtlasImageData } from "../world/atlas.ts";
 import { getBlockFaceTile, getBlockRenderPass, type BlockFaceRole } from "../world/blocks.ts";
 import { CHUNK_SIZE } from "../world/constants.ts";
 import { buildChunkMesh } from "../world/mesher.ts";
+import { getItemRenderBlockId } from "../world/items.ts";
 import { VoxelWorld } from "../world/world.ts";
 import type { UiResolvedComponent } from "../ui/components.ts";
 import { FocusHighlightRenderer } from "./highlight.ts";
@@ -455,11 +456,12 @@ export class VoxelRenderer {
     renderPass: "opaque" | "cutout",
   ): void {
     for (const item of droppedItems) {
-      if (getBlockRenderPass(item.blockId) !== renderPass) {
+      const renderBlockId = getItemRenderBlockId(item.itemId);
+      if (renderBlockId === null || getBlockRenderPass(renderBlockId) !== renderPass) {
         continue;
       }
 
-      const mesh = this.getBlockCubeMesh(item.blockId);
+      const mesh = this.getBlockCubeMesh(renderBlockId);
       if (!mesh) {
         continue;
       }

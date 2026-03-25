@@ -11,7 +11,7 @@ At a high level:
 - `src/client/*` implements the client runtime, worker adapter, WebSocket adapter, and saved-server storage.
 - `src/server/*` implements authoritative world/session behavior and storage.
 - `src/shared/*` defines typed messaging, transport, and event-bus plumbing.
-- `src/world/*` contains deterministic worldgen, chunk data, meshing, atlas, inventory helpers, and raycasting.
+- `src/world/*` contains deterministic worldgen, chunk data, meshing, atlas, item/inventory helpers, and raycasting.
 - `src/render/*` and `src/ui/*` handle rendering and menu/HUD presentation.
 - `src/platform/*` and `native/*` bridge Bun to GLFW/OpenGL.
 
@@ -135,6 +135,12 @@ Because the transport abstraction is explicit, local and remote play can share t
 - replicated local-player inventory snapshot
 - recent replicated chat/system messages
 
+Those replicated inventory and dropped-item snapshots are item-based:
+
+- inventory slots carry `ItemId` stack contents
+- dropped floor loot carries `ItemId` stack contents
+- item metadata, not raw block metadata, drives held-item display and placement affordances on the client
+
 This local world is used for:
 
 - terrain rendering
@@ -194,6 +200,8 @@ The server is responsible for:
 - loading, saving, and replicating per-player position/rotation state
 - loading, saving, and replicating per-player gamemode state
 - deducting placed items from the authoritative inventory
+- resolving selected items into placeable block ids during placement validation
+- resolving broken blocks into dropped item ids instead of treating blocks as inventory identities
 - spawning collectible block breaks as dropped item actors instead of direct inventory grants
 - simulating dropped item gravity, cooldown, and pickup checks
 - awarding picked-up items through the same authoritative inventory rules

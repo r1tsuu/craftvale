@@ -59,7 +59,7 @@ test("getHeldItemBlockId follows the selected hotbar slot and treats empty slots
   const emptySelected = {
     ...inventory,
     hotbar: inventory.hotbar.map((slot, index) =>
-      index === 4 ? { blockId: 0 as const, count: 0 } : { ...slot }
+      index === 4 ? { itemId: 0 as const, count: 0 } : { ...slot }
     ),
   };
   expect(getHeldItemBlockId(emptySelected)).toBeNull();

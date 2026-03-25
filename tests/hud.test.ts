@@ -225,8 +225,8 @@ test("play HUD hides expired passive chat messages but keeps them while chat is 
 
 test("play HUD renders the full inventory overlay when inventory is open", () => {
   const inventory = createDefaultInventory();
-  inventory.main[0] = { blockId: 4, count: 12 };
-  inventory.cursor = { blockId: 9, count: 8 };
+  inventory.main[0] = { itemId: 104, count: 12 };
+  inventory.cursor = { itemId: 109, count: 8 };
   const hud = buildPlayHud(1280, 720, {
     inventory,
     inventoryOpen: true,

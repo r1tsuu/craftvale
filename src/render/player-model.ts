@@ -1,6 +1,7 @@
 import type { BlockId, EntityId, InventorySnapshot, PlayerSnapshot } from "../types.ts";
 import { CHUNK_SIZE } from "../world/constants.ts";
 import { getSelectedInventorySlot } from "../world/inventory.ts";
+import { getItemRenderBlockId } from "../world/items.ts";
 
 export interface CuboidPartDefinition {
   id: string;
@@ -106,9 +107,9 @@ export const collectVisibleRemotePlayers = (
 
 export const getHeldItemBlockId = (inventory: InventorySnapshot): BlockId | null => {
   const slot = getSelectedInventorySlot(inventory);
-  if (slot.blockId === 0 || slot.count <= 0) {
+  if (slot.itemId === 0 || slot.count <= 0) {
     return null;
   }
 
-  return slot.blockId;
+  return getItemRenderBlockId(slot.itemId);
 };

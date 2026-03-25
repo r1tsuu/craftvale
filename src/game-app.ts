@@ -48,10 +48,10 @@ import { buildLoadingScreen } from "./ui/loading.ts";
 import { buildMainMenu } from "./ui/menu.ts";
 import { createLogger } from "./utils/logger.ts";
 import { Biomes, getBiomeAt } from "./world/biomes.ts";
-import { Blocks } from "./world/blocks.ts";
 import { STARTUP_CHUNK_RADIUS } from "./world/constants.ts";
 import { createDefaultInventory } from "./world/inventory.ts";
 import { getSelectedInventorySlot } from "./world/inventory.ts";
+import { getItemDisplayName, getPlacedBlockIdForItem } from "./world/items.ts";
 import { raycastVoxel } from "./world/raycast.ts";
 import { VoxelWorld } from "./world/world.ts";
 
@@ -1183,8 +1183,9 @@ export class GameApp {
       const selectedSlot = getSelectedInventorySlot(
         worldRuntime.inventory,
       );
-      if (selectedSlot.count <= 0) {
-        this.state.lastServerMessage = `OUT OF ${Blocks[selectedSlot.blockId].name.toUpperCase()}`;
+      const placedBlockId = getPlacedBlockIdForItem(selectedSlot.itemId);
+      if (selectedSlot.count <= 0 || placedBlockId === null) {
+        this.state.lastServerMessage = `OUT OF ${getItemDisplayName(selectedSlot.itemId).toUpperCase()}`;
         return;
       }
 
@@ -1194,7 +1195,7 @@ export class GameApp {
           x: hit.place.x,
           y: hit.place.y,
           z: hit.place.z,
-          blockId: selectedSlot.blockId,
+          blockId: placedBlockId,
         },
       });
     }

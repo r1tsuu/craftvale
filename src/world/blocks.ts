@@ -1,4 +1,4 @@
-import type { BlockId } from "../types.ts";
+import type { BlockId, ItemId } from "../types.ts";
 import type { AtlasTileId } from "./atlas.ts";
 
 export type BlockFaceRole = "top" | "bottom" | "side";
@@ -17,8 +17,7 @@ export interface BlockDefinition {
   collidable: boolean;
   occlusion: BlockOcclusionMode;
   renderPass: BlockRenderPass | null;
-  collectible: boolean;
-  placeable: boolean;
+  dropItemId: ItemId | null;
   color: [number, number, number];
   tiles?: BlockTiles;
 }
@@ -30,8 +29,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: false,
     occlusion: "none",
     renderPass: null,
-    collectible: false,
-    placeable: false,
+    dropItemId: null,
     color: [0, 0, 0],
   },
   1: {
@@ -40,8 +38,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
-    collectible: true,
-    placeable: true,
+    dropItemId: 101,
     color: [0.42, 0.71, 0.31],
     tiles: {
       top: "grass-top",
@@ -55,8 +52,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
-    collectible: true,
-    placeable: true,
+    dropItemId: 102,
     color: [0.48, 0.34, 0.2],
     tiles: {
       top: "dirt",
@@ -70,8 +66,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
-    collectible: true,
-    placeable: true,
+    dropItemId: 103,
     color: [0.5, 0.5, 0.56],
     tiles: {
       top: "stone",
@@ -85,8 +80,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
-    collectible: true,
-    placeable: true,
+    dropItemId: 104,
     color: [0.48, 0.37, 0.24],
     tiles: {
       top: "log-top",
@@ -100,8 +94,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "self",
     renderPass: "cutout",
-    collectible: true,
-    placeable: true,
+    dropItemId: 105,
     color: [0.32, 0.58, 0.22],
     tiles: {
       top: "leaves",
@@ -115,8 +108,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
-    collectible: true,
-    placeable: true,
+    dropItemId: 106,
     color: [0.84, 0.78, 0.52],
     tiles: {
       top: "sand",
@@ -130,8 +122,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
-    collectible: true,
-    placeable: true,
+    dropItemId: 107,
     color: [0.72, 0.55, 0.31],
     tiles: {
       top: "planks",
@@ -145,8 +136,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
-    collectible: true,
-    placeable: true,
+    dropItemId: 108,
     color: [0.58, 0.58, 0.61],
     tiles: {
       top: "cobblestone",
@@ -160,8 +150,7 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
     collidable: true,
     occlusion: "full",
     renderPass: "opaque",
-    collectible: true,
-    placeable: true,
+    dropItemId: 109,
     color: [0.69, 0.27, 0.22],
     tiles: {
       top: "brick",
@@ -173,9 +162,9 @@ export const Blocks: Record<BlockId, BlockDefinition> = {
 
 export const isSolidBlock = (blockId: BlockId): boolean => Blocks[blockId].collidable;
 
-export const isCollectibleBlock = (blockId: BlockId): boolean => Blocks[blockId].collectible;
+export const getDroppedItemIdForBlock = (blockId: BlockId): ItemId | null => Blocks[blockId].dropItemId;
 
-export const isPlaceableBlock = (blockId: BlockId): boolean => Blocks[blockId].placeable;
+export const isCollectibleBlock = (blockId: BlockId): boolean => getDroppedItemIdForBlock(blockId) !== null;
 
 export const getBlockRenderPass = (blockId: BlockId): BlockRenderPass | null =>
   Blocks[blockId].renderPass;
