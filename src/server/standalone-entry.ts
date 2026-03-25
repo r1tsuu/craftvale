@@ -1,5 +1,8 @@
 import { DedicatedServer, DEFAULT_DEDICATED_SERVER_PORT } from "./dedicated-server.ts";
 import { ensurePortAvailable } from "./port-availability.ts";
+import { createLogger } from "../utils/logger.ts";
+
+const serverLogger = createLogger("server", "magenta");
 
 const parsePort = (argv: readonly string[]): number | undefined => {
   for (let index = 0; index < argv.length; index += 1) {
@@ -24,7 +27,7 @@ const parsePort = (argv: readonly string[]): number | undefined => {
 };
 
 const port = parsePort(Bun.argv.slice(2)) ?? DEFAULT_DEDICATED_SERVER_PORT;
-console.log(`[server] starting dedicated server on port ${port}...`);
+serverLogger.info(`starting dedicated server on port ${port}...`);
 await ensurePortAvailable(port);
 const server = await DedicatedServer.start({ port });
 

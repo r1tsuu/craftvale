@@ -9,6 +9,7 @@ import {
   WorldSessionController,
   type WorldSessionPeer,
 } from "./world-session-controller.ts";
+import { createLogger } from "../utils/logger.ts";
 import { DedicatedWorldStorage, type WorldStorage } from "./world-storage.ts";
 import type { TransportPort } from "../shared/transport.ts";
 
@@ -19,6 +20,7 @@ const projectRoot = import.meta.dir.endsWith("/src/server")
 export const DEFAULT_DEDICATED_SERVER_PORT = 3210;
 export const DEFAULT_DEDICATED_WORLD_NAME = "Server World";
 export const DEFAULT_DEDICATED_STORAGE_ROOT = join(projectRoot, "data", "server");
+const serverLogger = createLogger("server", "magenta");
 
 interface DedicatedSocketData {
   session: DedicatedServerSession | null;
@@ -194,7 +196,7 @@ export class DedicatedServer implements DedicatedServerSessionHost {
   }
 
   public logInfo(message: string): void {
-    console.log(`[server] ${message}`);
+    serverLogger.info(message);
   }
 
   public static async start(options: {

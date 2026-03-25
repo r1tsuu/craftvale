@@ -2,6 +2,7 @@ import {
   ensurePortAvailable,
   forceReleasePort,
 } from "../src/server/port-availability.ts";
+import { createLogger } from "../src/utils/logger.ts";
 import { fileURLToPath } from "node:url";
 
 const SERVER_PORT = 3210;
@@ -12,6 +13,7 @@ const SERVER_READY_TIMEOUT_MS = 5_000;
 const SERVER_READY_POLL_INTERVAL_MS = 100;
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 const bunExecutable = Bun.which("bun") ?? process.execPath;
+const devFullLogger = createLogger("dev:full", "yellow");
 
 const spawnRuntimeProcess = (
   entryRelativePath: string,
@@ -35,7 +37,7 @@ const spawnRuntimeProcess = (
 };
 
 const logInfo = (message: string): void => {
-  console.log(`[dev:full] ${message}`);
+  devFullLogger.info(message);
 };
 
 const waitForServerReady = async (

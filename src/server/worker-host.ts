@@ -1,8 +1,11 @@
 import { AuthoritativeWorld } from "./authoritative-world.ts";
 import type { ClientToServerMessage } from "../shared/messages.ts";
 import { DEFAULT_WORLD_STORAGE_ROOT, ServerRuntime } from "./runtime.ts";
+import { createLogger } from "../utils/logger.ts";
 import { BinaryWorldStorage, type StoredWorldRecord } from "./world-storage.ts";
 import { WorkerServerAdapter, type WorkerLikeScope } from "./worker-server-adapter.ts";
+
+const workerLogger = createLogger("worker", "green");
 
 export interface WorkerInitMessage {
   kind: "internal:init";
@@ -59,7 +62,7 @@ export class WorkerServerHost {
   }
 
   private logInfo(message: string): void {
-    console.log(`[worker] ${message}`);
+    workerLogger.info(message);
   }
 }
 

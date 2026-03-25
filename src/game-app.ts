@@ -46,6 +46,7 @@ import { evaluateUi, type UiResolvedComponent } from "./ui/components.ts";
 import { buildPlayHud } from "./ui/hud.ts";
 import { buildLoadingScreen } from "./ui/loading.ts";
 import { buildMainMenu } from "./ui/menu.ts";
+import { createLogger } from "./utils/logger.ts";
 import { Biomes, getBiomeAt } from "./world/biomes.ts";
 import { Blocks } from "./world/blocks.ts";
 import { STARTUP_CHUNK_RADIUS } from "./world/constants.ts";
@@ -54,6 +55,7 @@ import { raycastVoxel } from "./world/raycast.ts";
 import { VoxelWorld } from "./world/world.ts";
 
 const FIXED_TIMESTEP = 1 / 60;
+const appLogger = createLogger("app", "cyan");
 
 export type AppMode = "menu" | "loading" | "playing";
 
@@ -1391,7 +1393,7 @@ export class GameApp {
   }
 
   private logInfo(message: string): void {
-    console.log(`[app] ${message}`);
+    appLogger.info(message);
   }
 
   private areClientSettingsEqual(
