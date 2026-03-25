@@ -29,6 +29,8 @@ import { WebSocketClientAdapter } from "./client/websocket-client-adapter.ts";
 import { WorkerClientAdapter } from "./client/worker-client-adapter.ts";
 import {
   isGameplaySuppressed,
+  resolvePlayChatOpenDraft,
+  resolvePlayChatTypedText,
   resolvePlayEscapeAction,
   shouldLockCursor,
   type PauseScreen,
@@ -1250,8 +1252,9 @@ export class GameApp {
         this.state.chatDraft = this.state.chatDraft.slice(0, -1);
       }
 
-      if (input.typedText.length > 0) {
-        this.state.chatDraft += input.typedText;
+      const typedText = resolvePlayChatTypedText(input);
+      if (typedText.length > 0) {
+        this.state.chatDraft += typedText;
       }
 
       if (input.enterPressed) {
@@ -1265,15 +1268,10 @@ export class GameApp {
       return;
     }
 
-    if (input.enterPressed) {
+    const chatDraft = resolvePlayChatOpenDraft(input);
+    if (chatDraft !== null) {
       this.state.chatOpen = true;
-      this.state.chatDraft = "";
-      return;
-    }
-
-    if (input.typedText.startsWith("/")) {
-      this.state.chatOpen = true;
-      this.state.chatDraft = input.typedText;
+      this.state.chatDraft = chatDraft;
     }
   }
 

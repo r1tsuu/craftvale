@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import {
+  resolvePlayChatOpenDraft,
+  resolvePlayChatTypedText,
   resolvePlayEscapeAction,
   shouldLockCursor,
 } from "../apps/client/src/game/play-overlay.ts";
@@ -74,4 +76,53 @@ test("cursor lock only stays active during unpaused gameplay", () => {
       pauseScreen: "closed",
     }),
   ).toBe(false);
+});
+
+test("slash opens chat prefilled even when no slash character arrives in typed text", () => {
+  expect(
+    resolvePlayChatOpenDraft({
+      enterPressed: false,
+      slashPressed: true,
+      typedText: "",
+    }),
+  ).toBe("/");
+
+  expect(
+    resolvePlayChatOpenDraft({
+      enterPressed: false,
+      slashPressed: true,
+      typedText: "/gamemode 1",
+    }),
+  ).toBe("/gamemode 1");
+
+  expect(
+    resolvePlayChatOpenDraft({
+      enterPressed: true,
+      slashPressed: true,
+      typedText: "",
+    }),
+  ).toBe("");
+});
+
+test("slash can still be typed manually after chat is already open", () => {
+  expect(
+    resolvePlayChatTypedText({
+      slashPressed: true,
+      typedText: "",
+    }),
+  ).toBe("/");
+
+  expect(
+    resolvePlayChatTypedText({
+      slashPressed: true,
+      typedText: "gamemode 1",
+    }),
+  ).toBe("/gamemode 1");
+
+  expect(
+    resolvePlayChatTypedText({
+      slashPressed: false,
+      typedText: "hello",
+    }),
+  ).toBe("hello");
 });

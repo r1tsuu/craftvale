@@ -13,6 +13,41 @@ export type PlayEscapeAction =
   | "resume-game"
   | "open-pause-menu";
 
+export const resolvePlayChatOpenDraft = (input: {
+  enterPressed: boolean;
+  slashPressed: boolean;
+  typedText: string;
+}): string | null => {
+  if (input.enterPressed) {
+    return "";
+  }
+
+  if (input.typedText.startsWith("/")) {
+    return input.typedText;
+  }
+
+  if (input.slashPressed) {
+    return "/";
+  }
+
+  return null;
+};
+
+export const resolvePlayChatTypedText = (input: {
+  slashPressed: boolean;
+  typedText: string;
+}): string => {
+  if (!input.slashPressed) {
+    return input.typedText;
+  }
+
+  if (input.typedText.startsWith("/")) {
+    return input.typedText;
+  }
+
+  return `/${input.typedText}`;
+};
+
 export const resolvePlayEscapeAction = (state: PlayOverlayState): PlayEscapeAction => {
   if (state.inventoryOpen) {
     return "close-inventory";

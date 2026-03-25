@@ -147,6 +147,7 @@ const GLFW_KEY_ENTER = 257;
 const GLFW_KEY_TAB = 258;
 const GLFW_KEY_BACKSPACE = 259;
 const GLFW_KEY_ESCAPE = 256;
+const GLFW_KEY_SLASH = 47;
 const GLFW_KEY_1 = 49;
 const GLFW_KEY_2 = 50;
 const GLFW_KEY_3 = 51;
@@ -294,6 +295,9 @@ export class NativeBridge {
       cursorX,
       cursorY,
       typedText,
+      slashPressed: Boolean(
+        library.symbols.bridge_consume_key_press(GLFW_KEY_SLASH),
+      ),
       backspacePressed: Boolean(
         library.symbols.bridge_consume_key_press(GLFW_KEY_BACKSPACE),
       ),

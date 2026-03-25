@@ -20,6 +20,7 @@ const createInput = (overrides: Partial<InputState> = {}): InputState => ({
   cursorX: 0,
   cursorY: 0,
   typedText: "",
+  slashPressed: false,
   backspacePressed: false,
   enterPressed: false,
   tabPressed: false,

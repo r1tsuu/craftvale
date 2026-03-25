@@ -19,6 +19,7 @@ export interface InputState {
   cursorX: number;
   cursorY: number;
   typedText: string;
+  slashPressed: boolean;
   backspacePressed: boolean;
   enterPressed: boolean;
   tabPressed: boolean;
