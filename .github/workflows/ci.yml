@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   validate:
-    name: Native Build, Typecheck, and Tests
+    name: Format, Lint, Native Build, Typecheck, and Tests
     runs-on: macos-latest
     timeout-minutes: 20
     env:
@@ -30,6 +30,12 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Check formatting
+        run: bun run format:check
+
+      - name: Run lint
+        run: bun run lint
 
       - name: Build native bridge
         run: bun run build:native
