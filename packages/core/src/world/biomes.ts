@@ -107,16 +107,16 @@ const BIOME_IDS = Object.keys(Biomes) as BiomeId[]
 
 const getMoisture = (seed: number, worldX: number, worldZ: number): number =>
   clamp(
-    sampleValueNoise(worldX, worldZ, seed ^ 0x6b9df6d3, 60) * 0.7 +
-      sampleValueNoise(worldX, worldZ, seed ^ 0x4f9939f5, 22) * 0.3,
+    sampleValueNoise(worldX, worldZ, seed ^ 0x6b9df6d3, 180) * 0.74 +
+      sampleValueNoise(worldX, worldZ, seed ^ 0x4f9939f5, 72) * 0.26,
     -1,
     1,
   )
 
 const getRuggedness = (seed: number, worldX: number, worldZ: number): number =>
   clamp(
-    sampleValueNoise(worldX, worldZ, seed ^ 0x1247f19b, 72) * 0.68 +
-      sampleValueNoise(worldX, worldZ, seed ^ 0x91e10da5, 28) * 0.32,
+    sampleValueNoise(worldX, worldZ, seed ^ 0x1247f19b, 220) * 0.7 +
+      sampleValueNoise(worldX, worldZ, seed ^ 0x91e10da5, 88) * 0.3,
     -1,
     1,
   )

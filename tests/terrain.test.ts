@@ -24,6 +24,23 @@ const getGeneratedBlock = (
 const createGeneratedChunkColumn = (seed: number, chunkX: number, chunkZ: number) =>
   createGeneratedChunk({ x: chunkX, z: chunkZ }, seed)
 
+const collectSurfaceBlocksForBiome = (seed: number, biome: string, radius: number): number[] => {
+  const surfaceBlocks: number[] = []
+
+  for (let worldZ = -radius; worldZ <= radius; worldZ += 4) {
+    for (let worldX = -radius; worldX <= radius; worldX += 4) {
+      if (getBiomeAt(seed, worldX, worldZ) !== biome) {
+        continue
+      }
+
+      const height = getTerrainHeight(seed, worldX, worldZ)
+      surfaceBlocks.push(getGeneratedBlock(seed, worldX, height, worldZ))
+    }
+  }
+
+  return surfaceBlocks
+}
+
 const findLowElevationColumn = (
   seed: number,
 ): {
@@ -111,8 +128,8 @@ test('biome sampling is deterministic and produces multiple biome types', () => 
   expect(sampleA).toBe(sampleB)
 
   const biomes = new Set<string>()
-  for (let z = -48; z <= 48; z += 8) {
-    for (let x = -48; x <= 48; x += 8) {
+  for (let z = -256; z <= 256; z += 16) {
+    for (let x = -256; x <= 256; x += 16) {
       biomes.add(getBiomeAt(seed, x, z))
     }
   }
@@ -130,6 +147,29 @@ test('different seeds produce different biome layouts', () => {
   }
 
   expect(layoutA).not.toEqual(layoutB)
+})
+
+test('biomes span multiple chunks instead of changing every chunk or two', () => {
+  const seed = 42
+  let longestRun = 1
+  let currentRun = 1
+  let previousBiome = getBiomeAt(seed, -512, 0)
+
+  for (let x = -511; x <= 512; x += 1) {
+    const biome = getBiomeAt(seed, x, 0)
+    if (biome === previousBiome) {
+      currentRun += 1
+      continue
+    }
+
+    longestRun = Math.max(longestRun, currentRun)
+    currentRun = 1
+    previousBiome = biome
+  }
+
+  longestRun = Math.max(longestRun, currentRun)
+
+  expect(longestRun).toBeGreaterThanOrEqual(CHUNK_SIZE * 6)
 })
 
 test('generated trees are deterministic for a fixed seed and chunk', () => {
@@ -218,31 +258,20 @@ test('forest chunks generate denser tree coverage than scrub chunks', () => {
   expect(forestLeaves).toBeGreaterThan(scrubLeaves)
 })
 
-test('representative scrub and highlands chunks change surface materials', () => {
-  let scrubSurfaceDirt = 0
-  let scrubSurfaceStone = 0
-  let highlandsSurfaceStone = 0
+test('scrub and highlands biome columns keep their expected surface materials', () => {
+  const scrubSurfaceBlocks = collectSurfaceBlocksForBiome(42, 'scrub', 256)
+  const highlandsSurfaceBlocks = collectSurfaceBlocksForBiome(42, 'highlands', 256)
 
-  for (let z = 0; z < CHUNK_SIZE; z += 1) {
-    for (let x = 0; x < CHUNK_SIZE; x += 1) {
-      const scrubWorldX = -5 * CHUNK_SIZE + x
-      const scrubWorldZ = z
-      const scrubHeight = getTerrainHeight(42, scrubWorldX, scrubWorldZ)
-      const scrubTop = getGeneratedBlock(42, scrubWorldX, scrubHeight, scrubWorldZ)
-      if (scrubTop === 2) scrubSurfaceDirt += 1
-      if (scrubTop === 3) scrubSurfaceStone += 1
+  expect(scrubSurfaceBlocks.length).toBeGreaterThanOrEqual(20)
+  expect(highlandsSurfaceBlocks.length).toBeGreaterThanOrEqual(20)
 
-      const highlandsWorldX = CHUNK_SIZE + x
-      const highlandsWorldZ = 5 * CHUNK_SIZE + z
-      const highlandsHeight = getTerrainHeight(42, highlandsWorldX, highlandsWorldZ)
-      const highlandsTop = getGeneratedBlock(42, highlandsWorldX, highlandsHeight, highlandsWorldZ)
-      if (highlandsTop === 3) highlandsSurfaceStone += 1
-    }
+  for (const blockId of scrubSurfaceBlocks) {
+    expect(blockId).toBe(BLOCK_IDS.dirt)
   }
 
-  expect(scrubSurfaceDirt).toBeGreaterThan(0)
-  expect(scrubSurfaceStone).toBeGreaterThan(0)
-  expect(highlandsSurfaceStone).toBeGreaterThan(200)
+  for (const blockId of highlandsSurfaceBlocks) {
+    expect(blockId).toBe(BLOCK_IDS.stone)
+  }
 })
 
 test('terrain heights stay within the 256-block world bounds', () => {
