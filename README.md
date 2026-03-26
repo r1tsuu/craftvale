@@ -2,43 +2,49 @@
 
 A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing and OpenGL rendering. The repo now uses Bun workspaces so the desktop client, dedicated server, and shared gameplay/runtime code live in explicit packages instead of one flat source tree.
 
-## Current Features
+## Design Principles
 
-- GLFW window creation and OpenGL 3.3 core rendering through a Bun FFI bridge
-- Textured voxel rendering with a shared atlas and directional face shading
-- Opaque and cutout terrain passes for solid blocks and transparent leaves
-- Chunked voxel terrain with biome-aware procedural generation
-- Forest, plains, scrub, and highlands-style world regions
-- Deterministic tree generation with chunk-safe cross-border placement
-- First-person camera with grounded FPS movement
-- Jump, gravity, and voxel collision
-- Centered in-game crosshair
-- Focused block highlight
-- Server-authoritative block breaking and placing through local worker transport or dedicated WebSocket server transport
-- Stable per-client player names with local profile persistence and optional `--player-name` override
-- Player-aware authoritative sessions with per-player position, rotation, and inventory state
-- Rendered remote players with Minecraft-like cuboid bodies
-- World-level server entity state with shared entity ids for authoritative actors
-- Dedicated `PlayerSystem` operating within that shared world entity state
-- Server-authoritative dropped item entities with floor spawning, pickups, and persistence
-- In-game chat with slash-command submission and system feedback
-- Server-authoritative `/gamemode 0` and `/gamemode 1` command handling
-- Creative-mode flight toggled by double-tapping `Space`
-- Per-world save/load with named worlds and binary chunk persistence
-- Server-authoritative inventory with one canonical slot list, derived hotbar/main UI layout, stack movement, and per-player persistence
-- Separate item and block registries, with explicit item-to-block placement and block-to-item drop mappings
-- Generated content registries with authored string keys, checked-in id locks, and stable numeric block/item ids
-- Nine placeable hotbar items for terrain, wood, and masonry-style blocks
-- Create, join, delete, and save worlds from the menu
-- Multiplayer server browser with saved servers, a built-in localhost entry, add/delete controls, and direct join flow
-- Explicit world loading screen for local singleplayer and multiplayer joins
-- Server-authoritative startup chunk pregeneration around the initial entry area
-- Pre-game menu with reusable UI components and clickable buttons
-- Seeded Minecraft-like menu background
-- On-screen HUD text for FPS, position, rotation, world name, and status
-- Bottom-center hotbar strip with slot highlight, counts, and selected-item label
-- First-person arm and held-block rendering tied to the selected hotbar slot
-- `E`-opened inventory screen with clickable slot movement and a carried cursor stack
+- Keep gameplay authoritative on the server in both local worker and dedicated WebSocket modes.
+- Prefer deterministic systems so worlds, terrain, lighting inputs, and content generation remain stable from the world seed and authored specs.
+- Keep one canonical source for important game data such as content definitions, inventory state, and item visuals.
+- Reuse the same visual language across the world, the hand, dropped items, and the HUD instead of maintaining parallel asset pipelines.
+- Favor explicit, typed boundaries between client, server, tooling, and shared core code.
+
+## Current Functionality
+
+### World And Rendering
+
+- GLFW window creation and OpenGL 3.3 core rendering through the Bun FFI bridge
+- Textured voxel terrain with a generated atlas, directional face shading, and separate opaque/cutout passes
+- Deterministic biome-aware terrain generation with forests, plains, scrub, and highlands regions
+- Deterministic tree placement that stays chunk-order safe across borders
+- Dynamic focused-block highlight, first-person arm rendering, and block-backed held-item rendering
+- Dropped items rendered as cube-based world actors and HUD inventory items rendered from the same shared block-item visual source
+
+### Gameplay And Authority
+
+- First-person movement with grounded collision, jump physics, and creative flight toggled by double-tapping `Space`
+- Server-authoritative block breaking, placing, inventory mutation, dropped-item spawning, and pickups
+- Authoritative fixed-step world tick loop for both local worker and dedicated server modes
+- Per-player position, rotation, gamemode, and inventory persistence inside each world
+- `/gamemode` and `/timeset` command handling through chat
+
+### Multiplayer And World Flow
+
+- Local singleplayer backed by an in-process worker-hosted authoritative server
+- Dedicated multiplayer over WebSocket with one authoritative shared world per server
+- Saved server browser with a built-in localhost entry plus add/delete/join flow
+- Explicit loading screen and startup chunk pregeneration before entering play
+- Create, join, save, and delete worlds from the menu
+
+### UI And UX
+
+- Seeded Minecraft-like menu background and reusable menu UI components
+- Bottom-center hotbar, `E` inventory screen, cursor stack interactions, and selected-item labeling
+- In-game chat, slash command entry, passive chat feed, and pause/settings overlays
+- Debug overlay with FPS, TPS, lighting information, and source labeling for worker vs WebSocket sessions
+- World clock display with AM/PM formatting
+- Stable local player identity with optional `--player-name` override
 
 ## Requirements
 
@@ -99,6 +105,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Typing `/` opens command chat
 - `/gamemode 0` switches to normal mode
 - `/gamemode 1` switches to creative mode
+- `/timeset day`, `/timeset night`, or `/timeset <tick>` changes world time
 - `Esc` exits
 
 ## Project Layout
@@ -121,86 +128,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `plans` implementation plans for major feature work
 - `tests` coverage for client/server flow, storage, terrain, meshing, raycast, player, highlight, text, and UI
 
-## Adding Content
-
-Craftvale no longer hand-authors numeric block and item ids. New content starts from one authored source and then goes through the content generator.
-
-### Source Of Truth
-
-- Author blocks and items in `packages/core/src/world/content-spec.ts`.
-- Treat `packages/core/src/world/content-id-lock.json` as the stable id snapshot that preserves save and protocol compatibility.
-- Treat `packages/core/src/world/generated/content-ids.ts` and `packages/core/src/world/generated/content-registry.ts` as generated outputs only. Do not edit them by hand.
-
-### Add A New Placeable Block-Backed Item
-
-1. Add a block entry to `AUTHORED_BLOCK_SPECS`.
-   Use a new stable `key`, set collision/render/light metadata, and set `dropItemKey` to the item key you want from breaking the block.
-2. Add an item entry to `AUTHORED_ITEM_SPECS`.
-   Point `placesBlockKey` and usually `renderBlockKey` at the block key so the item can place and visually represent that block.
-3. If the block uses textures, set `tiles.top`, `tiles.bottom`, and `tiles.side`.
-   These tile names must already exist in `AtlasTiles`; if they do not, add the atlas tile first.
-4. If you want the item in the default inventory, update:
-   `DEFAULT_HOTBAR_ITEM_KEYS` for a starter hotbar slot.
-   `DEFAULT_MAIN_INVENTORY_STACK_SPECS` for starter main inventory stacks.
-5. Run `bun run generate:content`.
-6. If the block needs new art, add or edit the matching tile PNGs in `apps/client/assets/textures/tiles-src/`.
-7. Run `bun run generate:atlas`.
-8. Run `bun run typecheck` and `bun test`.
-
-### Add A Block Without A Player Item
-
-- Add a block entry in `AUTHORED_BLOCK_SPECS`.
-- Set `dropItemKey` to `null` if breaking it should not create an item drop.
-- Omit any matching item entry unless players need to hold, place, or pick up it.
-
-`bedrock` is the current example of a block-only entry.
-
-### Add An Item Without A Placeable Block
-
-- Add an item entry in `AUTHORED_ITEM_SPECS`.
-- Set `placesBlockKey` to `null`.
-- Set `renderBlockKey` to `null` unless you want the item rendered using an existing block mesh.
-
-This is the path for future tools, consumables, and ingredients.
-
-### Field Guide
-
-- `key`: Stable authoring identity. Keep it short, lowercase, and durable because saves and generated ids are tied to it.
-- `name`: Player-facing display name source.
-- `color`: Used in fallback/debug-style item display paths.
-- `dropItemKey`: Item dropped when the block is broken.
-- `placesBlockKey`: Block the item places, if any.
-- `renderBlockKey`: Block mesh used to render the held item, dropped item, and live HUD inventory item, if any.
-- `renderPass`: Use `"opaque"` for solid terrain, `"cutout"` for alpha-discard blocks like leaves, or `null` for non-rendered blocks such as air.
-- `occlusion`: Use `"full"` for normal solid cubes, `"self"` for leaf-style self-culling, or `"none"` for non-occluding blocks.
-- `emittedLightLevel`: Block light emitted by the block, from `0` to `15`.
-
-### Adding Or Editing Tile Textures
-
-- Edit per-tile source PNGs in `apps/client/assets/textures/tiles-src/`.
-- Use one `16x16` RGBA PNG per tile id, for example `dirt.png` or `grass-top.png`.
-- Keep tile ids aligned with `AtlasTiles` and the tile names referenced from `content-spec.ts`.
-- After changing any source tile PNG, run `bun run generate:atlas`.
-- Do not hand-edit `apps/client/assets/textures/voxel-atlas.png`; it is generated output.
-- `bun run generate:tile-sources` exists to regenerate the current default source tile PNG set from code, but normal art iteration should happen by editing the PNGs in `tiles-src` directly.
-
-### Id Stability Rules
-
-- Do not hand-pick numeric ids for new content. The generator assigns them.
-- Do not reorder generated files by hand. The generator and lockfile own the final ids.
-- Adding a new key appends a new id automatically while preserving existing ids.
-- Renaming or removing keys is a compatibility-sensitive change because existing saves may still reference the old ids.
-- If you intentionally rename or remove content, update `content-spec.ts` and `content-id-lock.json` together in the same change and treat it as a migration or save reset decision.
-
-### Typical Example
-
-To add a new glowing placeable block:
-
-1. Add a block spec such as `blue_lantern` with tiles, light level, and `dropItemKey: "blue_lantern"`.
-2. Add a matching item spec with `placesBlockKey: "blue_lantern"` and `renderBlockKey: "blue_lantern"`.
-3. Optionally add `"blue_lantern"` to `DEFAULT_HOTBAR_ITEM_KEYS`.
-4. Run `bun run generate:content`.
-5. Review the generated diff in `content-id-lock.json` and `generated/*`.
+Content authoring and generation now live in [`architecture.md`](./architecture.md), since the content pipeline is part of the repo architecture rather than just a quick-start workflow.
 
 ## Commit Messages
 

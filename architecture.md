@@ -215,6 +215,7 @@ The server is responsible for:
 - batching replication after each authoritative tick so clients observe coherent world-state updates
 - bounded startup-area pregeneration before local world entry completes
 - validating and applying block mutations
+- handling chat-driven server commands such as `/gamemode` and `/timeset`
 - loading, saving, and replicating per-player position/rotation state
 - loading, saving, and replicating per-player gamemode state
 - deducting placed items from the authoritative inventory
@@ -246,6 +247,122 @@ The generation flow for a chunk is:
 Important property: generation is chunk-order safe.
 
 Trees are not created by mutating neighboring chunks after the fact. Instead, decoration samples candidate structure anchors in world space and writes only the voxels that fall inside the current chunk. That keeps generation deterministic regardless of load order.
+
+## Content Authoring And Generation
+
+Craftvale no longer hand-authors numeric block and item ids. Content starts from
+one authored source and then flows through deterministic generation steps.
+
+### Source Of Truth
+
+- Author blocks and items in `packages/core/src/world/content-spec.ts`.
+- Treat `packages/core/src/world/content-id-lock.json` as the checked-in id
+  stability snapshot for saves and protocol data.
+- Treat `packages/core/src/world/generated/content-ids.ts` and
+  `packages/core/src/world/generated/content-registry.ts` as generated outputs
+  only.
+- Treat `apps/client/assets/textures/tiles-src/*` as the authored or edited tile
+  texture source set.
+- Treat `apps/client/assets/textures/voxel-atlas.png` as generated runtime
+  output.
+
+### Content Pipeline
+
+The content pipeline currently works like this:
+
+1. Author or edit block/item definitions in `content-spec.ts`.
+2. Run `bun run generate:content` to regenerate stable ids and registries.
+3. Add or edit any referenced tile PNGs in `apps/client/assets/textures/tiles-src/`.
+4. Run `bun run generate:atlas` to rebuild the runtime voxel atlas.
+5. Run `bun run typecheck` and `bun test`.
+
+### Add A New Placeable Block-Backed Item
+
+1. Add a block entry to `AUTHORED_BLOCK_SPECS`.
+   Use a new stable `key`, set collision/render/light metadata, and set
+   `dropItemKey` to the item key you want from breaking the block.
+2. Add an item entry to `AUTHORED_ITEM_SPECS`.
+   Point `placesBlockKey` and usually `renderBlockKey` at the block key so the
+   item can place and visually represent that block.
+3. If the block uses textures, set `tiles.top`, `tiles.bottom`, and `tiles.side`.
+   These tile names must already exist in `AtlasTiles`; if they do not, add the
+   atlas tile first.
+4. If you want the item in the default inventory, update:
+   `DEFAULT_HOTBAR_ITEM_KEYS` for a starter hotbar slot.
+   `DEFAULT_MAIN_INVENTORY_STACK_SPECS` for starter main inventory stacks.
+5. Run `bun run generate:content`.
+6. Add or edit the matching tile PNGs in
+   `apps/client/assets/textures/tiles-src/`.
+7. Run `bun run generate:atlas`.
+8. Run `bun run typecheck` and `bun test`.
+
+### Add A Block Without A Player Item
+
+- Add a block entry in `AUTHORED_BLOCK_SPECS`.
+- Set `dropItemKey` to `null` if breaking it should not create an item drop.
+- Omit any matching item entry unless players need to hold, place, or pick it up.
+
+`bedrock` is the current example of a block-only entry.
+
+### Add An Item Without A Placeable Block
+
+- Add an item entry in `AUTHORED_ITEM_SPECS`.
+- Set `placesBlockKey` to `null`.
+- Set `renderBlockKey` to `null` unless you want the item rendered using an
+  existing block mesh.
+
+This is the intended path for future tools, consumables, and ingredients.
+
+### Field Guide
+
+- `key`: stable authoring identity; keep it short, lowercase, and durable.
+- `name`: player-facing display name source.
+- `color`: fallback/debug-style item display color.
+- `dropItemKey`: item dropped when the block is broken.
+- `placesBlockKey`: block the item places, if any.
+- `renderBlockKey`: block mesh used to render the held item, dropped item, and
+  live HUD inventory item, if any.
+- `renderPass`: use `"opaque"` for solid terrain, `"cutout"` for alpha-discard
+  blocks like leaves, or `null` for non-rendered blocks such as air.
+- `occlusion`: use `"full"` for normal solid cubes, `"self"` for leaf-style
+  self-culling, or `"none"` for non-occluding blocks.
+- `emittedLightLevel`: block light emitted by the block, from `0` to `15`.
+
+### Tile Texture Rules
+
+- Edit per-tile source PNGs in `apps/client/assets/textures/tiles-src/`.
+- Use one `16x16` RGBA PNG per tile id, for example `dirt.png` or `grass-top.png`.
+- Keep tile ids aligned with `AtlasTiles` and the tile names referenced from
+  `content-spec.ts`.
+- After changing any source tile PNG, run `bun run generate:atlas`.
+- Do not hand-edit `apps/client/assets/textures/voxel-atlas.png`.
+- `bun run generate:tile-sources` exists to regenerate the current default tile
+  PNG set from code, but normal art iteration should happen by editing the PNGs
+  in `tiles-src` directly.
+
+### Id Stability Rules
+
+- Do not hand-pick numeric ids for new content; the generator assigns them.
+- Do not reorder generated files by hand; the generator and lockfile own the
+  final ids.
+- Adding a new key appends a new id automatically while preserving existing ids.
+- Renaming or removing keys is a compatibility-sensitive change because existing
+  saves may still reference the old ids.
+- If you intentionally rename or remove content, update `content-spec.ts` and
+  `content-id-lock.json` together and treat it as a migration or save-reset
+  decision.
+
+### Typical Example
+
+To add a new glowing placeable block:
+
+1. Add a block spec such as `blue_lantern` with tiles, light level, and
+   `dropItemKey: "blue_lantern"`.
+2. Add a matching item spec with `placesBlockKey: "blue_lantern"` and
+   `renderBlockKey: "blue_lantern"`.
+3. Optionally add `"blue_lantern"` to `DEFAULT_HOTBAR_ITEM_KEYS`.
+4. Run `bun run generate:content`.
+5. Review the generated diff in `content-id-lock.json` and `generated/*`.
 
 ## Rendering Pipeline
 
@@ -298,6 +415,7 @@ Gameplay updates currently include:
 - receiving replicated dropped-item spawn/update/remove events
 - picking up nearby dropped items only after the server validates proximity, cooldown, and inventory space
 - opening chat, submitting chat lines, and routing slash commands through the server
+- receiving authoritative world-time updates after server-side `/timeset` changes
 - breaking blocks through a server event
 - placing the selected hotbar block through a server event
 - selecting inventory slots with number keys `1..9`
