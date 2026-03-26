@@ -1,11 +1,13 @@
 # World Loading Screen And Spawn Pregeneration
 
 ## Summary
+
 Add an explicit loading screen when entering a world, and pre-generate a bounded chunk radius around the spawn area before gameplay begins. In local singleplayer, show a real progress percentage while the worker/server prepares that spawn region. In multiplayer, show a loading screen too, but keep the first pass simpler: wait for the server to deliver enough startup chunks without requiring exact percentage progress from remote servers.
 
 ## Key Changes
 
 ### Add an explicit loading app state
+
 - The app should no longer jump directly from menu to gameplay while chunks stream in.
 - Add a dedicated loading mode or loading sub-state in `GameApp`.
 - The loading screen should own:
@@ -16,6 +18,7 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
 - This makes world entry feel intentional instead of showing a half-loaded scene.
 
 ### Pre-generate a spawn chunk radius before completing world entry
+
 - Add a bounded pregeneration pass around the world spawn position.
 - Recommended first pass:
   - choose a fixed chunk radius around spawn
@@ -27,6 +30,7 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
   - optimize for a smooth first spawn, not full up-front world generation
 
 ### Make spawn pregeneration server-authoritative
+
 - Pregeneration should happen on the authoritative side, not by client-side guessing.
 - The authoritative world already owns chunk generation and persistence, so this pass should reuse that ownership.
 - Good boundary:
@@ -35,6 +39,7 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
 - This avoids duplicate chunk-generation logic between loading and normal requests.
 
 ### Add progress reporting for local singleplayer loading
+
 - Local worker-backed singleplayer can and should report concrete progress.
 - Add a server/worker progress event for world-entry loading, for example:
   - total chunk count
@@ -51,6 +56,7 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
   - avoid noisy per-block or per-mesh progress
 
 ### Keep multiplayer loading simpler in the first pass
+
 - Remote multiplayer should also show a loading screen, but it does not need exact percentage progress in v1.
 - Recommended first pass:
   - show a generic `CONNECTING`, `JOINING`, or `LOADING WORLD` state
@@ -59,6 +65,7 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
 - If remote progress becomes important later, the same progress event shape can be extended to dedicated servers too.
 
 ### Define the initial chunk readiness rule clearly
+
 - The loading screen needs a concrete exit condition.
 - Strong recommendation:
   - for local singleplayer, exit when spawn pregeneration is complete and the client has applied the initial required chunk set
@@ -66,6 +73,7 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
 - Do not exit loading early just because the join request returned.
 
 ### Reuse pregenerated chunks during normal runtime
+
 - Pregeneration should feed the same chunk cache/storage used by normal chunk requests.
 - It should not create a second special startup-only chunk store.
 - Expected effect:
@@ -74,6 +82,7 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
   - later runtime generation still works the same outside the pregenerated area
 
 ### Add menu-to-loading-to-play flow
+
 - Update the current entry flow:
   - menu action
   - loading screen
@@ -86,12 +95,14 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
   - show a failure message and return to menu cleanly if loading fails
 
 ### Keep worker single-world ownership intact
+
 - The recent worker refactor should stay intact.
 - Local world list/create/delete remains app-side.
 - The worker should still only boot for one selected world.
 - Pregeneration therefore happens inside that one-world worker runtime after initialization, not in a multiworld manager.
 
 ### Add a bounded, deterministic pregeneration algorithm
+
 - Pregeneration order should be deterministic so progress feels stable and testable.
 - Recommended order:
   - iterate chunk coordinates in a radius around spawn
@@ -100,6 +111,7 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
 - This gives the best chance that the most visible nearby terrain is ready first if the system evolves toward incremental loading later.
 
 ### Add tests for loading and pregeneration behavior
+
 - This feature changes startup sequencing, so it needs direct coverage.
 - Important checks:
   - spawn pregeneration generates and persists the expected chunk set
@@ -108,11 +120,13 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
   - remote multiplayer still enters successfully with the loading screen path
 
 ### No backward compatibility required
+
 - It is acceptable to replace the current direct menu-to-play flow.
 - It is acceptable to add new worker/server events or reshape join sequencing.
 - Existing local-only loading assumptions do not need shims.
 
 ## Important Files
+
 - `plans/0022-world-loading-screen-and-spawn-pregeneration.md`
 - `README.md`
 - `architecture.md`
@@ -133,6 +147,7 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
 - `tests/*` for loading-screen and pregeneration coverage
 
 ## Test Plan
+
 - Pregeneration tests:
   - spawn-area pregeneration generates the expected chunk coordinate set
   - pregenerated chunks are available through normal chunk delivery paths
@@ -151,6 +166,7 @@ Add an explicit loading screen when entering a world, and pre-generate a bounded
   - world/server label is shown during loading
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0022-world-loading-screen-and-spawn-pregeneration.md`.
 - Spawn pregeneration should be bounded and focused on startup smoothness, not large-scale world baking.
 - Exact percentage progress is required for local singleplayer only in the first pass.

@@ -1,26 +1,31 @@
 # Bun Workspaces Monorepo Layout
 
 ## Summary
+
 Reorganize the repository into a Bun workspaces monorepo so the desktop client, dedicated server, and developer tooling become explicit apps with clear package boundaries. The new shape should keep `native/` at the repo root, move runtime entrypoints into `apps/client` and `apps/dedicated-server`, move repo tooling into `apps/cli`, and consolidate only shared primitives plus authoritative server/runtime code into `packages/core`. The key goal is structural clarity, not a behavior rewrite: singleplayer should still boot an in-process worker-backed authoritative server from the client app, while dedicated multiplayer should still boot a standalone WebSocket server, but both should depend on the same shared core package instead of reaching into one flat `src/` tree.
 
 ## Benefits
 
 ### Clearer ownership
+
 - Client-only concerns such as rendering, UI, input, native glue, and runtime assets live in `apps/client`.
 - Dedicated-only process concerns live in `apps/dedicated-server`.
 - Shared server/runtime and gameplay primitives live in `packages/core`.
 
 ### Less accidental coupling
+
 - The dedicated server no longer needs to sit next to client-only modules in one flat source tree.
 - `packages/core` stays focused on code actually shared by the singleplayer worker and dedicated server.
 - Client assets and native integration stop leaking into shared runtime boundaries.
 
 ### Easier iteration and maintenance
+
 - Workspace-local scripts and package boundaries make it easier to reason about what each runtime actually needs.
 - Refactors become safer because moving client code should not affect dedicated-server packaging by accident.
 - Future packaging, build, and test improvements can happen per workspace instead of through one oversized app surface.
 
 ### Easier future expansion
+
 - New apps can be added without forcing them into the desktop client or dedicated server structure.
 - Good future examples:
   - a game launcher app, potentially using Electron
@@ -29,6 +34,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 - A workspace monorepo makes those additions much easier because each new runtime can be its own app while still sharing core protocols, data types, and server/runtime primitives where appropriate.
 
 ### Better modding and external tooling surfaces
+
 - A well-bounded `packages/core` can become the natural dependency surface for mods and external tools.
 - That would let modding or tooling projects depend on shared primitives such as:
   - protocol/message types
@@ -38,6 +44,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 - This is much cleaner than asking mods or tools to import from a client app package or from unstable deep file paths in one flat source tree.
 
 ### Better pathing and asset semantics
+
 - `apps/client/assets` makes runtime asset ownership obvious.
 - Root `native/` remains centralized without forcing client render assets to be repo-global too.
 - Shared code avoids hidden assumptions about repo-root asset locations.
@@ -45,6 +52,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 ## Target Layout
 
 ### Root stays responsible for shared non-workspace assets
+
 - Keep these directories at the project root:
   - `native/`
   - `plans/`
@@ -58,6 +66,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
   - native build outputs
 
 ### `apps/cli`
+
 - `apps/cli` should own repo-level developer tooling and orchestration.
 - This app should contain:
   - native build scripts
@@ -67,6 +76,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 - It may depend on `packages/core` for shared CLI parsing, logging, and reusable process helpers.
 
 ### `apps/client`
+
 - `apps/client` should own the desktop app runtime and client-only composition.
 - This app should contain:
   - the client bootstrap entrypoint currently living in `src/index.ts`
@@ -81,6 +91,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
   - but that server implementation should come from `packages/core`, not from a client-local reimplementation
 
 ### `apps/dedicated-server`
+
 - `apps/dedicated-server` should own dedicated WebSocket serving and dedicated-only process concerns.
 - This app should contain:
   - the standalone server bootstrap currently living in `src/server/standalone-entry.ts`
@@ -90,6 +101,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 - It should not own gameplay rules directly; it should compose them from `packages/core`.
 
 ### `packages/core`
+
 - `packages/core` should contain only code that is shared by the singleplayer worker server and the dedicated WebSocket server, plus neutral shared primitives used by the client to talk to them.
 - This package should own:
   - authoritative server/runtime code
@@ -110,6 +122,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 ## Package Boundary Rules
 
 ### Client app boundary
+
 - `apps/client` may depend on `packages/core`.
 - `apps/client` owns its own runtime assets under `apps/client/assets`.
 - `apps/client` may load the repo-root native bridge from `native/`.
@@ -117,16 +130,19 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 - `apps/client` owns process-local composition, not shared gameplay logic.
 
 ### CLI app boundary
+
 - `apps/cli` may depend on `packages/core`.
 - `apps/cli` should not become a second home for dedicated-server or client runtime code.
 - `apps/cli` owns developer tooling and orchestration, not gameplay/runtime rules.
 
 ### Dedicated server app boundary
+
 - `apps/dedicated-server` may depend on `packages/core`.
 - `apps/dedicated-server` should not import client-only bootstrap code.
 - `apps/dedicated-server` should not depend on client runtime assets.
 
 ### Core package boundary
+
 - `packages/core` should not depend on either app package.
 - `packages/core` should expose stable entry surfaces for:
   - neutral shared/client-server protocol helpers
@@ -137,6 +153,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 ## Suggested Directory Mapping
 
 ### Move current client bootstrap into `apps/client`
+
 - Expected moves:
   - current `src/index.ts` -> `apps/client/src/index.ts`
   - any client-app-specific CLI or startup composition should live nearby
@@ -150,11 +167,13 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 - `packages/core` should provide the shared runtime pieces `GameApp` composes, not own `GameApp` itself.
 
 ### Move current dedicated bootstrap into `apps/dedicated-server`
+
 - Expected moves:
   - current `src/server/standalone-entry.ts` -> `apps/dedicated-server/src/index.ts`
   - only dedicated-server-specific startup helpers should move with it
 
 ### Move reusable code into `packages/core`
+
 - Likely moves:
   - `src/server/*` -> `packages/core/src/server/*`
   - `src/shared/*` -> `packages/core/src/shared/*`
@@ -165,6 +184,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
   - move only the client/server protocol and gameplay primitives that are genuinely shared
 
 ### Move client-owned code into `apps/client`
+
 - Likely moves:
   - `src/index.ts` -> `apps/client/src/index.ts`
   - `src/game-app.ts` -> `apps/client/src/game-app.ts`
@@ -178,6 +198,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 ## Worker And Transport Ownership
 
 ### Singleplayer worker startup stays client-owned
+
 - The desktop app should continue to own the decision to boot a local worker for singleplayer.
 - Recommended shape:
   - `apps/client` starts the worker
@@ -186,6 +207,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 - This keeps singleplayer as an app concern while preserving one authoritative server implementation.
 
 ### Dedicated WebSocket transport stays dedicated-app-owned at the edge
+
 - The dedicated app should continue to own:
   - `Bun.serve`
   - port prompts
@@ -195,6 +217,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 ## Root Scripts And Developer Workflow
 
 ### Keep root-level convenience commands
+
 - Keep root orchestration commands such as:
   - `dev:client`
   - `dev:server`
@@ -203,6 +226,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 - Those scripts can call into workspace app commands rather than direct old flat-source entrypoints.
 
 ### Add workspace-local scripts
+
 - Each workspace should expose its own local commands:
   - `apps/client`: dev, build, typecheck as needed
   - `apps/dedicated-server`: dev, build, typecheck as needed
@@ -213,6 +237,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 ## TypeScript And Module Resolution
 
 ### Introduce a root base config
+
 - Add a root shared TS config for common compiler options.
 - Each workspace should extend that base and set:
   - its own `rootDir`
@@ -220,6 +245,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
   - explicit path aliases only if they stay simple
 
 ### Prefer package imports over deep relative paths
+
 - Replace long `../../..` imports with workspace package imports where practical.
 - Good target:
   - app code imports shared runtime pieces from `packages/core`
@@ -228,6 +254,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 ## Assets, Native Bridge, And Path Policy
 
 ### Move runtime client assets into `apps/client`
+
 - Runtime-loaded shaders, textures, and similar client-only assets should live under `apps/client/assets`.
 - This matches ownership better:
   - the client app renders and loads them
@@ -236,6 +263,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 - If we later introduce shared authoring assets or generation inputs, those can live at the repo root intentionally, but client runtime assets should default to the client app.
 
 ### Keep `native/` at the root
+
 - The native bridge build should remain centralized under `native/`.
 - `apps/client` should consume it through a stable path resolver.
 - `apps/dedicated-server` should not depend on the native bridge unless a dedicated-only feature genuinely requires it.
@@ -243,6 +271,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 ## Testing Strategy
 
 ### Preserve existing coverage while migrating layout
+
 - The first monorepo pass should keep tests readable and reliable rather than perfectly redistributed.
 - Acceptable first-pass options:
   - keep most tests under root `tests/` and update imports
@@ -251,12 +280,14 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
   - do not mix structural migration with a full testing philosophy rewrite
 
 ### Validate both app entrypoints explicitly
+
 - Add smoke coverage for:
   - client app bootstrap still starting correctly with workspace paths
   - dedicated server bootstrap still starting correctly with workspace paths
   - singleplayer worker startup still reaching the shared authoritative core
 
 ## Suggested Implementation Order
+
 1. Add Bun workspace configuration and package manifests without moving code yet.
 2. Create `apps/client`, `apps/dedicated-server`, `apps/cli`, and `packages/core` with minimal entrypoints.
 3. Move reusable code from `src/` into `packages/core/src/` while preserving behavior.
@@ -267,6 +298,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 8. Delete the old flat `src/` bootstrap locations once all imports and commands are stable.
 
 ## Important Files
+
 - `plans/0025-bun-workspaces-monorepo-layout.md`
 - `package.json`
 - `tsconfig.json`
@@ -283,6 +315,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
 - `architecture.md`
 
 ## Test Plan
+
 - Workspace/bootstrap tests:
   - root dev commands still invoke the correct workspace entrypoints
   - client app boot still works with local singleplayer worker startup
@@ -302,6 +335,7 @@ Reorganize the repository into a Bun workspaces monorepo so the desktop client, 
   - dedicated multiplayer join through localhost
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0025-bun-workspaces-monorepo-layout.md`.
 - This is primarily a repository-structure refactor, not a gameplay feature change.
 - `native/` stays at the repo root.

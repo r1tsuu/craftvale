@@ -1,11 +1,13 @@
 # Menu Layout Primitives And Status Cleanup
 
 ## Summary
+
 Improve menu and pause-screen UI consistency by introducing small reusable layout primitives for spacing, padding, alignment, and vertical flow instead of hand-placing every label and button. Use that pass to normalize panel gutters and button gaps across the title menu, settings, world/server screens, and pause overlay, and replace the awkward raw `RETURNED TO MENU` label with a clearer transient status treatment.
 
 ## Key Changes
 
 ### Add a tiny layout toolkit for UI builders
+
 - Create a client-owned layout helper module for menu/HUD composition.
 - The goal is not a full browser layout engine. The goal is a small set of predictable primitives that make the current UI feel more like it was built with `display: flex`, `padding`, and `gap`.
 - Recommended first-pass primitives:
@@ -20,6 +22,7 @@ Improve menu and pause-screen UI consistency by introducing small reusable layou
   - builders in `ui/menu.ts` and `ui/hud.ts` use the helpers instead of scattered magic numbers
 
 ### Normalize menu shell spacing
+
 - Standardize outer frame margin, inner panel padding, title spacing, subtitle spacing, and content gutters in the main menu shell.
 - Replace the current manually tuned offsets with shared spacing tokens or constants.
 - Recommended shared spacing model:
@@ -32,6 +35,7 @@ Improve menu and pause-screen UI consistency by introducing small reusable layou
 - This should make title screen, world list, multiplayer, create-world, and settings screens feel like the same system instead of adjacent one-off screens.
 
 ### Normalize pause overlay spacing to match the menu shell
+
 - Rebuild the pause panel with the same spacing language as the title menu rather than its current custom offsets.
 - Recommended structure:
   - header region: title plus subtitle
@@ -46,6 +50,7 @@ Improve menu and pause-screen UI consistency by introducing small reusable layou
   - avoid duplicating the entire menu builder just to reuse layout
 
 ### Replace floating raw status text with a reusable status treatment
+
 - The current `RETURNED TO MENU` label reads like debug output and lands in an awkward visual position.
 - Introduce a clearer menu-status presentation that can be reused for:
   - returned to menu
@@ -61,6 +66,7 @@ Improve menu and pause-screen UI consistency by introducing small reusable layou
   - support both neutral info and error emphasis without changing layout
 
 ### Separate persistent instructional copy from transient feedback
+
 - Clarify which labels are part of the screen structure and which are temporary event feedback.
 - Good examples of persistent copy:
   - `CHOOSE SINGLEPLAYER OR MULTIPLAYER`
@@ -72,11 +78,13 @@ Improve menu and pause-screen UI consistency by introducing small reusable layou
 - The plan should leave builders with explicit slots for both instead of overloading one content area.
 
 ### Reduce magic-number drift across menu builders
+
 - Audit `ui/menu.ts` and `ui/hud.ts` for repeated hard-coded x/y offsets and duplicated button placement math.
 - Replace those with shared dimension and spacing constants where the visual intent is the same.
 - Keep localized constants where a screen truly needs different proportions, but do not keep multiple slightly different versions of the same button stack spacing by accident.
 
 ### Keep the change client-owned
+
 - This is strictly a client UI/layout cleanup.
 - No changes should be required in authoritative server logic or shared protocol code.
 - Runtime ownership should stay where it is today:
@@ -85,6 +93,7 @@ Improve menu and pause-screen UI consistency by introducing small reusable layou
   - layout helpers remain client-only utilities
 
 ### Preserve the lightweight immediate-mode UI architecture
+
 - Do not replace the current UI system with DOM-like retained widgets.
 - Do not add CSS parsing or generalized constraint solving.
 - The reusable layer should stay intentionally small and composable:
@@ -94,6 +103,7 @@ Improve menu and pause-screen UI consistency by introducing small reusable layou
 - This keeps the codebase understandable while still giving us most of the practical wins of flex/padding/gap-style composition.
 
 ## Important Files
+
 - `plans/0027-menu-layout-primitives-and-status-cleanup.md`
 - `architecture.md`
 - `apps/client/src/game-app.ts`
@@ -106,6 +116,7 @@ Improve menu and pause-screen UI consistency by introducing small reusable layou
 - `tests/menu-state.test.ts`
 
 ## Test Plan
+
 - Layout/helper tests:
   - rect layout helpers return expected positions for inset, centered, and vertical-stack arrangements
   - shared stack helpers produce stable button gaps and alignment
@@ -127,6 +138,7 @@ Improve menu and pause-screen UI consistency by introducing small reusable layou
   - walk through worlds, multiplayer, and settings screens and confirm there are no clipped labels or uneven gutters
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0027-menu-layout-primitives-and-status-cleanup.md`.
 - The first pass should target spacing consistency and status presentation, not a full visual redesign.
 - Reusable layout helpers should live in the client UI layer and return rects rather than introducing a new retained widget system.

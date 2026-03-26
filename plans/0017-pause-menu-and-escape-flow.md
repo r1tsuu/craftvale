@@ -1,11 +1,13 @@
 # Pause Menu And Escape Flow
 
 ## Summary
+
 Change `Esc` from a hard quit shortcut into a layered UI control that behaves more like Minecraft. The game should only close through the explicit exit button in the main menu. During gameplay, `Esc` should pause the world and open an in-game menu with options to return to the game, open settings, or exit back to the main menu.
 
 ## Key Changes
 
 ### Remove hard-quit behavior from `Esc`
+
 - Stop treating `Esc` as a direct call to `requestClose()` during normal runtime.
 - Keep explicit quitting available through the main menu `EXIT` button only.
 - Recommended behavior:
@@ -13,6 +15,7 @@ Change `Esc` from a hard quit shortcut into a layered UI control that behaves mo
   - during gameplay, `Esc` should never close the app directly
 
 ### Introduce an in-game paused state
+
 - Add an explicit paused/menu-open state to `GameApp` instead of overloading the existing top-level main-menu mode.
 - Keep the current top-level app distinction:
   - main menu
@@ -23,6 +26,7 @@ Change `Esc` from a hard quit shortcut into a layered UI control that behaves mo
   - do not bounce the app back into the main menu just to show pause actions
 
 ### Define `Esc` priority while playing
+
 - `Esc` should resolve the most local overlay first.
 - Recommended order:
   - if inventory is open, close inventory
@@ -32,6 +36,7 @@ Change `Esc` from a hard quit shortcut into a layered UI control that behaves mo
 - This keeps `Esc` intuitive and avoids surprising jumps straight to the main menu.
 
 ### Add a dedicated pause menu overlay
+
 - Create a lightweight pause overlay UI rendered on top of the game view.
 - The menu should include:
   - `BACK TO GAME`
@@ -47,6 +52,7 @@ Change `Esc` from a hard quit shortcut into a layered UI control that behaves mo
   - show the system cursor while paused
 
 ### Reuse the settings screen from pause flow
+
 - The in-game pause flow should be able to open settings without forcing the user back to the main menu.
 - Recommended approach:
   - add a settings context/source to the current menu or overlay state
@@ -56,6 +62,7 @@ Change `Esc` from a hard quit shortcut into a layered UI control that behaves mo
   - `BACK` from settings should return to the title play screen when opened from the main menu
 
 ### Support exiting to the main menu cleanly
+
 - Add an explicit `EXIT TO MENU` flow from the pause menu.
 - Exiting to menu should:
   - leave the active world session cleanly
@@ -65,6 +72,7 @@ Change `Esc` from a hard quit shortcut into a layered UI control that behaves mo
 - Be careful not to close the whole app when the user only wants to leave the world.
 
 ### Keep pause fully client-owned
+
 - Pausing in the current single-player worker-backed architecture can remain client-owned.
 - No new server message types should be necessary for a first pass.
 - The paused state only needs to:
@@ -72,6 +80,7 @@ Change `Esc` from a hard quit shortcut into a layered UI control that behaves mo
   - keep the current replicated world state available for rendering
 
 ### Update input and cursor management
+
 - Cursor-lock behavior needs to account for pause just like inventory already does.
 - Recommended behavior:
   - gameplay active: cursor locked
@@ -82,6 +91,7 @@ Change `Esc` from a hard quit shortcut into a layered UI control that behaves mo
 - Avoid conflicting cursor transitions between inventory, pause, and menu flows.
 
 ### Extend UI layering for play overlays
+
 - The current HUD path is already handling chat and inventory overlays.
 - Expand that structure to support:
   - pause panel
@@ -91,11 +101,13 @@ Change `Esc` from a hard quit shortcut into a layered UI control that behaves mo
   - keep UI builders pure and driven by a small overlay-state view model
 
 ### Preserve the explicit main-menu exit button
+
 - The main-menu `EXIT` button remains the only direct app-close route.
 - Keep that behavior unchanged so users still have a clear intentional quit path.
 - If desired later, the pause menu can gain a separate `QUIT GAME` button, but that is out of scope for this plan as written.
 
 ## Important Files
+
 - `plans/0017-pause-menu-and-escape-flow.md`
 - `README.md`
 - `architecture.md`
@@ -112,6 +124,7 @@ Change `Esc` from a hard quit shortcut into a layered UI control that behaves mo
 - `tests/ui.test.ts`
 
 ## Test Plan
+
 - Input-flow tests:
   - `Esc` in the main menu does not close the app
   - `Esc` during gameplay opens the pause menu instead of closing the app
@@ -135,6 +148,7 @@ Change `Esc` from a hard quit shortcut into a layered UI control that behaves mo
   - close the app only through the main menu `EXIT` button
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0017-pause-menu-and-escape-flow.md`.
 - `Esc` should no longer be a hard quit shortcut anywhere in the game loop.
 - The first pass targets pause plus exit-to-menu, not a full multiplayer pause protocol.

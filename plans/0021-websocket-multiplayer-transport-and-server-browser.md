@@ -1,11 +1,13 @@
 # WebSocket Multiplayer Transport And Server Browser
 
 ## Summary
+
 Add a real multiplayer transport built on WebSockets, while keeping the existing typed client/server message model and preserving worker-backed local play as a separate mode. The important architectural step is not just adding a socket adapter: the current server runtime is still singleton-player shaped, so this plan first splits shared world ownership from per-connection session ownership. On top of that server foundation, add a multiplayer menu flow with saved servers, manual server entry, join/delete actions, and development scripts for running a standalone server or a combined local client-plus-server setup.
 
 ## Key Changes
 
 ### Split server ownership into shared world state and per-client session state
+
 - The current runtime should not be exposed directly as a multi-client server.
 - Today it still owns one active world and one current player identity at a time.
 - Strong recommendation:
@@ -21,6 +23,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
   - transport adapters do not need to fake singleton state
 
 ### Keep the typed message/event protocol and add a network-safe transport layer
+
 - Preserve `src/shared/messages.ts` and `src/shared/event-bus.ts` as the semantic contract.
 - Do not invent a second gameplay protocol for networking.
 - Add a WebSocket-backed `TransportPort` implementation so the same request/event semantics work over the network.
@@ -33,6 +36,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
 - The key is to keep transport details below the event-bus boundary instead of leaking socket logic into gameplay code.
 
 ### Add a dedicated WebSocket server adapter
+
 - Introduce a real server-side adapter for socket connections.
 - Recommended responsibilities:
   - own one WebSocket connection
@@ -47,6 +51,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
   - keep adapters thin and keep gameplay logic in shared runtime/server-session code
 
 ### Add a dedicated client adapter for remote servers
+
 - Add a `WebSocketClientAdapter` alongside `WorkerClientAdapter`.
 - Responsibilities:
   - open/close the remote connection
@@ -60,6 +65,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
   - remote multiplayer via WebSocket server
 
 ### Add menu-level multiplayer flow and saved-server management
+
 - Add a new `Multiplayer` option to the main menu.
 - The multiplayer screen should include:
   - a list of saved servers
@@ -81,6 +87,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
   - invalid host input should fail clearly before trying to connect
 
 ### Keep local worlds and multiplayer worlds as separate menu concepts
+
 - The current world list is local-world oriented.
 - Multiplayer should not overload that same list with mixed concepts.
 - Strong recommendation:
@@ -89,6 +96,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
 - This will keep local save management and remote server joining easy to understand.
 
 ### Add a persisted client-side saved-server store
+
 - Add a small storage module for saved multiplayer servers.
 - Suggested location:
   - `client/saved-servers.json`
@@ -101,6 +109,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
   - key entries by a stable local id rather than raw host string so rename/edit behavior stays simple later
 
 ### Add a standalone dedicated server entrypoint
+
 - Add a top-level server bootstrap that starts only the authoritative WebSocket server.
 - This should not create a native window or client app shell.
 - Recommended responsibilities:
@@ -111,6 +120,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
 - This is the basis for real multiplayer testing and future deployment.
 
 ### Add development scripts for dedicated and full-stack local multiplayer flow
+
 - Add `dev:server`:
   - starts only the dedicated server
 - Add `dev:client`:
@@ -126,6 +136,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
   - default dev port
 
 ### Make disconnect/error handling explicit
+
 - Real transport introduces failure cases the worker mode does not have.
 - The multiplayer plan should include:
   - connection timeout handling
@@ -137,6 +148,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
   - avoid complex reconnect behavior until the baseline transport is stable
 
 ### Keep worker mode as a first-class local transport
+
 - Do not delete the existing worker architecture.
 - It remains useful for:
   - local single-player
@@ -145,6 +157,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
 - The long-term goal should be transport choice, not replacing one mode with another before the networking path is mature.
 
 ### Stage the work so multiplayer transport lands safely
+
 - Strong recommendation:
   - implement session/runtime split before the socket adapter
   - implement the socket adapter before the multiplayer menu flow
@@ -161,6 +174,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
   - dev scripts and local convenience prefill
 
 ## Important Files
+
 - `plans/0021-websocket-multiplayer-transport-and-server-browser.md`
 - `README.md`
 - `architecture.md`
@@ -185,6 +199,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
 - `tests/*` for multiplayer menu, saved-server storage, and dedicated server transport coverage
 
 ## Test Plan
+
 - Session/runtime architecture tests:
   - multiple connected sessions can join the same world without overwriting each other
   - disconnecting one session does not collapse shared world state for remaining players
@@ -210,6 +225,7 @@ Add a real multiplayer transport built on WebSockets, while keeping the existing
   - two clients can connect to the same dev server and see each other
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0021-websocket-multiplayer-transport-and-server-browser.md`.
 - WebSocket is the recommended first real transport for this project.
 - Worker-backed local play remains supported and is not removed by this plan.

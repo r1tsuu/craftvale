@@ -1,6 +1,7 @@
 # Minecraft-Style Menu Flow
 
 ## Summary
+
 Rework the main menu so it feels closer to Minecraft's structure and pacing instead of showing world selection and world creation controls all at once. The new flow should have two clear screens:
 
 1. a top-level play screen
@@ -11,6 +12,7 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
 ## Key Changes
 
 ### Split the current combined menu into explicit screens
+
 - Replace the current single `buildMainMenu(...)` layout with a small screen-based menu flow.
 - Add menu screens such as:
   - `play`
@@ -19,6 +21,7 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
 - Keep the menu state explicit so `GameApp` can switch screens without relying on layout-specific button wiring.
 
 ### Screen 1: Play screen
+
 - Make the first menu screen a simple Minecraft-like landing screen focused on primary actions.
 - The main action should be `Play`, which moves the user to the worlds screen.
 - Keep `Quit` available from this screen.
@@ -26,6 +29,7 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
 - Keep this screen intentionally sparse. It should not show the full world list or create form.
 
 ### Screen 2: Worlds screen
+
 - Move the world list and world-management actions onto a dedicated worlds screen.
 - Show:
   - the saved-world list
@@ -37,6 +41,7 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
 - If the world list grows, the layout should still have a clear list area rather than mixing list rows and creation fields in the same visual stack.
 
 ### Create-world flow
+
 - Remove the always-visible create-world inputs from the default menu.
 - Trigger world creation from the dedicated `Create World` button on the worlds screen.
 - Recommended default:
@@ -46,6 +51,7 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
 - In either case, creation should feel like a deliberate step, not a permanently exposed side form.
 
 ### Extend menu state for screen navigation
+
 - Update `src/client/menu-state.ts` so menu state tracks:
   - active screen
   - focused field within the create-world screen or mode
@@ -60,6 +66,7 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
 - Avoid baking navigation logic into ad hoc string parsing inside `GameApp`.
 
 ### Refactor menu composition in `src/ui/menu.ts`
+
 - Break the current single builder into smaller screen builders, for example:
   - `buildPlayMenu(...)`
   - `buildWorldsMenu(...)`
@@ -68,6 +75,7 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
 - Keep the resulting UI data declarative so the existing UI evaluation/rendering model still works.
 
 ### Improve visual language toward Minecraft-like structure
+
 - Make the UI feel closer to Minecraft without trying to clone it exactly.
 - Emphasize:
   - centered stacked buttons
@@ -77,6 +85,7 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
 - Keep the existing custom voxel backdrop direction, but simplify the foreground layout so buttons and list panels do most of the work.
 
 ### UI component support
+
 - The current UI primitives are enough for the basic screen split, but this refactor may benefit from small additions such as:
   - disabled button styling
   - secondary button styling
@@ -85,6 +94,7 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
 - Only add new primitives if they materially simplify the new screen layouts.
 
 ### `GameApp` menu handling
+
 - Update `src/game-app.ts` to drive the new screen flow.
 - Menu actions should become screen-aware:
   - opening the worlds screen should sync or reuse world-list data
@@ -93,11 +103,13 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
 - Keep `Enter` behavior scoped to the create-world confirmation path rather than making it ambiguous on every screen.
 
 ### Preserve current gameplay/runtime boundaries
+
 - This plan changes menu UX, not ownership boundaries.
 - World listing, creation, deletion, joining, saving, and inventory/world runtime behavior should remain under the same client/server split.
 - The UI refactor should not reintroduce global app state or direct client-side world mutation.
 
 ## Important Files
+
 - `src/game-app.ts`
 - `src/client/menu-state.ts`
 - `src/ui/menu.ts`
@@ -105,6 +117,7 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
 - `src/ui/renderer.ts`
 
 ## Test Plan
+
 - Menu-state tests:
   - screen transitions are pure and deterministic
   - world selection stays stable when refreshing worlds
@@ -124,6 +137,7 @@ The goal is to make the UI easier to scan, more recognizable, and more extensibl
   - user can return/back out cleanly
 
 ## Assumptions And Defaults
+
 - This pass is focused on structure and feel, not pixel-perfect Minecraft imitation.
 - The current background style can stay; the main UX win comes from splitting responsibilities across screens.
 - The preferred default is a three-screen flow:

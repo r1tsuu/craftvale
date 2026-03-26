@@ -1,6 +1,7 @@
 # Source Tile PNG Pipeline And Generated Atlas
 
 ## Summary
+
 Refactor the texture asset pipeline so Craftvale no longer treats the final atlas PNG as both the authoring format and the runtime format. Today all voxel texture art effectively lives inside the atlas output, which makes single-tile edits awkward, makes mixed hand-authored and generated textures harder to support, and couples authoring concerns to runtime packing concerns. This plan introduces a two-stage texture pipeline: one PNG per logical tile as the source format, followed by a deterministic atlas-generation step that packs those tiles into the runtime atlas and emits the same atlas metadata/UVs the renderer already consumes.
 
 The goal is to make tile authoring scalable, support both hand-authored and generated textures, and keep runtime rendering simple by still consuming one packed atlas at runtime.
@@ -8,6 +9,7 @@ The goal is to make tile authoring scalable, support both hand-authored and gene
 ## Key Changes
 
 ### Separate source textures from runtime atlas output
+
 - Introduce a source-texture directory containing one PNG per logical tile id, for example:
   - `apps/client/assets/textures/tiles-src/dirt.png`
   - `apps/client/assets/textures/tiles-src/grass-top.png`
@@ -19,6 +21,7 @@ The goal is to make tile authoring scalable, support both hand-authored and gene
   - treat the packed atlas as a build output
 
 ### Add an optional generated-tile input stage
+
 - Support a second input source for tile PNG generation, for example:
   - `apps/client/assets/textures/generated-src/*`
   - or a generator-owned temp/output folder under `apps/cli`
@@ -30,6 +33,7 @@ The goal is to make tile authoring scalable, support both hand-authored and gene
   - pack that manifest into the runtime atlas
 
 ### Keep logical tile ids as the content-facing identity
+
 - Block content and atlas lookup should continue to refer to logical tile ids such as:
   - `dirt`
   - `grass-top`
@@ -42,6 +46,7 @@ The goal is to make tile authoring scalable, support both hand-authored and gene
   - runtime code keeps using tile ids and generated atlas metadata only
 
 ### Move atlas construction fully under repo tooling ownership
+
 - Extend `apps/cli` so atlas generation becomes an explicit deterministic build step sourced from per-tile PNGs.
 - Good first-pass tooling shape:
   - keep `apps/cli/src/generate-voxel-atlas.ts` as the entry point
@@ -52,6 +57,7 @@ The goal is to make tile authoring scalable, support both hand-authored and gene
   - continue checking the final atlas output into git if that keeps runtime startup simple
 
 ### Support both hand-authored and generated tiles in one manifest
+
 - The atlas builder should assemble a single in-memory tile manifest keyed by tile id before packing.
 - Each tile id should resolve to exactly one RGBA image payload.
 - Good validation cases:
@@ -61,11 +67,13 @@ The goal is to make tile authoring scalable, support both hand-authored and gene
   - unsupported color formats fail
 
 ### Preserve the current runtime atlas rendering model
+
 - The renderer should still load one atlas texture at runtime.
 - Meshing, shader usage, and UV lookup should continue to work from atlas metadata exactly as they do now.
 - This plan is an authoring/build-pipeline refactor, not a runtime rendering redesign.
 
 ### Make room for future texture families and content growth
+
 - The source-tile model should scale beyond the current terrain set.
 - Future content should be able to add tiles without manually editing a giant atlas image.
 - This should help with:
@@ -76,6 +84,7 @@ The goal is to make tile authoring scalable, support both hand-authored and gene
   - eventual content packs or mod-like data extensions
 
 ### Clarify the authored vs generated asset boundary
+
 - After this refactor there should be a clear split:
   - authored content metadata in `packages/core/src/world/content-spec.ts`
   - authored source tile PNGs under a source-texture directory
@@ -84,6 +93,7 @@ The goal is to make tile authoring scalable, support both hand-authored and gene
   - document this boundary in `README.md` so contributors know which files they are expected to edit directly
 
 ## Important Files
+
 - `plans/0031-source-tile-png-pipeline-and-generated-atlas.md`
 - `README.md`
 - `architecture.md`
@@ -97,6 +107,7 @@ The goal is to make tile authoring scalable, support both hand-authored and gene
 - `tests/mesher.test.ts`
 
 ## Suggested Implementation Order
+
 1. Choose the source-texture directory layout and decide where generated source tiles should live.
 2. Refactor atlas generation so it reads one PNG per tile id from disk instead of treating the atlas as the editable source.
 3. Add a manifest-building phase that merges hand-authored and generated tile sources while validating duplicates and missing ids.
@@ -105,6 +116,7 @@ The goal is to make tile authoring scalable, support both hand-authored and gene
 6. Add one smoke-test texture addition through the new pipeline to confirm the workflow is simpler than editing the atlas directly.
 
 ## Test Plan
+
 - Atlas pipeline tests:
   - source tiles load from per-tile PNG files
   - duplicate tile ids fail generation
@@ -121,6 +133,7 @@ The goal is to make tile authoring scalable, support both hand-authored and gene
   - add one generated tile source and confirm it also appears in the atlas
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0031-source-tile-png-pipeline-and-generated-atlas.md`.
 - Runtime rendering should keep using one packed atlas texture.
 - Tile ids remain logical names rather than file paths.

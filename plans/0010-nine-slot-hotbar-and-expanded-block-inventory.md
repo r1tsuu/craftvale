@@ -1,11 +1,13 @@
 # Nine-Slot Hotbar And Expanded Block Inventory
 
 ## Summary
+
 Expand the current block inventory from its small starter hotbar into a fuller Minecraft-style nine-slot hotbar. The project already has a server-authoritative inventory model, hotbar selection input, and HUD text rendering, so this plan is specifically about increasing the available item types to nine, keeping those counts authoritative, and making the HUD/hotbar presentation feel intentional instead of cramped debug text.
 
 ## Key Changes
 
 ### Expand the block catalog to support nine placeable inventory item types
+
 - Increase the set of collectible/placeable inventory-backed block types so the hotbar can represent nine distinct entries.
 - This likely requires adding several new block ids beyond the current set and updating:
   - shared `BlockId` typing
@@ -19,6 +21,7 @@ Expand the current block inventory from its small starter hotbar into a fuller M
   - collection/inventory behavior if breakable/collectible
 
 ### Expand the hotbar model from 5 slots to 9 slots
+
 - Update the authoritative hotbar block-id list in `src/world/inventory.ts` from the current small set to nine entries.
 - Keep the server-authoritative inventory snapshot model intact:
   - fixed slot order
@@ -27,6 +30,7 @@ Expand the current block inventory from its small starter hotbar into a fuller M
 - Preserve clamping and normalization behavior for invalid slot indexes and stale persisted snapshots.
 
 ### Default inventory population
+
 - New worlds should start with a full starter stack of each of the nine hotbar item types, matching the current “one stack per slot” behavior.
 - Persisted worlds with older inventory snapshots should normalize safely:
   - old known counts are preserved when possible
@@ -39,11 +43,13 @@ Expand the current block inventory from its small starter hotbar into a fuller M
   - newly created worlds receive starter stacks in all nine slots
 
 ### Input and selection
+
 - Preserve the existing number-key slot-selection flow exposed by the native input layer.
 - Ensure selection works cleanly across slots `1` through `9`.
 - Confirm the input path from native platform code through client runtime to server inventory selection already handles the full nine-slot range or extend it where needed.
 
 ### HUD/hotbar presentation
+
 - Replace or improve the current text-only hotbar line so nine slots remain readable.
 - Preferred direction:
   - a dedicated bottom-center hotbar strip
@@ -54,6 +60,7 @@ Expand the current block inventory from its small starter hotbar into a fuller M
 - Keep the render path lightweight and compatible with the current UI/text/rect overlay system.
 
 ### World interaction behavior
+
 - Placement should continue using the selected slot’s block id.
 - Breaking collectible blocks should continue awarding the corresponding authoritative inventory count.
 - Invalid placement should not consume counts.
@@ -64,11 +71,13 @@ Expand the current block inventory from its small starter hotbar into a fuller M
   - inventory collection rules
 
 ### Atlas and rendering updates
+
 - Add the required atlas tiles for the newly introduced block types.
 - Update generated texture assets and any tests that assume the current tile count/layout.
 - If any new blocks use cutout rendering, ensure they integrate with the existing opaque/cutout split.
 
 ### Storage and compatibility
+
 - Validate that inventory persistence continues to round-trip with the larger slot list.
 - Older saved worlds should not break when loaded after the slot expansion.
 - Normalization should guard against:
@@ -77,6 +86,7 @@ Expand the current block inventory from its small starter hotbar into a fuller M
   - invalid selected-slot values
 
 ## Important Files
+
 - `src/types.ts`
 - `src/world/blocks.ts`
 - `src/world/atlas.ts`
@@ -90,6 +100,7 @@ Expand the current block inventory from its small starter hotbar into a fuller M
 - `apps/cli/src/generate-voxel-atlas.ts`
 
 ## Test Plan
+
 - Inventory tests:
   - default inventory contains nine slots
   - normalization preserves known counts and clamps selection safely
@@ -110,6 +121,7 @@ Expand the current block inventory from its small starter hotbar into a fuller M
   - verify counts update and the selected slot is visually obvious
 
 ## Assumptions And Defaults
+
 - This plan extends the existing server-authoritative inventory/hotbar system rather than replacing it.
 - The intended target is a Minecraft-style nine-slot hotbar, not a full backpack/crafting UI yet.
 - Some new block types may need simple placeholder textures first; visual polish can follow after the slot expansion is stable.

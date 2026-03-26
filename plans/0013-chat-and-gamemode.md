@@ -1,11 +1,13 @@
 # Chat And Gamemode Commands
 
 ## Summary
+
 Add an in-game chat system with slash-command support, then use that command path to introduce the first server-authoritative gameplay command: `gamemode`. The first pass should focus on a clean chat/input loop, transport-neutral command messages, authoritative per-player gamemode state, and creative-mode flight toggled by double-tapping `Space`. `gamemode 0` should restore the current normal movement model, while `gamemode 1` should enable creative-style flying.
 
 ## Key Changes
 
 ### Add an explicit in-game chat state on the client
+
 - Introduce a dedicated chat/input mode instead of overloading the HUD text or menu typing paths.
 - The client app should track at minimum:
   - whether chat is open
@@ -25,6 +27,7 @@ Add an in-game chat system with slash-command support, then use that command pat
 - Keep chat-state ownership in `GameApp`, not in the renderer.
 
 ### Add replicated chat/system messages to the protocol
+
 - Extend the shared protocol so chat is a first-class client/server concept.
 - Likely additions:
   - client event or request for submitting a chat line
@@ -36,6 +39,7 @@ Add an in-game chat system with slash-command support, then use that command pat
 - Keep the protocol transport-neutral so the same message shapes work for the worker transport now and sockets later.
 
 ### Route slash commands through chat submission
+
 - Treat slash-prefixed chat lines as commands instead of building a separate debug-only input path.
 - Recommended behavior:
   - if submitted text starts with `/`, the server parses it as a command
@@ -47,6 +51,7 @@ Add an in-game chat system with slash-command support, then use that command pat
 - Invalid commands should return a system message to the submitting player with a clear error.
 
 ### Add per-player authoritative gamemode state
+
 - Introduce explicit per-player gamemode state owned by the server.
 - Recommended first-pass type:
   - `PlayerGamemode = 0 | 1`
@@ -56,6 +61,7 @@ Add an in-game chat system with slash-command support, then use that command pat
 - The replicated player snapshot should expose gamemode so the client can drive movement and HUD behavior from authoritative state.
 
 ### Implement `/gamemode` as the first command
+
 - Add server-side handling for:
   - `/gamemode 0`
   - `/gamemode 1`
@@ -68,6 +74,7 @@ Add an in-game chat system with slash-command support, then use that command pat
 - If useful, also mirror the result into existing HUD/status text, but chat feedback is the main path.
 
 ### Add creative flight with double-space toggle
+
 - Creative mode should enable a flight path controlled by the existing movement input model.
 - Strong recommendation:
   - double-tap `Space` toggles flying on/off while in gamemode `1`
@@ -82,6 +89,7 @@ Add an in-game chat system with slash-command support, then use that command pat
   - only toggle flight on press edges, not on key hold
 
 ### Keep movement behavior cleanly separated between normal and creative
+
 - `PlayerController` currently assumes one grounded movement model with gravity and jump.
 - Refactor it so movement mode is explicit rather than threading creative exceptions through the current jump logic.
 - A clean first pass would split behavior into:
@@ -90,11 +98,13 @@ Add an in-game chat system with slash-command support, then use that command pat
 - This keeps future features such as spectator or noclip from becoming tangled with jump/gravity code.
 
 ### Persist chat-relevant player state separately from transient chat history
+
 - Gamemode is durable player state and should persist with the player save for a world.
 - Chat history is session/UI state and should not be stored in world saves in this first pass unless intentionally scoped in later.
 - The server may keep an in-memory recent chat buffer for current-session replication, but persistence is optional and should not block the gamemode work.
 
 ### Client runtime and HUD implications
+
 - Extend the client runtime to hold:
   - recent chat log
   - local chat draft state if runtime ownership is preferred
@@ -106,6 +116,7 @@ Add an in-game chat system with slash-command support, then use that command pat
 - Keep the first-pass visuals simple and functional rather than over-designing the chat widget.
 
 ## Important Files
+
 - `src/game-app.ts`
 - `src/game/player.ts`
 - `src/platform/native.ts`
@@ -122,6 +133,7 @@ Add an in-game chat system with slash-command support, then use that command pat
 - `tests/storage.test.ts`
 
 ## Test Plan
+
 - Chat input tests:
   - opening chat captures typed text instead of menu/gameplay text paths
   - submitting chat sends the expected payload
@@ -150,6 +162,7 @@ Add an in-game chat system with slash-command support, then use that command pat
   - run `/gamemode 0` and verify grounded movement is restored
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0013-chat-and-gamemode.md`.
 - Chat is session-level UI/runtime state; gamemode is per-player authoritative state.
 - Slash commands are entered through the same chat submission flow as normal chat messages.

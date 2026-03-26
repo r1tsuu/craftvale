@@ -1,11 +1,13 @@
 # Rendered Players And First-Person Hand
 
 ## Summary
+
 Add visible player rendering so multiplayer sessions show other players in the world, and add a first-person embodiment path for the local player. The first pass should stay disciplined: render players as simple blocky character models driven by replicated player snapshots, let the same player-model work inform the first-person result where practical, and only introduce a separate hand/viewmodel path if the shared player-body approach proves too awkward for clipping or readability.
 
 ## Key Changes
 
 ### Add an explicit player-rendering pass
+
 - Extend the renderer so players are treated as dynamic replicated actors, similar in spirit to dropped items, not as part of chunk meshes.
 - Recommended draw order:
   - opaque terrain
@@ -20,6 +22,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
 - Keep player rendering separate from terrain meshing so player pose updates do not rebuild chunk meshes.
 
 ### Render remote players from replicated snapshots
+
 - Use the existing replicated `PlayerSnapshot` data in `ClientWorldRuntime.players` as the source of truth for remote player render state.
 - First-pass remote player model should stay simple and Minecraft-like:
   - blocky cuboid silhouette
@@ -38,6 +41,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
 - The local camera should not drive remote players. They should render only from authoritative replicated state.
 
 ### Decide how the local first-person body should be reused
+
 - We should not assume up front that the local player needs a fully separate FPS hand renderer.
 - Since this plan already adds a renderable player body, the first pass should evaluate whether first-person embodiment can reuse that same model work.
 - Recommended default:
@@ -47,6 +51,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
 - This keeps us from maintaining two unrelated character-render implementations too early.
 
 ### Add a first-person arm and held-item presentation
+
 - The local player still needs visible first-person embodiment.
 - First pass options should be explicitly ordered:
   - preferred: reuse the player arm/held-item geometry and pose rules, but render only the visible first-person-relevant subset
@@ -58,6 +63,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
 - The important goal is not “a separate renderer at all costs”; it is a clean first-person result with minimal duplication.
 
 ### Reuse existing inventory selection for the held item
+
 - The first-person hand should reflect the currently selected hotbar slot.
 - Good first-pass rule:
   - if the selected slot contains a placeable block stack, render a held block/item model with the hand
@@ -65,6 +71,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
 - This should read from the already authoritative inventory snapshot on the client side instead of inventing a separate local-only held-item state.
 
 ### Use simple animation and pose rules first
+
 - Avoid jumping straight into a full animation system.
 - Recommended first-pass player/body pose rules:
   - yaw rotates the whole player body
@@ -77,6 +84,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
 - If exact authoritative animation state is not available yet, keep animation cosmetic and client-side.
 
 ### Decide the minimum replicated pose data deliberately
+
 - The current `PlayerSnapshot` already carries position, yaw, and pitch, which may be enough for a first pass.
 - Before adding new protocol fields, confirm whether these are sufficient for:
   - body yaw
@@ -87,6 +95,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
   - only extend the snapshot/message schema if a missing field blocks a clean render
 
 ### Add a small player-render model boundary
+
 - Create an explicit player-render helper or renderer rather than growing `VoxelRenderer` monolithically.
 - Reasonable shapes:
   - `PlayerRenderer` for shared body-part meshes, pose logic, and world-space drawing
@@ -94,6 +103,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
 - `VoxelRenderer` can orchestrate these passes while keeping terrain and actor rendering responsibilities separated.
 
 ### Preserve visibility and readability rules
+
 - Remote players should be culled by distance using the same general active/render distance logic as other dynamic actors.
 - The first-person arm/held-item path should:
   - remain visually stable across FOV changes
@@ -104,6 +114,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
   - add a later dedicated overlay-style hand pass only if world-space or shared-model reuse proves unsatisfying
 
 ### Leave skins and advanced animation out of scope
+
 - The first pass should not attempt:
   - custom player skins
   - armor layers
@@ -115,6 +126,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
 - The goal is readable presence and FPS embodiment first, not a full character pipeline.
 
 ### Add tests around pose/model decisions where practical
+
 - Rendering itself is hard to snapshot-test here, so prefer tests around:
   - player render filtering (local player excluded from world-space pass)
   - held-item selection derivation from inventory
@@ -127,6 +139,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
   - held-item switching across hotbar slots
 
 ## Important Files
+
 - `plans/0023-rendered-players-and-first-person-hand.md`
 - `README.md`
 - `architecture.md`
@@ -139,6 +152,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
 - `tests/*` for render-helper, player-state, and held-item selection coverage
 
 ## Test Plan
+
 - Render-data tests:
   - remote-player render collection excludes the local player entity
   - remote players inside render distance are included
@@ -158,6 +172,7 @@ Add visible player rendering so multiplayer sessions show other players in the w
   - stand near walls/blocks and confirm the hand remains readable without severe clipping
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0023-rendered-players-and-first-person-hand.md`.
 - The first pass targets visible remote players plus a local first-person arm/held-item presentation, not a full character customization system.
 - Existing replicated `PlayerSnapshot` data should be considered sufficient until a concrete rendering need proves otherwise.

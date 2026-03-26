@@ -1,11 +1,13 @@
 # Block Inventory
 
 ## Summary
+
 Add a simple block inventory so placing blocks consumes owned items instead of always spawning stone for free. The first pass should stay small and readable: the player can collect blocks by breaking them, select a placeable block type from a compact hotbar, and place only when they have stock available. Inventory state should remain authoritative on the server, replicate to the client for UI and input feedback, and persist with the world alongside existing chunk data.
 
 ## Key Changes
 
 ### Inventory model and scope
+
 - Introduce a player inventory model keyed by `BlockId`.
 - Start with stack counts only; durability, crafting, equipment, and containers are out of scope.
 - Limit the first UI to placeable terrain/material blocks:
@@ -18,6 +20,7 @@ Add a simple block inventory so placing blocks consumes owned items instead of a
 - Add a selected-slot or selected-block field so the player can choose what right-click places.
 
 ### Client gameplay flow
+
 - Replace the hardcoded `blockId: 3` placement path in the game loop with the currently selected inventory block.
 - Ignore place attempts when:
   - no placeable block is selected
@@ -28,6 +31,7 @@ Add a simple block inventory so placing blocks consumes owned items instead of a
 - Keep the current break/place interaction timing model; inventory does not require a new tool/action system in this pass.
 
 ### Server-authoritative inventory updates
+
 - Treat inventory counts as server-owned gameplay state.
 - Extend block mutation handling so the server:
   - grants block items when a player breaks a collectible block
@@ -40,6 +44,7 @@ Add a simple block inventory so placing blocks consumes owned items instead of a
 - If certain generated blocks should not drop themselves exactly, make that policy explicit in code rather than implicit in UI.
 
 ### Messaging and replication
+
 - Add shared DTOs for inventory replication and selection changes.
 - Expected message/event additions:
   - client event or request to change selected inventory slot/block
@@ -52,6 +57,7 @@ Add a simple block inventory so placing blocks consumes owned items instead of a
 - Prefer sending authoritative snapshots after meaningful changes over trying to optimize into tiny diffs too early.
 
 ### Persistence and world/session ownership
+
 - Persist inventory as part of the active world session/player state so save/load preserves collected blocks.
 - Fit this into the current single-player named-world model:
   - each world stores one inventory state for the local player
@@ -62,6 +68,7 @@ Add a simple block inventory so placing blocks consumes owned items instead of a
   - or a small starter set so building is immediately possible
 
 ### UI and HUD
+
 - Add a visible hotbar/inventory strip to the HUD.
 - Show, at minimum:
   - selected block
@@ -71,6 +78,7 @@ Add a simple block inventory so placing blocks consumes owned items instead of a
 - Provide immediate feedback when placement fails because inventory is empty, for example through HUD text or existing server-status messaging.
 
 ### Inventory/block catalog boundaries
+
 - Make placeability an explicit block capability instead of assuming every collidable block belongs in inventory.
 - Recommended block-definition metadata additions:
   - collectible on break
@@ -79,11 +87,13 @@ Add a simple block inventory so placing blocks consumes owned items instead of a
 - This keeps future decorative or special blocks from accidentally becoming inventory items just because they exist in `BlockId`.
 
 ### Runtime integration points
+
 - Update the client runtime and app bootstrap to store replicated inventory state alongside chunk state.
 - Update server runtime/session logic so join/create flows send initial inventory data in addition to spawn/world data.
 - Keep chunk replication separate from inventory replication; they change for different reasons and should not become tightly coupled.
 
 ## Important Public Interfaces/Types
+
 - Add inventory DTOs such as:
   - `InventorySlot`
   - `InventorySnapshot`
@@ -93,6 +103,7 @@ Add a simple block inventory so placing blocks consumes owned items instead of a
 - Join-world/session payloads gain initial inventory state, or a paired inventory sync event is emitted immediately after join.
 
 ## Test Plan
+
 - Inventory state tests:
   - breaking a collectible block increments the correct inventory count
   - successful placement decrements the selected stack count
@@ -115,6 +126,7 @@ Add a simple block inventory so placing blocks consumes owned items instead of a
   - inventory remains correct after save/restart/rejoin
 
 ## Assumptions And Defaults
+
 - This pass targets a single-player per-world inventory only; multiplayer player identities and shared containers are out of scope.
 - Inventory remains server-authoritative even though the game is currently local-worker-backed.
 - A compact hotbar is sufficient for v1; no full-screen inventory screen yet.

@@ -1,11 +1,13 @@
 # Biome System
 
 ## Summary
+
 Add a biome system to world generation so terrain is no longer one uniform grassy landscape with the same tree pattern everywhere. The first pass should focus on deterministic biome classification, biome-aware terrain surface composition, and biome-specific decoration rules while preserving the project’s current chunk-order safety and small-codebase simplicity. Biomes should be derived entirely from the world seed and world-space coordinates so the same world always regenerates identically on both the server and client.
 
 ## Key Changes
 
 ### Biome classification layer
+
 - Introduce an explicit biome sampling step separate from raw height generation.
 - Start with a small biome set such as:
   - plains
@@ -17,6 +19,7 @@ Add a biome system to world generation so terrain is no longer one uniform grass
 - Avoid noisy one-column checkerboarding by smoothing the sampled biome signals before final classification.
 
 ### New biome data model
+
 - Add a biome definition type that describes generation behavior instead of scattering biome conditionals throughout terrain code.
 - Recommended biome metadata includes:
   - biome id/name
@@ -29,6 +32,7 @@ Add a biome system to world generation so terrain is no longer one uniform grass
 - Keep this definition data-oriented so adding later biomes is mostly configuration plus any needed assets/blocks.
 
 ### Terrain shaping by biome
+
 - Refactor `getTerrainHeight(...)` so it can incorporate biome-aware parameters rather than returning one universal height profile.
 - Use biome signals to influence:
   - average elevation
@@ -38,6 +42,7 @@ Add a biome system to world generation so terrain is no longer one uniform grass
 - At biome boundaries, blend height parameters to avoid obvious seams or step changes.
 
 ### Surface and subsurface block variation
+
 - Stop assuming every column ends in grass/dirt/stone.
 - Let each biome choose different top and filler materials where appropriate.
 - Minimum implementation options:
@@ -46,6 +51,7 @@ Add a biome system to world generation so terrain is no longer one uniform grass
 - Keep deep underground stone-like material simple unless a biome strongly needs a different base.
 
 ### Biome-aware decoration and structures
+
 - Refactor the current tree decoration pass into a more general decoration layer.
 - Biomes should control:
   - whether trees are allowed
@@ -58,6 +64,7 @@ Add a biome system to world generation so terrain is no longer one uniform grass
 - Forest biomes should feel denser than plains; dry/rocky biomes should have few or no standard trees.
 
 ### Biome query helpers
+
 - Add worldgen helpers that can answer questions like:
   - `getBiomeAt(seed, worldX, worldZ)`
   - `getBiomeParameters(seed, worldX, worldZ)`
@@ -65,6 +72,7 @@ Add a biome system to world generation so terrain is no longer one uniform grass
 - Keep these helpers pure and deterministic so they are easy to test and safe to reuse in future systems like minimaps, fog tuning, ambient audio, or mob spawning.
 
 ### Content and atlas implications
+
 - If new biome blocks are added, extend the voxel atlas and block definitions to support them.
 - Keep the first pass conservative:
   - do not introduce a large block explosion just because biomes exist
@@ -72,11 +80,13 @@ Add a biome system to world generation so terrain is no longer one uniform grass
 - Any new foliage/decorative blocks should continue to respect the existing opaque vs cutout render-pass rules.
 
 ### Save/load and networking impact
+
 - Biomes should remain procedural and derived from the world seed; they do not need separate persistence.
 - The server remains authoritative for generated chunks, but biome logic must be deterministic enough that regenerated baseline chunks still match saved-world comparisons.
 - Avoid embedding transient biome caches into saved chunk data in this pass.
 
 ## Important Public Interfaces/Types
+
 - Add biome types such as:
   - `BiomeId`
   - `BiomeDefinition`
@@ -86,6 +96,7 @@ Add a biome system to world generation so terrain is no longer one uniform grass
 - Block/atlas interfaces may expand if new biome materials are introduced.
 
 ## Test Plan
+
 - Biome sampling tests:
   - the same seed and coordinates always return the same biome
   - different seeds produce different biome layouts
@@ -107,6 +118,7 @@ Add a biome system to world generation so terrain is no longer one uniform grass
   - different biomes change both terrain shape and decoration density, not just block color
 
 ## Assumptions And Defaults
+
 - This pass is about biome-driven world generation, not weather, temperature simulation, or dynamic seasons.
 - Biomes remain fully procedural from the world seed; no separate biome save format is required.
 - The current single vertical chunk layer stays in place, so biome variation must fit inside that height budget.

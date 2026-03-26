@@ -1,6 +1,7 @@
 # Client/Server Messaging Architecture With Worker Adapter
 
 ## Summary
+
 Refactor the current single-process game loop into a client/server-style architecture built around typed messaging, transport adapters, and separate client/server event buses. The first adapter is a single-player Worker adapter that does not create a real network server; it spins up a worker, forwards messages between client and server runtimes, and preserves the same architecture boundary we will later reuse for real networking.
 
 In this first cut, the server becomes authoritative for all world writes and for world lifecycle/persistence. That includes chunk generation, block place/remove, world creation, world join, world listing, world deletion, and binary save/load. The client owns rendering, input, UI, prediction-free local presentation, and applying authoritative world snapshots/patches received from the server.
@@ -8,6 +9,7 @@ In this first cut, the server becomes authoritative for all world writes and for
 ## Key Changes
 
 ### Messaging and adapter architecture
+
 - Add a shared message schema layer for:
   - request/response envelopes with correlation IDs
   - one-way events/notifications
@@ -35,6 +37,7 @@ In this first cut, the server becomes authoritative for all world writes and for
   - server error
 
 ### Server runtime and authoritative world ownership
+
 - Move terrain generation and persistence behind a server runtime module.
 - The server runtime owns:
   - active world session
@@ -54,6 +57,7 @@ In this first cut, the server becomes authoritative for all world writes and for
   - world ID does not need to be included on every gameplay request
 
 ### Persistence and named-world model
+
 - Add named worlds with seeds and metadata.
 - Persist world data in binary files, not JSON.
 - Introduce a world storage layout with:
@@ -73,6 +77,7 @@ In this first cut, the server becomes authoritative for all world writes and for
 - Server should mark changed chunks dirty and flush them on explicit save plus on controlled lifecycle points like join/switch/exit.
 
 ### Client runtime and UI flow
+
 - Split current app bootstrap into:
   - client app/runtime
   - worker-backed server runtime
@@ -92,6 +97,7 @@ In this first cut, the server becomes authoritative for all world writes and for
 - On `START/JOIN`, client first joins a world through the server, then enters gameplay once initial world/session state is acknowledged.
 
 ### Important public interfaces/types
+
 - Add shared message types such as:
   - `ClientToServerMessage`
   - `ServerToClientMessage`
@@ -116,6 +122,7 @@ In this first cut, the server becomes authoritative for all world writes and for
   - dirty/revision marker or sequence number for authoritative replacement
 
 ## Test Plan
+
 - Messaging tests:
   - request/response correlation works across worker boundary
   - one-way server notifications reach client handlers
@@ -142,6 +149,7 @@ In this first cut, the server becomes authoritative for all world writes and for
   - place/remove blocks, save, restart, rejoin, and verify persisted state
 
 ## Assumptions And Defaults
+
 - First transport is single-player only and uses a Worker adapter; no real sockets/HTTP/WebRTC yet.
 - Server is authoritative for all world writes from the first cut.
 - Persistence uses binary chunk files plus a world registry/index.

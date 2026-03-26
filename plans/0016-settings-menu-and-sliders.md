@@ -1,11 +1,13 @@
 # Settings Menu And Slider Controls
 
 ## Summary
+
 Add a dedicated `Settings` screen to the main menu, introduce a reusable numeric slider UI component, and wire a first pass of client-local gameplay and graphics settings into the app. The goal is to make the project feel more Minecraft-like without changing the client/server authority model: settings such as FOV, mouse sensitivity, and render distance should live on the client, apply immediately when changed, and persist outside any single world save.
 
 ## Key Changes
 
 ### Add a Settings entry point to the main menu flow
+
 - Add a `SETTINGS` button to the existing play screen in the main menu.
 - Extend menu state with a new `settings` screen instead of treating settings as an overlay or modal.
 - Keep the current menu-state pattern:
@@ -18,6 +20,7 @@ Add a dedicated `Settings` screen to the main menu, introduce a reusable numeric
   - slider-specific actions emitted by the settings screen
 
 ### Introduce a client-local settings model
+
 - Add a dedicated settings snapshot for values that belong to the local player and machine, not the world save.
 - Recommended first-pass settings:
   - FOV
@@ -32,6 +35,7 @@ Add a dedicated `Settings` screen to the main menu, introduce a reusable numeric
 - Avoid putting client settings into authoritative world storage or player inventory storage.
 
 ### Persist settings separately from world saves
+
 - Add a lightweight client settings persistence path similar in spirit to the existing local player-name metadata.
 - Settings should survive restarts and apply before joining a world.
 - Recommended persistence behavior:
@@ -41,6 +45,7 @@ Add a dedicated `Settings` screen to the main menu, introduce a reusable numeric
 - Because the user explicitly does not want legacy compatibility work unless needed, the first version can target only the new settings file shape.
 
 ### Add a reusable numeric slider UI primitive
+
 - Extend the lightweight UI system with a slider component rather than hard-coding settings rows as buttons.
 - The slider should be generic enough to reuse later for audio, HUD scale, brightness, and similar controls.
 - Recommended slider behavior:
@@ -54,6 +59,7 @@ Add a dedicated `Settings` screen to the main menu, introduce a reusable numeric
   - support continuous dragging, not only click-to-step actions
 
 ### Expand menu rendering for a settings screen
+
 - Add a new menu builder in `src/ui/menu.ts` for the settings screen.
 - The screen should fit the current visual language:
   - same backdrop and frame treatment as the other menus
@@ -72,6 +78,7 @@ Add a dedicated `Settings` screen to the main menu, introduce a reusable numeric
 - Show current numeric values directly in each row so the user does not need to infer slider positions.
 
 ### Apply settings to the live client runtime
+
 - Settings changes should affect the active runtime immediately where practical.
 - Expected wiring points:
   - FOV should feed into the player camera projection instead of staying a hard-coded constant
@@ -83,6 +90,7 @@ Add a dedicated `Settings` screen to the main menu, introduce a reusable numeric
   - decreasing distance should stop requesting the farther rings, with optional cache retention left as an implementation choice
 
 ### Add lightweight graphics settings without overcommitting architecture
+
 - Keep the first pass intentionally modest.
 - Good candidates are settings that only affect client render/UI behavior and do not require protocol changes:
   - debug text visibility
@@ -93,6 +101,7 @@ Add a dedicated `Settings` screen to the main menu, introduce a reusable numeric
 - If a graphics option cannot be wired cleanly yet, capture it in the plan as deferred rather than forcing a brittle placeholder.
 
 ### Define clear defaults and ranges
+
 - Establish sensible defaults and clamp ranges centrally.
 - Recommended starting ranges:
   - FOV: `50` to `110`
@@ -104,11 +113,13 @@ Add a dedicated `Settings` screen to the main menu, introduce a reusable numeric
   - render distance as chunk count or a small integer label
 
 ### Keep settings ownership on the client
+
 - The menu screen, input interaction, persistence, and live application should all stay client-owned.
 - No server message changes should be necessary for the first pass unless a future setting becomes gameplay-relevant.
 - This keeps the feature low-risk and avoids coupling menu UX to the authoritative worker.
 
 ## Important Files
+
 - `plans/0016-settings-menu-and-sliders.md`
 - `README.md`
 - `architecture.md`
@@ -128,6 +139,7 @@ Add a dedicated `Settings` screen to the main menu, introduce a reusable numeric
 - `tests/player.test.ts`
 
 ## Test Plan
+
 - Menu state tests:
   - `SETTINGS` button transitions from play screen to settings screen
   - `BACK` returns to the play screen without losing unrelated menu state
@@ -152,6 +164,7 @@ Add a dedicated `Settings` screen to the main menu, introduce a reusable numeric
   - restart the app and confirm settings persisted
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0016-settings-menu-and-sliders.md`.
 - Settings are client-local and should not be stored inside world saves.
 - The first pass can focus on slider-driven numeric settings plus a small number of simple graphics toggles.

@@ -1,6 +1,7 @@
 # Live Inventory Item Rendering From Shared Block Visuals
 
 ## Summary
+
 Replace the old flat color-swatch inventory visuals with richer block/item presentation that reads more like Minecraft inventory art. The final implementation direction is live screen-space item rendering in the HUD rather than a baked item-icon atlas.
 
 The canonical visual source remains shared block/item render metadata:
@@ -15,11 +16,13 @@ An important architectural goal is visual consistency: the player-hand item view
 ## Key Changes
 
 ### Stop treating inventory visuals as plain item colors
+
 - The current UI path in `apps/client/src/ui/hud.ts` renders item slots as colored rectangles using `getItemColor`.
 - Replace that with inventory icon rendering driven by item content metadata.
 - Keep `color` metadata as a secondary fallback for debug or placeholder use, not the primary inventory art path.
 
 ### Prefer reusing existing block render data for placeable items
+
 - Many current items are block-backed and already define `renderBlockKey`.
 - Use that metadata to render small cube-style inventory icons that reflect the block’s real atlas tiles.
 - Strong recommendation:
@@ -27,6 +30,7 @@ An important architectural goal is visual consistency: the player-hand item view
   - avoid introducing a second hand-authored per-item visual source for block-backed items
 
 ### Treat hand rendering and inventory icons as two outputs of one visual source
+
 - The local first-person hand item and the inventory/hotbar icon should not evolve as unrelated visual systems.
 - Recommended model:
   - one canonical item visual definition
@@ -41,6 +45,7 @@ An important architectural goal is visual consistency: the player-hand item view
   - future changes to item visuals from splitting between HUD and hand views
 
 ### Use live HUD item rendering instead of a baked icon atlas
+
 - Do not treat inventory icons as a generated texture asset pipeline.
 - Render block-backed items directly in HUD slots using a small screen-space 3D pass.
 - Reuse:
@@ -54,6 +59,7 @@ An important architectural goal is visual consistency: the player-hand item view
   - HUD slot visuals
 
 ### Define inventory icon source rules in content
+
 - Make icon ownership explicit for each item type.
 - Suggested precedence:
   - `renderBlockKey` for block-backed cube-style items
@@ -62,12 +68,14 @@ An important architectural goal is visual consistency: the player-hand item view
 - This keeps future non-block items from being forced into fake cube icons.
 
 ### Update HUD/inventory rendering to use live item visuals
+
 - Replace the slot swatch rectangle in `apps/client/src/ui/hud.ts` with dedicated item draw commands.
 - Add a UI render path that can draw screen-space cube items without going through the old textured-quad image path.
 - Keep stack counts, selection highlights, and layout logic unchanged.
 - Preserve a simple fallback direction for future non-block items during development.
 
 ## Important Files
+
 - `plans/0034-generated-inventory-icons-and-cube-style-item-rendering.md`
 - `apps/client/src/ui/hud.ts`
 - `apps/client/src/ui/renderer.ts`
@@ -88,6 +96,7 @@ An important architectural goal is visual consistency: the player-hand item view
 - `tests/atlas.test.ts`
 
 ## Suggested Implementation Order
+
 1. Audit the current UI slot rendering and the existing held-item/block render data path.
 2. Decide the canonical icon source model:
    use `renderBlockKey` for block-backed items and define the future fallback path for non-block items.
@@ -99,6 +108,7 @@ An important architectural goal is visual consistency: the player-hand item view
 ## Decision Notes
 
 ### Option A: Live cube-style rendering in UI
+
 - Pros:
   - directly reuses real block textures and orientation
   - no extra generated icon assets for block-backed items
@@ -107,12 +117,14 @@ An important architectural goal is visual consistency: the player-hand item view
   - likely harder to scale for menus with many visible items
 
 ### Chosen Direction
+
 - Use block/item content metadata as the source of truth.
 - Keep one canonical item-visual source shared by held items, dropped items, and inventory presentation.
 - Render HUD items live in screen space from that source instead of generating `item-icons.png`.
 - Keep the architecture open for authored or alternate non-block item visuals later.
 
 ## Test Plan
+
 - HUD tests:
   - hotbar/inventory slots emit item render commands instead of pure swatches
   - selected-slot and count rendering still behave the same
@@ -123,6 +135,7 @@ An important architectural goal is visual consistency: the player-hand item view
   - held, dropped, and HUD visuals stay aligned for the same item
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0034-generated-inventory-icons-and-cube-style-item-rendering.md`.
 - Current placeable items should not need separate hand-authored inventory art.
 - The runtime UI path uses live screen-space cube rendering in slot widgets for block-backed items.

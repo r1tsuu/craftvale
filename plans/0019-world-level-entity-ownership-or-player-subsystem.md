@@ -1,11 +1,13 @@
 # World-Level Entity Ownership Or Player Subsystem
 
 ## Summary
+
 Before extending the current player-focused entity work to dropped items or other world actors, decide whether this project is building toward a shared world-level entity architecture or a narrower player subsystem. The current refactor improved player ownership and internal identity, but it still looks more like a dedicated player system than a reusable ECS foundation. The next step should make that boundary explicit so we do not accidentally grow multiple parallel registries and call the result one ECS.
 
 ## Key Changes
 
 ### Make the architectural boundary explicit
+
 - The current player refactor should not be treated as a fully general ECS by default.
 - We should choose one of two intentional directions:
   - move entity registry and component-store ownership up to the world level
@@ -14,6 +16,7 @@ Before extending the current player-focused entity work to dropped items or othe
   - future actor work should follow an intentional model instead of extending whatever happens to exist today
 
 ### Option A: Move registry and stores to the world level
+
 - If we want dropped items, mobs, projectiles, and future actors to share one entity model, the registry should live at the world/session level rather than inside `PlayerSystem`.
 - Recommended shape:
   - `AuthoritativeWorld` owns the shared `EntityRegistry`
@@ -25,6 +28,7 @@ Before extending the current player-focused entity work to dropped items or othe
   - fewer parallel actor registries
 
 ### Option B: Explicitly keep a player subsystem
+
 - If we do not want to commit to a shared ECS yet, we should document that the current design is a player subsystem and not a generalized world-entity framework.
 - In that model:
   - `PlayerSystem` remains player-specific
@@ -33,6 +37,7 @@ Before extending the current player-focused entity work to dropped items or othe
 - This is a valid choice if we want to stay incremental and avoid lifting abstractions too early.
 
 ### Avoid an accidental middle ground
+
 - The most awkward outcome would be adding dropped items as another parallel registry while still talking about the code as one unified ECS.
 - That path tends to create:
   - duplicated component types
@@ -43,6 +48,7 @@ Before extending the current player-focused entity work to dropped items or othe
   - do not add the next actor type until this ownership decision is written down
 
 ### Clarify what belongs at the world level even without chunk entities
+
 - Chunks still should not become entities.
 - Even if we choose a world-level entity registry, chunk data should remain coordinate-addressed world resources.
 - Good world-level ownership candidates are:
@@ -56,12 +62,14 @@ Before extending the current player-focused entity work to dropped items or othe
   - save orchestration for terrain data
 
 ### Keep player inventory boundaries explicit
+
 - Inventory should still remain player-owned data unless we intentionally add containers or shared inventories.
 - Moving registry ownership to the world level does not require making inventory its own entity.
 - If we keep the player-subsystem model, inventory should continue living there.
 - If we move to a shared world-level entity model, inventory can still remain a player component.
 
 ### Align naming with the actual architecture
+
 - If we choose the world-level route:
   - keep using ECS/entity-system language
   - document `PlayerSystem` as one system operating within a shared entity world
@@ -71,6 +79,7 @@ Before extending the current player-focused entity work to dropped items or othe
 - Accurate naming matters because it drives future design choices and expectations.
 
 ### Let dropped items depend on this decision
+
 - The dropped-item implementation plan should follow this plan, not skip it.
 - If we choose world-level entity ownership:
   - dropped items should reuse the shared entity id space and shared stores where appropriate
@@ -79,6 +88,7 @@ Before extending the current player-focused entity work to dropped items or othe
 - This keeps the next gameplay feature from forcing an accidental architecture decision under deadline pressure.
 
 ## Important Files
+
 - `plans/0018-player-entity-system-refactor.md`
 - `plans/0019-world-level-entity-ownership-or-player-subsystem.md`
 - `plans/0020-dropped-item-entities-and-pickups.md`
@@ -91,6 +101,7 @@ Before extending the current player-focused entity work to dropped items or othe
 - `src/client/world-runtime.ts`
 
 ## Test Plan
+
 - Architecture validation tests if we choose world-level ownership:
   - player and non-player actor systems can allocate entities from one shared registry
   - shared spatial lookup can reference mixed actor types without duplicate id spaces
@@ -103,6 +114,7 @@ Before extending the current player-focused entity work to dropped items or othe
   - confirm the chosen direction is reflected consistently in plans, architecture docs, and module names before implementing dropped items
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0019-world-level-entity-ownership-or-player-subsystem.md`.
 - Strong recommendation:
   - make this decision before implementing dropped items

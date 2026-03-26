@@ -1,11 +1,13 @@
 # Tree Generation And Transparent Leaves
 
 ## Summary
+
 Add simple procedural trees to generated terrain and extend voxel rendering so leaf textures can contain transparent pixels. The goal is to make the world feel less empty without introducing chunk-order bugs or a full translucent rendering system. Trees should be deterministic from the world seed, work across chunk boundaries, and render leaves with alpha-cutout transparency so canopy textures can have visible holes while keeping the existing crisp pixel-art look.
 
 ## Key Changes
 
 ### New block types and atlas tiles
+
 - Extend the block set with at least:
   - log
   - leaves
@@ -17,6 +19,7 @@ Add simple procedural trees to generated terrain and extend voxel rendering so l
 - Author the leaves tile with transparent pixels in the PNG alpha channel so the renderer has real cutout data to sample.
 
 ### Block metadata beyond `solid`
+
 - Replace the current "solid means everything" assumption with explicit block behavior fields.
 - Separate these concerns in block definitions:
   - collision/placement solidity
@@ -29,6 +32,7 @@ Add simple procedural trees to generated terrain and extend voxel rendering so l
 - Preserve the ability to cull leaf-to-leaf internal faces so dense canopies do not explode mesh size, while still allowing opaque faces behind leaf holes to remain visible when needed.
 
 ### Deterministic tree generation
+
 - Extend terrain generation with a tree-placement pass derived entirely from the world seed and world-space coordinates.
 - Do not place trees by mutating neighboring chunks after generation; that would make results depend on chunk load order.
 - Instead, generate trees by sampling candidate tree anchors in and around the target chunk, then emit only the blocks that fall inside the chunk currently being built.
@@ -40,6 +44,7 @@ Add simple procedural trees to generated terrain and extend voxel rendering so l
 - Because the current world only uses `WORLD_LAYER_CHUNKS_Y = [0]` and `CHUNK_SIZE = 16`, constrain tree height/canopy size so all generated trees fit within that single vertical layer.
 
 ### Tree shape and structure rules
+
 - Start with one tree family rather than a full biome system.
 - Recommended default shape:
   - trunk height around 3-4 blocks
@@ -49,6 +54,7 @@ Add simple procedural trees to generated terrain and extend voxel rendering so l
 - Ensure generated leaves do not replace trunk blocks and do not place underground.
 
 ### Chunk generation integration
+
 - Keep `populateGeneratedChunk(...)` as the main entry point, but split the logic conceptually into:
   - terrain column fill
   - structure decoration pass
@@ -59,6 +65,7 @@ Add simple procedural trees to generated terrain and extend voxel rendering so l
 - Continue returning a fully generated chunk without requiring a live `VoxelWorld` instance during generation.
 
 ### Meshing and visibility rules for cutout leaves
+
 - Update chunk meshing so face visibility is based on block occlusion/render behavior, not only `solid`.
 - Opaque blocks adjacent to leaves should usually keep their faces, since transparent leaf pixels can reveal what is behind them.
 - Leaves next to other leaves may still cull shared internal faces to control overdraw and triangle count.
@@ -66,6 +73,7 @@ Add simple procedural trees to generated terrain and extend voxel rendering so l
 - If implementation stays simple, treat cutout leaves as full cube geometry with alpha-tested textures rather than introducing cross-plane billboard foliage.
 
 ### Rendering pipeline and shader behavior
+
 - Extend the voxel shader to preserve sampled atlas alpha instead of forcing output alpha to `1.0`.
 - Use alpha-cutout behavior in the fragment shader:
   - sample atlas RGBA
@@ -75,6 +83,7 @@ Add simple procedural trees to generated terrain and extend voxel rendering so l
 - Keep the current directional face shading model.
 
 ### Opaque vs cutout draw organization
+
 - Split terrain rendering into at least two logical buckets:
   - opaque voxel faces
   - cutout voxel faces
@@ -86,11 +95,13 @@ Add simple procedural trees to generated terrain and extend voxel rendering so l
 - Choose the smallest change that keeps the renderer explicit.
 
 ### Native bridge and GL state
+
 - Confirm the native GL bridge exposes the state needed for the cutout path.
 - For alpha-cutout leaves, blending is not required if the texture uses hard transparency and the shader discards low-alpha fragments.
 - If any GL state changes are introduced for the leaf pass, keep them local to voxel rendering and avoid affecting highlight/text/UI rendering.
 
 ## Important Public Interfaces/Types
+
 - `BlockId` expands to include log and leaves.
 - `BlockDefinition` gains explicit render/occlusion behavior rather than only `solid`.
 - Atlas tile IDs/layout expand for wood and leaves.
@@ -98,6 +109,7 @@ Add simple procedural trees to generated terrain and extend voxel rendering so l
 - Chunk mesh/build outputs gain an explicit opaque/cutout distinction, or an equivalent render-pass-aware representation.
 
 ## Test Plan
+
 - Terrain generation tests:
   - tree placement is deterministic for a fixed seed
   - different seeds produce different tree layouts
@@ -123,6 +135,7 @@ Add simple procedural trees to generated terrain and extend voxel rendering so l
   - leaves retain crisp pixel edges with no obvious atlas bleeding
 
 ## Assumptions And Defaults
+
 - Use alpha-cutout transparency for leaves, not depth-sorted semi-transparent blending.
 - Trees are decorative world-generation structures only in this pass; no growth/decay/biome system yet.
 - Keep a single tree style for v1 and optimize for deterministic generation over variety.

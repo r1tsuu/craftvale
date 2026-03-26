@@ -1,11 +1,13 @@
 # Players
 
 ## Summary
+
 Add an explicit player system so the server can own multiple players at once instead of implicitly assuming a single local controller. The first pass should focus on stable player identity, server-authoritative player session state, and client-side knowledge of which replicated player is the local player. Each player should have a simple player name that is stored locally on the client machine, reused across runs, and optionally overridden for a launch via a CLI argument.
 
 ## Key Changes
 
 ### Add an explicit player identity model
+
 - Introduce a stable player identifier type rather than treating the local runtime as “the player.”
 - Recommended base types:
   - `PlayerName` as a simple string name
@@ -22,6 +24,7 @@ Add an explicit player system so the server can own multiple players at once ins
 - player names are client identity data
 
 ### Support multiple players on the server
+
 - Refactor the authoritative world/session model so it can hold multiple players at once.
 - Replace singleton assumptions such as:
   - one implicit player spawn
@@ -38,6 +41,7 @@ Add an explicit player system so the server can own multiple players at once ins
   - the server decides final player state and replicates it back out
 
 ### Make the client explicitly know which player is the local player
+
 - The client should no longer infer “I am the only player.”
 - World/session join responses should explicitly identify:
   - the client player name
@@ -50,6 +54,7 @@ Add an explicit player system so the server can own multiple players at once ins
 - Remote players should be treated as replicated entities, not accidentally driven by local input.
 
 ### Persist the player name locally
+
 - Add a small local client-identity persistence layer separate from world save data.
 - If no player name exists locally:
   - generate a simple default player name
@@ -62,6 +67,7 @@ Add an explicit player system so the server can own multiple players at once ins
 - The stored player name should be per-machine/client profile, not per world.
 
 ### Allow CLI override of the local player name
+
 - Add a startup option so the local persisted player name can be overridden from the command line.
 - Recommended flag:
   - `--player-name=<name>`
@@ -77,6 +83,7 @@ Add an explicit player system so the server can own multiple players at once ins
 - Invalid player name input should fail fast with a clear startup error.
 
 ### Extend the client/server protocol for player-aware sessions
+
 - Update shared message types so player identity is explicit at the protocol boundary.
 - Likely additions include:
   - join/connect payloads carrying `playerName`
@@ -88,6 +95,7 @@ Add an explicit player system so the server can own multiple players at once ins
 - Avoid coupling player identity to transport implementation details.
 
 ### Clarify per-player versus per-world state ownership
+
 - Decide which state belongs to the player and which belongs to the world session.
 - Strong recommendation:
   - position/rotation are per-player
@@ -97,6 +105,7 @@ Add an explicit player system so the server can own multiple players at once ins
 - A different player name joining the same world should not overwrite another player’s inventory or spawn state.
 
 ### Client runtime and rendering implications
+
 - Extend the client runtime to maintain replicated player snapshots alongside chunks and inventory.
 - Continue using the local player snapshot for:
   - movement ownership
@@ -108,6 +117,7 @@ Add an explicit player system so the server can own multiple players at once ins
 - The important boundary is that the client data model must support more than one player cleanly.
 
 ## Important Files
+
 - `src/index.ts`
 - `src/game-app.ts`
 - `src/shared/messages.ts`
@@ -123,6 +133,7 @@ Add an explicit player system so the server can own multiple players at once ins
 - `tests/worker-host.test.ts`
 
 ## Test Plan
+
 - Identity tests:
   - missing local player profile generates and persists a player name
   - subsequent launches reuse the stored player name
@@ -145,6 +156,7 @@ Add an explicit player system so the server can own multiple players at once ins
   - connect multiple players to the same server path and verify authoritative player separation
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0012-players.md`.
 - Player identity uses simple player-name strings.
 - The local player name is client-local metadata and should not be embedded in the world registry as global world identity.

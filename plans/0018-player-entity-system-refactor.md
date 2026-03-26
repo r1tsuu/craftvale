@@ -1,11 +1,13 @@
 # Player Entity-System Refactor
 
 ## Summary
+
 Refactor the current player implementation from a set of player-specific maps and singleton assumptions into a small entity-system layer that can own players cleanly and make future dynamic world actors easier to add. The first pass should stay disciplined: introduce entity-oriented modeling for players and nearby actor-like gameplay state, but do not convert terrain chunks into ECS entities. Chunks should remain addressable world resources, and the player inventory should remain a player-owned component/value object rather than becoming its own entity in this pass.
 
 ## Key Changes
 
 ### Introduce a lightweight entity-system foundation
+
 - Add a small server-authoritative entity layer instead of scattering actor state across unrelated maps.
 - Keep the implementation intentionally simple:
   - stable `EntityId`
@@ -15,6 +17,7 @@ Refactor the current player implementation from a set of player-specific maps an
 - Avoid importing a large generic ECS library unless the repo truly needs one; a local, purpose-built entity registry will be easier to evolve with the current worker architecture.
 
 ### Model players as entities with components
+
 - Replace the current `Map<PlayerName, ServerPlayerEntry>` style server state with player entities that carry player-focused components.
 - Recommended first-pass player components:
   - `PlayerIdentityComponent` with player name and persistence key
@@ -26,6 +29,7 @@ Refactor the current player implementation from a set of player-specific maps an
 - Keep `PlayerName` as the user-facing and persistence-facing identifier, but stop using it as the only internal key.
 
 ### Keep chunks out of the entity system
+
 - Strong recommendation:
   - do not make terrain chunks entities in this refactor
 - The current chunk model is coordinate-addressed, persistence-heavy, and tightly tied to world generation, meshing, and storage revisions.
@@ -36,6 +40,7 @@ Refactor the current player implementation from a set of player-specific maps an
   - spatial indexing for entities may still use chunk coordinates, but that does not require chunks to become entities
 
 ### Keep inventory as a player-owned component, not a separate entity
+
 - Strong recommendation:
   - keep player inventory as data owned by the player entity
 - The current inventory model is authoritative, per-player, and already fits naturally as a component/value object.
@@ -48,6 +53,7 @@ Refactor the current player implementation from a set of player-specific maps an
 - For this refactor, inventory should stay embedded in a player-facing component and continue using the shared inventory helper logic.
 
 ### Refactor server systems around entity ownership
+
 - Split current `AuthoritativeWorld` responsibilities into clearer systems operating on the entity registry plus world resources.
 - Likely first-pass systems:
   - player join/leave system
@@ -58,6 +64,7 @@ Refactor the current player implementation from a set of player-specific maps an
 - Keep block mutation, chunk loading, and world save orchestration authoritative on the server, but route player-specific consequences through player components instead of singleton fields.
 
 ### Remove singleton assumptions from server runtime
+
 - The current runtime still has a `currentPlayerName` shortcut that assumes one active input owner at a time.
 - Refactor request/event handling so player-targeted actions resolve through explicit player identity and then to entity ids internally.
 - This plan should preserve the current client/server ownership model:
@@ -66,6 +73,7 @@ Refactor the current player implementation from a set of player-specific maps an
   - the server mutates authoritative components and replicates snapshots back
 
 ### Mirror player entities cleanly on the client
+
 - The client does not need a full gameplay ECS immediately, but it should be able to mirror entity-oriented player snapshots cleanly.
 - Recommended first pass:
   - keep `ClientWorldRuntime.players`
@@ -74,6 +82,7 @@ Refactor the current player implementation from a set of player-specific maps an
 - `PlayerController` can remain the local movement/camera owner for now, but it should sync with a clearly defined local-player entity snapshot instead of leaning on older singleton assumptions.
 
 ### Define entity-aware protocol payloads
+
 - Update shared message types so replicated player state has room for an internal entity identity while preserving player-name semantics for UX and saves.
 - Likely changes:
   - add `entityId` to replicated player payloads
@@ -82,6 +91,7 @@ Refactor the current player implementation from a set of player-specific maps an
 - Keep transport neutrality intact so the worker-backed setup remains compatible with a later network transport.
 
 ### Preserve persistence by serializing components into player records
+
 - World saves should continue to store per-player state in a shape that is easy to version and debug.
 - Recommended persistence boundary:
   - serialize player entities into player save records keyed by player name
@@ -90,6 +100,7 @@ Refactor the current player implementation from a set of player-specific maps an
 - This keeps the data format stable while allowing the runtime to become more entity-oriented internally.
 
 ### Leave room for future non-player actors
+
 - The entity-system foundation should be shaped so later actors can reuse it:
   - dropped items
   - mobs
@@ -98,6 +109,7 @@ Refactor the current player implementation from a set of player-specific maps an
 - The goal is not to build a huge generic framework now; it is to stop hard-coding player-only assumptions in ways that block those next features.
 
 ## Important Files
+
 - `plans/0018-player-entity-system-refactor.md`
 - `architecture.md`
 - `src/types.ts`
@@ -113,6 +125,7 @@ Refactor the current player implementation from a set of player-specific maps an
 - `tests/storage.test.ts`
 
 ## Test Plan
+
 - Entity registry tests:
   - player entity creation assigns stable entity ids
   - removing or deactivating a player does not corrupt other entities
@@ -134,6 +147,7 @@ Refactor the current player implementation from a set of player-specific maps an
   - verify player UI/HUD logic still follows the local player only
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0018-player-entity-system-refactor.md`.
 - The first ECS-style refactor targets players first, not chunks.
 - Chunks remain world resources keyed by chunk coordinates.

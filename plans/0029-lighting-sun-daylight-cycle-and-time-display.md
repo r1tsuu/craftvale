@@ -1,11 +1,13 @@
 # Lighting, Sun, Daylight Cycle, And Time Display
 
 ## Summary
+
 Introduce a first-pass world lighting model with a moving sun and authoritative day/night time progression, then expose that time through a server-authoritative `/timeset` command and a simple HUD clock. This milestone should also introduce one concrete emissive block, `glowstone`, so the lighting system covers both daylight and block-emitted light in a real gameplay path. Architecturally, this should land as an explicit world-owned system, parallel to `PlayerSystem` and `DroppedItemSystem`, rather than as scattered chunk helpers or renderer-owned logic. The first implementation should stay disciplined: use a Minecraft-like global daylight cycle, support sun-driven outdoor brightness plus chunk-level propagated light data, keep time ownership on the server, include `glowstone` as the only placeable emitted-light source in v1, and avoid pulling torches, colored lights, weather, moon phases, or full sky rendering into the same milestone unless they are required to make the daylight system coherent.
 
 ## Key Changes
 
 ### Add explicit authoritative world time
+
 - Introduce world-level time state owned by the authoritative server/runtime instead of letting the client infer time locally.
 - Recommended first-pass fields:
   - `timeOfDayTicks`
@@ -20,6 +22,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - a daylight curve that is brightest near noon and darkest at night
 
 ### Define a global daylight model and sun direction
+
 - Add a small shared time/lighting helper layer that converts authoritative world time into:
   - normalized day progress
   - daylight intensity
@@ -33,6 +36,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
 - The client renderer should consume the derived sun state rather than own its own clock.
 
 ### Add an explicit world lighting system boundary
+
 - Introduce a dedicated server-side lighting system, for example `LightingSystem` or `WorldLightingSystem`, owned by `AuthoritativeWorld`.
 - This system should be treated like the other world-owned subsystems:
   - `PlayerSystem` owns player-specific authoritative state and persistence
@@ -48,6 +52,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - `AuthoritativeWorld` coordinates the lighting system with chunk load/save, mutation, and replication
 
 ### Add chunk/block lighting data suitable for sunlight and block-light propagation
+
 - Introduce explicit light storage in chunk/world data so outdoor spaces respond to sunlight, underground spaces darken correctly, and emissive blocks can light nearby terrain.
 - Strong recommendation:
   - model lighting as Minecraft-like integer light levels, for example `0..15`
@@ -73,6 +78,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - but shape the chunk/light storage so those can be added later without a rewrite after `glowstone`
 
 ### Add `glowstone` as the first emissive block/item
+
 - Introduce a new block and corresponding inventory item for `glowstone`.
 - Good first-pass expectations:
   - `glowstone` is placeable like the other block-backed items
@@ -84,6 +90,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
 - This gives the lighting system one real gameplay-facing emissive source without committing the milestone to a broad utility-block pass.
 
 ### Integrate lighting with world generation, chunk loading, and mutation
+
 - Newly generated chunks should initialize their sunlight state as part of generation/load readiness rather than leaving lighting as a client-only post-process.
 - World/chunk ownership should stay authoritative:
   - chunk generation computes an initial lighting baseline
@@ -107,6 +114,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
 - This plan should explicitly account for cross-chunk boundaries so skylight changes near chunk edges do not become visually inconsistent.
 
 ### Extend chunk meshing and rendering to use light values
+
 - Terrain meshing should emit enough lighting information for the renderer to shade faces based on the propagated light state instead of only using the current coarse directional face shading.
 - Recommended first-pass rendering behavior:
   - preserve existing face-direction readability
@@ -119,6 +127,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - avoid introducing a full deferred renderer or per-pixel dynamic lighting system
 
 ### Add a simple sky/background response to time of day
+
 - The world should visually read as daytime or nighttime even before advanced atmosphere work exists.
 - Reasonable first-pass visuals:
   - background clear color driven by daylight intensity
@@ -130,6 +139,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
 - The goal is for the player to clearly feel the day progressing, not to ship a full skybox system.
 
 ### Replicate world time and lighting changes to clients deliberately
+
 - Clients need authoritative time-of-day data for HUD display and rendering.
 - Recommended replication model:
   - include world-time state in join payloads
@@ -140,6 +150,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - clients may interpolate visuals smoothly between authoritative updates, but the server remains the source of truth
 
 ### Add `/timeset` as a server-authoritative command
+
 - Extend the existing slash-command path so players can set world time through chat.
 - First-pass command scope:
   - `/timeset <value>`
@@ -156,6 +167,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - no permissions/admin model is required unless the current multiplayer goals demand it immediately
 
 ### Display time in the play HUD
+
 - Extend the play HUD so the player can always see the current world time while in-game.
 - Good first-pass display options:
   - a readable clock such as `Day 3  07:30`
@@ -167,6 +179,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
 - The HUD clock should coexist cleanly with existing FPS, position, status, chat, gamemode, and inventory UI.
 
 ### Keep storage and protocol boundaries explicit
+
 - This plan affects persistent world state and shared protocol shapes, so those boundaries should be named directly.
 - Recommended additions:
   - world save metadata for authoritative time
@@ -180,6 +193,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - keep persistent storage formats versionable so lighting/time additions do not silently corrupt older saves
 
 ### Keep the first lighting pass intentionally scoped
+
 - The first implementation should deliver:
   - authoritative time progression
   - a moving sun/daylight response
@@ -196,6 +210,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - full biome-dependent fog/atmosphere systems
 
 ## Important Files
+
 - `plans/0029-lighting-sun-daylight-cycle-and-time-display.md`
 - `README.md`
 - `architecture.md`
@@ -225,6 +240,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
 - `tests/*` for lighting helpers, meshing, and chunk-update coverage
 
 ## Test Plan
+
 - Time helper tests:
   - shared day-progress helpers return stable daylight intensity and sun direction for representative times
   - named `/timeset` presets map to the expected canonical tick values
@@ -265,6 +281,7 @@ Introduce a first-pass world lighting model with a moving sun and authoritative 
   - verify both local worker and dedicated server sessions stay aligned on world time
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0029-lighting-sun-daylight-cycle-and-time-display.md`.
 - The authoritative day length should default to a Minecraft-like `24000` ticks.
 - Server-owned time progression should run on the shared authoritative tick loop rather than on the client render loop.

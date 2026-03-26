@@ -1,6 +1,7 @@
 # Single-Slot Inventory Model And Derived Hotbar Layout
 
 ## Summary
+
 Refactor Craftvale inventory state so the authoritative/domain model stores one ordered list of inventory slots instead of separately storing `hotbar` and `main` arrays. The current shape works for the present UI, but it bakes one particular screen layout into persistence, networking, gameplay helpers, and tests. That makes the inventory model feel more like a UI snapshot than a gameplay state model.
 
 This plan replaces the split layout with one canonical slot array plus a selected slot index and cursor stack. Hotbar and main-inventory presentation become derived views calculated from that slot list. This is intentionally not backward compatible with the current stored player-inventory format; the save/network/storage model should be simplified around the new structure directly instead of carrying old layout assumptions forward.
@@ -8,6 +9,7 @@ This plan replaces the split layout with one canonical slot array plus a selecte
 ## Key Changes
 
 ### Replace split inventory arrays with one canonical slot list
+
 - Change `InventorySnapshot` from:
   - `hotbar: InventorySlot[]`
   - `main: InventorySlot[]`
@@ -24,6 +26,7 @@ This plan replaces the split layout with one canonical slot array plus a selecte
   - derive all other visual groupings from slot ranges
 
 ### Treat hotbar and main as UI/layout concepts only
+
 - The gameplay model should not store `hotbar` and `main` separately.
 - Add helpers that derive:
   - hotbar slots from `slots.slice(0, HOTBAR_SLOT_COUNT)`
@@ -33,6 +36,7 @@ This plan replaces the split layout with one canonical slot array plus a selecte
   - server state, storage, and transport should think in terms of one slot array
 
 ### Simplify inventory interaction payloads to absolute slot indices
+
 - Replace section-based inventory interactions such as:
   - `{ section: "hotbar", slot: 8 }`
   - `{ section: "main", slot: 2 }`
@@ -42,6 +46,7 @@ This plan replaces the split layout with one canonical slot array plus a selecte
 - This removes layout assumptions from the wire format and authoritative tick queue.
 
 ### Update inventory helpers around absolute slot indices
+
 - Refactor inventory operations in `packages/core/src/world/inventory.ts` to work on one slot array:
   - normalization
   - slot lookup
@@ -55,6 +60,7 @@ This plan replaces the split layout with one canonical slot array plus a selecte
   - `getMainInventorySlotIndex`
 
 ### Simplify save format around the new model
+
 - Since this change is intentionally not backward compatible, update player inventory persistence directly instead of supporting both shapes.
 - Good first-pass storage shape:
   - one slot-count field
@@ -66,6 +72,7 @@ This plan replaces the split layout with one canonical slot array plus a selecte
   - fail fast on the old version instead of silently trying to interpret it
 
 ### Keep selected-slot gameplay behavior intact
+
 - Selected-slot semantics should stay the same:
   - selected index still points at one hotbar-visible slot
   - held-item rendering still uses the selected slot
@@ -73,6 +80,7 @@ This plan replaces the split layout with one canonical slot array plus a selecte
 - This plan changes data ownership, not gameplay rules.
 
 ### Reduce UI coupling in tests and helpers
+
 - Many tests currently assert directly against `inventory.hotbar[...]` or `inventory.main[...]`.
 - Update them to assert against:
   - derived layout helpers
@@ -80,6 +88,7 @@ This plan replaces the split layout with one canonical slot array plus a selecte
 - This should make future layout changes easier.
 
 ## Important Files
+
 - `plans/0032-single-slot-inventory-model-and-derived-hotbar-layout.md`
 - `README.md`
 - `architecture.md`
@@ -102,6 +111,7 @@ This plan replaces the split layout with one canonical slot array plus a selecte
 - `tests/player-render.test.ts`
 
 ## Suggested Implementation Order
+
 1. Change `InventorySnapshot` to one `slots` array and add derived layout helpers.
 2. Refactor inventory operations in `packages/core/src/world/inventory.ts` to use absolute slot indices only.
 3. Update shared message payloads and queued gameplay intents to address inventory slots by absolute index.
@@ -111,6 +121,7 @@ This plan replaces the split layout with one canonical slot array plus a selecte
 7. Refresh docs so the architecture describes one canonical slot list instead of two stored sections.
 
 ## Test Plan
+
 - Inventory tests:
   - default inventory still exposes the intended hotbar contents and starter items via derived helpers
   - interaction and stack merge behavior still works with absolute slot indices
@@ -125,6 +136,7 @@ This plan replaces the split layout with one canonical slot array plus a selecte
   - place and pick up blocks and confirm counts update correctly
 
 ## Assumptions And Defaults
+
 - Use the next plan filename in sequence: `0032-single-slot-inventory-model-and-derived-hotbar-layout.md`.
 - The first `HOTBAR_SLOT_COUNT` entries of `slots` remain the hotbar-visible range.
 - This refactor is intentionally not backward compatible with existing persisted inventory data.
