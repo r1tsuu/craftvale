@@ -18,7 +18,6 @@
     "dev:full:clean": "bun run clean:data && bun run dev:full",
     "generate:content": "bun run --cwd apps/cli generate-content-registry",
     "generate:atlas": "bun run --cwd apps/cli generate-voxel-atlas",
-    "generate:item-icons": "bun run --cwd apps/cli generate-item-icons",
     "generate:tile-sources": "bun run --cwd apps/cli generate-voxel-tile-sources",
     "start": "bun run --cwd apps/client start",
     "typecheck": "bunx tsc --noEmit",

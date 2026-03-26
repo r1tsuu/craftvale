@@ -59,7 +59,6 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `bun run generate:content` regenerates block/item ids and registries from the authored content spec
 - `bun run generate:tile-sources` writes one PNG per voxel tile into `apps/client/assets/textures/tiles-src`
 - `bun run generate:atlas` rebuilds `apps/client/assets/textures/voxel-atlas.png` from those source tile PNGs
-- `bun run generate:item-icons` rebuilds `apps/client/assets/textures/item-icons.png` from item/block render data
 - `bun run typecheck` runs TypeScript checks
 - `bun test` runs the automated tests
 - Launch options: `--player-name=<name>` or `--player-name <name>` overrides the local player name for that run
@@ -142,8 +141,7 @@ Craftvale no longer hand-authors numeric block and item ids. New content starts 
 5. Run `bun run generate:content`.
 6. If the block needs new art, add or edit the matching tile PNGs in `apps/client/assets/textures/tiles-src/`.
 7. Run `bun run generate:atlas`.
-8. Run `bun run generate:item-icons`.
-9. Run `bun run typecheck` and `bun test`.
+8. Run `bun run typecheck` and `bun test`.
 
 ### Add A Block Without A Player Item
 
@@ -165,10 +163,10 @@ This is the path for future tools, consumables, and ingredients.
 
 - `key`: Stable authoring identity. Keep it short, lowercase, and durable because saves and generated ids are tied to it.
 - `name`: Player-facing display name source.
-- `color`: Used in item UI and debug-style display paths.
+- `color`: Used in fallback/debug-style item display paths.
 - `dropItemKey`: Item dropped when the block is broken.
 - `placesBlockKey`: Block the item places, if any.
-- `renderBlockKey`: Block mesh used to render the held item, if any.
+- `renderBlockKey`: Block mesh used to render the held item, dropped item, and live HUD inventory item, if any.
 - `renderPass`: Use `"opaque"` for solid terrain, `"cutout"` for alpha-discard blocks like leaves, or `null` for non-rendered blocks such as air.
 - `occlusion`: Use `"full"` for normal solid cubes, `"self"` for leaf-style self-culling, or `"none"` for non-occluding blocks.
 - `emittedLightLevel`: Block light emitted by the block, from `0` to `15`.
@@ -179,9 +177,7 @@ This is the path for future tools, consumables, and ingredients.
 - Use one `16x16` RGBA PNG per tile id, for example `dirt.png` or `grass-top.png`.
 - Keep tile ids aligned with `AtlasTiles` and the tile names referenced from `content-spec.ts`.
 - After changing any source tile PNG, run `bun run generate:atlas`.
-- After changing any block-backed item visual or tile art that affects inventory icons, run `bun run generate:item-icons`.
 - Do not hand-edit `apps/client/assets/textures/voxel-atlas.png`; it is generated output.
-- Do not hand-edit `apps/client/assets/textures/item-icons.png`; it is generated output.
 - `bun run generate:tile-sources` exists to regenerate the current default source tile PNG set from code, but normal art iteration should happen by editing the PNGs in `tiles-src` directly.
 
 ### Id Stability Rules

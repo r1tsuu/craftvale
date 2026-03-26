@@ -55,7 +55,7 @@ test("play HUD still renders the hotbar and selected slot label", () => {
     expect.arrayContaining([
       expect.objectContaining({
         id: "hotbar-slot-0-icon",
-        kind: "image",
+        kind: "item",
       }),
     ]),
   );
@@ -282,7 +282,7 @@ test("play HUD renders the full inventory overlay when inventory is open", () =>
       }),
       expect.objectContaining({
         id: "inventory-main-slot-0-icon",
-        kind: "image",
+        kind: "item",
       }),
       expect.objectContaining({
         id: "inventory-hotbar-slot-0-key",

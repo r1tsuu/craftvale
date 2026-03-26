@@ -1,15 +1,12 @@
 import {
   CHUNK_SIZE,
-  LIGHT_LEVEL_MAX,
   VoxelWorld,
   buildChunkMesh,
   createIdentityMat4,
   createDefaultWorldTimeState,
-  getBlockFaceTile,
   getBlockRenderPass,
   getWorldDaylightFactor,
   getItemRenderBlockId,
-  type BlockFaceRole,
   type BlockId,
   type ChunkCoord,
   type DroppedItemSnapshot,
@@ -22,9 +19,10 @@ import {
 import { PlayerController } from "../game/player.ts";
 import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
 import { UiRenderer } from "../ui/renderer.ts";
-import { getAtlasUvRect, loadVoxelAtlasImageData } from "../world/atlas.ts";
+import { loadVoxelAtlasImageData } from "../world/atlas.ts";
 import type { UiResolvedComponent } from "../ui/components.ts";
 import { FocusHighlightRenderer } from "./highlight.ts";
+import { buildItemBlockMesh } from "./item-mesh.ts";
 import {
   PLAYER_NAMEPLATE_HEIGHT,
   getHeldItemBlockId,
@@ -46,114 +44,8 @@ interface GpuChunkMesh {
   cutout: GpuMesh | null;
 }
 
-interface ItemFaceDefinition {
-  faceRole: BlockFaceRole;
-  shade: number;
-  vertices: ReadonlyArray<readonly [number, number, number]>;
-  uvs: ReadonlyArray<readonly [number, number]>;
-}
-
 const ITEM_RENDER_SCALE = 0.35;
 const IDENTITY_MODEL = createIdentityMat4();
-
-const ITEM_FACE_DEFINITIONS: readonly ItemFaceDefinition[] = [
-  {
-    faceRole: "side",
-    shade: 0.88,
-    vertices: [
-      [0.5, -0.5, -0.5],
-      [0.5, 0.5, -0.5],
-      [0.5, 0.5, 0.5],
-      [0.5, -0.5, 0.5],
-    ],
-    uvs: [
-      [0, 1],
-      [0, 0],
-      [1, 0],
-      [1, 1],
-    ],
-  },
-  {
-    faceRole: "side",
-    shade: 0.72,
-    vertices: [
-      [-0.5, -0.5, 0.5],
-      [-0.5, 0.5, 0.5],
-      [-0.5, 0.5, -0.5],
-      [-0.5, -0.5, -0.5],
-    ],
-    uvs: [
-      [0, 1],
-      [0, 0],
-      [1, 0],
-      [1, 1],
-    ],
-  },
-  {
-    faceRole: "top",
-    shade: 1,
-    vertices: [
-      [-0.5, 0.5, 0.5],
-      [0.5, 0.5, 0.5],
-      [0.5, 0.5, -0.5],
-      [-0.5, 0.5, -0.5],
-    ],
-    uvs: [
-      [0, 1],
-      [1, 1],
-      [1, 0],
-      [0, 0],
-    ],
-  },
-  {
-    faceRole: "bottom",
-    shade: 0.56,
-    vertices: [
-      [-0.5, -0.5, -0.5],
-      [0.5, -0.5, -0.5],
-      [0.5, -0.5, 0.5],
-      [-0.5, -0.5, 0.5],
-    ],
-    uvs: [
-      [0, 0],
-      [1, 0],
-      [1, 1],
-      [0, 1],
-    ],
-  },
-  {
-    faceRole: "side",
-    shade: 0.8,
-    vertices: [
-      [0.5, -0.5, 0.5],
-      [0.5, 0.5, 0.5],
-      [-0.5, 0.5, 0.5],
-      [-0.5, -0.5, 0.5],
-    ],
-    uvs: [
-      [0, 1],
-      [0, 0],
-      [1, 0],
-      [1, 1],
-    ],
-  },
-  {
-    faceRole: "side",
-    shade: 0.68,
-    vertices: [
-      [-0.5, -0.5, -0.5],
-      [-0.5, 0.5, -0.5],
-      [0.5, 0.5, -0.5],
-      [0.5, -0.5, -0.5],
-    ],
-    uvs: [
-      [0, 1],
-      [0, 0],
-      [1, 0],
-      [1, 1],
-    ],
-  },
-];
 
 const meshKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
 const PLAYER_NAMEPLATE_SCALE = 2;
@@ -168,51 +60,6 @@ const compileShader = (nativeBridge: NativeBridge, type: number, source: string)
     throw new Error(`Shader compilation failed:\n${log}`);
   }
   return shader;
-};
-
-const buildBlockCubeMesh = (blockId: BlockId): MeshData => {
-  const vertices: number[] = [];
-  const indices: number[] = [];
-  let baseIndex = 0;
-
-  for (const face of ITEM_FACE_DEFINITIONS) {
-    const tile = getBlockFaceTile(blockId, face.faceRole);
-    if (!tile) {
-      continue;
-    }
-
-    const uvRect = getAtlasUvRect(tile);
-    for (let index = 0; index < face.vertices.length; index += 1) {
-      const [x, y, z] = face.vertices[index]!;
-      const [u, v] = face.uvs[index]!;
-      vertices.push(
-        x,
-        y,
-        z,
-        u === 0 ? uvRect.uMin : uvRect.uMax,
-        v === 0 ? uvRect.vMin : uvRect.vMax,
-        face.shade,
-        LIGHT_LEVEL_MAX,
-        0,
-      );
-    }
-
-    indices.push(
-      baseIndex,
-      baseIndex + 1,
-      baseIndex + 2,
-      baseIndex,
-      baseIndex + 2,
-      baseIndex + 3,
-    );
-    baseIndex += 4;
-  }
-
-  return {
-    vertexData: new Float32Array(vertices),
-    indexData: new Uint32Array(indices),
-    indexCount: indices.length,
-  };
 };
 
 const projectWorldToScreen = (
@@ -427,7 +274,7 @@ export class VoxelRenderer {
       width,
       height,
     );
-    this.uiRenderer.render(uiComponents, uiWidth, uiHeight);
+    this.uiRenderer.render(uiComponents, uiWidth, uiHeight, width, height);
   }
 
   private prepareVoxelProgram(viewProjection: Float32Array, daylightFactor: number): void {
@@ -535,7 +382,7 @@ export class VoxelRenderer {
       return this.blockCubeMeshes.get(blockId) ?? null;
     }
 
-    const mesh = this.createGpuMesh(buildBlockCubeMesh(blockId));
+    const mesh = this.createGpuMesh(buildItemBlockMesh(blockId));
     this.blockCubeMeshes.set(blockId, mesh);
     return mesh;
   }

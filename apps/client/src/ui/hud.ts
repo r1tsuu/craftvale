@@ -20,11 +20,10 @@ import {
   getMainInventorySlots,
   getSelectedInventorySlot,
 } from "@craftvale/core/shared";
-import { getItemIconUvRect } from "../world/item-icons.ts";
 import {
   createButton,
   createHotspot,
-  createImage,
+  createItem,
   createLabel,
   createPanel,
   type UiComponent,
@@ -174,16 +173,16 @@ const buildInventorySlotVisual = (
 
   if (!isEmptyInventorySlot(slot)) {
     components.push(
-      createImage({
+      createItem({
         id: `${idPrefix}-icon`,
-        kind: "image",
+        kind: "item",
         rect: {
-          x: rect.x + 10,
-          y: rect.y + 12,
-          width: rect.width - 20,
-          height: rect.height - 20,
+          x: rect.x + 6,
+          y: rect.y + 8,
+          width: rect.width - 12,
+          height: rect.height - 14,
         },
-        uvRect: getItemIconUvRect(slot.itemId),
+        itemId: slot.itemId,
       }),
       createLabel({
         id: `${idPrefix}-count`,

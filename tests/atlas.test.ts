@@ -1,11 +1,5 @@
 import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
-import { ITEM_IDS, getItemIconAtlasCoord } from "@craftvale/core/shared";
-import {
-  ITEM_ICON_ATLAS_OUTPUT_PATH,
-  buildItemIconAtlasPng,
-  buildItemIconAtlasPixels,
-} from "../apps/cli/src/item-icon-pipeline.ts";
 import {
   ATLAS_HEIGHT,
   ATLAS_TILE_IDS,
@@ -16,14 +10,6 @@ import {
   getAtlasUvRect,
   loadVoxelAtlasImageData,
 } from "../apps/client/src/world/atlas.ts";
-import {
-  ITEM_ICON_ATLAS_ASSET_PATH,
-  ITEM_ICON_ATLAS_HEIGHT,
-  ITEM_ICON_ATLAS_WIDTH,
-  ITEM_ICON_IDS,
-  ITEM_ICON_SIZE,
-  loadItemIconAtlasImageData,
-} from "../apps/client/src/world/item-icons.ts";
 import {
   VOXEL_ATLAS_OUTPUT_PATH,
   VOXEL_TILE_SOURCE_ROOT,
@@ -41,15 +27,6 @@ test("atlas PNG image data has the expected dimensions and byte size", () => {
   expect(VOXEL_ATLAS_ASSET_PATH.endsWith(".png")).toBe(true);
 });
 
-test("item icon atlas PNG image data has the expected dimensions and byte size", () => {
-  const atlas = loadItemIconAtlasImageData();
-
-  expect(atlas.width).toBe(ITEM_ICON_ATLAS_WIDTH);
-  expect(atlas.height).toBe(ITEM_ICON_ATLAS_HEIGHT);
-  expect(atlas.pixels).toHaveLength(ITEM_ICON_ATLAS_WIDTH * ITEM_ICON_ATLAS_HEIGHT * 4);
-  expect(ITEM_ICON_ATLAS_ASSET_PATH.endsWith(".png")).toBe(true);
-});
-
 test("source tile PNGs exist for every atlas tile and stay at tile resolution", async () => {
   const tilePixelsById = await loadVoxelTileSourcePixels();
 
@@ -65,45 +42,6 @@ test("source tile PNGs exist for every atlas tile and stay at tile resolution", 
 test("atlas PNG stays in sync with the per-tile source PNGs", async () => {
   const atlasBytes = new Uint8Array(await readFile(VOXEL_ATLAS_OUTPUT_PATH));
   expect([...atlasBytes]).toEqual([...await buildVoxelAtlasPngFromSourceTiles()]);
-});
-
-test("item icon atlas PNG stays in sync with the generated item icon pipeline", async () => {
-  const atlasBytes = new Uint8Array(await readFile(ITEM_ICON_ATLAS_OUTPUT_PATH));
-  expect([...atlasBytes]).toEqual([...await buildItemIconAtlasPng()]);
-});
-
-test("item icon atlas includes one icon slot per item id", async () => {
-  const pixels = await buildItemIconAtlasPixels();
-  expect(ITEM_ICON_IDS.length).toBeGreaterThan(0);
-  expect(pixels).toHaveLength(ITEM_ICON_ATLAS_WIDTH * ITEM_ICON_ATLAS_HEIGHT * 4);
-});
-
-test("item icon atlas keeps empty transparent and block-backed items visibly rendered", () => {
-  const atlas = loadItemIconAtlasImageData();
-  const emptyCoord = getItemIconAtlasCoord(ITEM_IDS.empty);
-  const grassCoord = getItemIconAtlasCoord(ITEM_IDS.grass);
-  let emptyOpaquePixels = 0;
-  let grassOpaquePixels = 0;
-
-  for (let localY = 0; localY < ITEM_ICON_SIZE; localY += 1) {
-    for (let localX = 0; localX < ITEM_ICON_SIZE; localX += 1) {
-      const emptyIndex =
-        ((emptyCoord.x * ITEM_ICON_SIZE + localX)
-          + (emptyCoord.y * ITEM_ICON_SIZE + localY) * atlas.width) * 4 + 3;
-      const grassIndex =
-        ((grassCoord.x * ITEM_ICON_SIZE + localX)
-          + (grassCoord.y * ITEM_ICON_SIZE + localY) * atlas.width) * 4 + 3;
-      if (atlas.pixels[emptyIndex] !== 0) {
-        emptyOpaquePixels += 1;
-      }
-      if (atlas.pixels[grassIndex] !== 0) {
-        grassOpaquePixels += 1;
-      }
-    }
-  }
-
-  expect(emptyOpaquePixels).toBe(0);
-  expect(grassOpaquePixels).toBeGreaterThan(0);
 });
 
 test("atlas tile layout is fixed and UVs are inset within tile bounds", () => {

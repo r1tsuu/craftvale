@@ -1,4 +1,4 @@
-import { ImageOverlayRenderer, type ImageDrawCommand } from "../render/image.ts";
+import { ItemOverlayRenderer, type ItemDrawCommand } from "../render/item-overlay.ts";
 import { RectOverlayRenderer, type RectDrawCommand } from "../render/rect.ts";
 import { TextOverlayRenderer, type TextDrawCommand } from "../render/text.ts";
 import { measureTextHeight, measureTextWidth } from "../render/text-mesh.ts";
@@ -113,18 +113,25 @@ const getSliderPalette = (hovered: boolean, dragging: boolean, disabled: boolean
 
 export class UiRenderer {
   private readonly rectRenderer: RectOverlayRenderer;
-  private readonly imageRenderer: ImageOverlayRenderer;
   private readonly textRenderer: TextOverlayRenderer;
+  private readonly nativeBridge: NativeBridge;
+  private itemRenderer: ItemOverlayRenderer | null = null;
 
   public constructor(nativeBridge: NativeBridge) {
+    this.nativeBridge = nativeBridge;
     this.rectRenderer = new RectOverlayRenderer(nativeBridge);
-    this.imageRenderer = new ImageOverlayRenderer(nativeBridge);
     this.textRenderer = new TextOverlayRenderer(nativeBridge);
   }
 
-  public render(components: readonly UiResolvedComponent[], width: number, height: number): void {
+  public render(
+    components: readonly UiResolvedComponent[],
+    width: number,
+    height: number,
+    framebufferWidth: number,
+    framebufferHeight: number,
+  ): void {
     const rects: RectDrawCommand[] = [];
-    const images: ImageDrawCommand[] = [];
+    const items: ItemDrawCommand[] = [];
     const text: TextDrawCommand[] = [];
 
     for (const component of components) {
@@ -141,11 +148,10 @@ export class UiRenderer {
         continue;
       }
 
-      if (component.kind === "image") {
-        images.push({
+      if (component.kind === "item") {
+        items.push({
           ...component.rect,
-          uvRect: component.uvRect,
-          color: component.color,
+          itemId: component.itemId,
         });
         continue;
       }
@@ -224,7 +230,10 @@ export class UiRenderer {
     }
 
     this.rectRenderer.render(rects, width, height);
-    this.imageRenderer.render(images, width, height);
+    if (items.length > 0) {
+      this.itemRenderer ??= new ItemOverlayRenderer(this.nativeBridge);
+      this.itemRenderer.render(items, width, height, framebufferWidth, framebufferHeight);
+    }
     this.textRenderer.render(text, width, height);
   }
 

@@ -7,7 +7,6 @@
     "clean-data": "bun run src/clean-data.ts",
     "dev-full": "bun run src/dev-full.ts",
     "generate-content-registry": "bun run src/generate-content-registry.ts",
-    "generate-item-icons": "bun run src/generate-item-icons.ts",
     "generate-voxel-tile-sources": "bun run src/generate-voxel-tile-sources.ts",
     "generate-voxel-atlas": "bun run src/generate-voxel-atlas.ts"
   },

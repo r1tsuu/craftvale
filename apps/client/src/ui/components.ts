@@ -1,3 +1,5 @@
+import type { ItemId } from "@craftvale/core/shared";
+
 export interface UiRect {
   x: number;
   y: number;
@@ -30,15 +32,9 @@ export interface UiLabel extends UiBaseComponent {
   centered?: boolean;
 }
 
-export interface UiImage extends UiBaseComponent {
-  kind: "image";
-  uvRect: {
-    uMin: number;
-    uMax: number;
-    vMin: number;
-    vMax: number;
-  };
-  color?: readonly [number, number, number, number?];
+export interface UiItem extends UiBaseComponent {
+  kind: "item";
+  itemId: ItemId;
 }
 
 export interface UiHotspot extends UiBaseComponent {
@@ -68,7 +64,7 @@ export interface UiButton extends UiBaseComponent {
   disabled?: boolean;
 }
 
-export type UiComponent = UiPanel | UiLabel | UiImage | UiButton | UiHotspot | UiSlider;
+export type UiComponent = UiPanel | UiLabel | UiItem | UiButton | UiHotspot | UiSlider;
 
 export interface UiResolvedButton extends UiButton {
   hovered: boolean;
@@ -92,7 +88,7 @@ export interface UiSliderChange {
 export type UiResolvedComponent =
   | UiPanel
   | UiLabel
-  | UiImage
+  | UiItem
   | UiResolvedButton
   | UiResolvedHotspot
   | UiResolvedSlider;
@@ -105,7 +101,7 @@ export interface UiEvaluationResult {
 
 export const createPanel = (panel: UiPanel): UiPanel => panel;
 export const createLabel = (label: UiLabel): UiLabel => label;
-export const createImage = (image: UiImage): UiImage => image;
+export const createItem = (item: UiItem): UiItem => item;
 export const createButton = (button: UiButton): UiButton => button;
 export const createHotspot = (hotspot: UiHotspot): UiHotspot => hotspot;
 export const createSlider = (slider: UiSlider): UiSlider => slider;
@@ -125,7 +121,11 @@ export const evaluateUi = (
   const sliderChanges: UiSliderChange[] = [];
 
   for (const component of components) {
-    if (component.kind === "panel" || component.kind === "label" || component.kind === "image") {
+    if (
+      component.kind === "panel"
+      || component.kind === "label"
+      || component.kind === "item"
+    ) {
       resolved.push(component);
       continue;
     }
