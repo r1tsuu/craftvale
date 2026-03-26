@@ -31,7 +31,7 @@ export interface AuthoredItemSpec {
   renderBlockKey: string | null
 }
 
-export interface DefaultInventoryStackSpec {
+export interface StarterInventoryStackSpec {
   slot: number
   itemKey: string
   count: number
@@ -318,22 +318,55 @@ export const AUTHORED_ITEM_SPECS = [
   },
 ] as const satisfies readonly AuthoredItemSpec[]
 
-export const DEFAULT_HOTBAR_ITEM_KEYS = [
-  'grass',
-  'dirt',
-  'stone',
-  'log',
-  'leaves',
-  'sand',
-  'planks',
-  'cobblestone',
-  'brick',
-] as const satisfies readonly string[]
-
-export const DEFAULT_MAIN_INVENTORY_STACK_SPECS = [
+export const DEFAULT_STARTER_INVENTORY_STACK_SPECS = [
   {
     slot: 0,
+    itemKey: 'grass',
+    count: 64,
+  },
+  {
+    slot: 1,
     itemKey: 'glowstone',
     count: 64,
   },
-] as const satisfies readonly DefaultInventoryStackSpec[]
+  {
+    slot: 2,
+    itemKey: 'dirt',
+    count: 64,
+  },
+  {
+    slot: 3,
+    itemKey: 'stone',
+    count: 64,
+  },
+  {
+    slot: 4,
+    itemKey: 'log',
+    count: 64,
+  },
+  {
+    slot: 5,
+    itemKey: 'leaves',
+    count: 64,
+  },
+  {
+    slot: 6,
+    itemKey: 'sand',
+    count: 64,
+  },
+  {
+    slot: 7,
+    itemKey: 'planks',
+    count: 64,
+  },
+  {
+    slot: 8,
+    itemKey: 'cobblestone',
+    count: 64,
+  },
+  {
+    slot: 9,
+    itemKey: 'brick',
+    count: 64,
+  },
+] as const satisfies readonly StarterInventoryStackSpec[]

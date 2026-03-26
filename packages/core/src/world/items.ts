@@ -9,8 +9,7 @@ import {
 } from './generated/content-ids.ts'
 import {
   GENERATED_ITEM_DEFINITIONS,
-  HOTBAR_ITEM_IDS,
-  STARTER_MAIN_INVENTORY_STACKS,
+  STARTER_INVENTORY_STACKS,
 } from './generated/content-registry.ts'
 
 export interface ItemDefinition {
@@ -22,7 +21,7 @@ export interface ItemDefinition {
   renderBlockId: BlockId | null
 }
 
-export { HOTBAR_ITEM_IDS, ITEM_IDS, STARTER_MAIN_INVENTORY_STACKS }
+export { ITEM_IDS, STARTER_INVENTORY_STACKS }
 export type { ItemKey }
 
 const ITEM_ID_SET = new Set<number>(ITEM_ID_VALUES)

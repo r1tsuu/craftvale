@@ -16,8 +16,8 @@ import {
   ACTIVE_CHUNK_RADIUS,
   BLOCK_IDS,
   CHUNK_SIZE,
-  createDefaultInventory,
   createDefaultWorldTimeState,
+  createEmptyInventory,
   getBlockEmittedLightLevel,
   getChunkCoordsAroundPosition,
   isBreakableBlock,
@@ -41,7 +41,7 @@ const PREDICTED_LIGHT_DIRECTIONS = [
 
 export class ClientWorldRuntime {
   public readonly world = new VoxelWorld()
-  public inventory: InventorySnapshot = createDefaultInventory()
+  public inventory: InventorySnapshot = createEmptyInventory()
   public worldTime: WorldTimeState = createDefaultWorldTimeState()
   public clientPlayerName: PlayerName | null = null
   public clientPlayerEntityId: EntityId | null = null
@@ -59,7 +59,7 @@ export class ClientWorldRuntime {
 
   public reset(): void {
     this.world.clear()
-    this.inventory = createDefaultInventory()
+    this.inventory = createEmptyInventory()
     this.worldTime = createDefaultWorldTimeState()
     this.clientPlayerName = null
     this.clientPlayerEntityId = null

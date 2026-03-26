@@ -46,7 +46,10 @@ test('authoritative world keeps per-player state separate and persists it by pla
     )
     const playerAInventory = await world.selectInventorySlot(joinedA.clientPlayer.entityId, 4)
     expect(playerAInventory.selectedSlot).toBe(4)
-    const liftedStack = await world.interactInventorySlot(joinedA.clientPlayer.entityId, 8)
+    const liftedStack = await world.interactInventorySlot(
+      joinedA.clientPlayer.entityId,
+      getMainInventorySlotIndex(0),
+    )
     expect(liftedStack.cursor).toEqual({ itemId: ITEM_IDS.brick, count: 64 })
     const placedStack = await world.interactInventorySlot(
       joinedA.clientPlayer.entityId,

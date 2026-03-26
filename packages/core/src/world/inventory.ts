@@ -2,14 +2,13 @@ import type { InventorySlot, InventorySnapshot, ItemId } from '../types.ts'
 
 import {
   getItemMaxStackSize,
-  HOTBAR_ITEM_IDS,
   isPlaceableItem,
   isValidItemId,
   ITEM_IDS,
-  STARTER_MAIN_INVENTORY_STACKS,
+  STARTER_INVENTORY_STACKS,
 } from './items.ts'
 
-export const HOTBAR_SLOT_COUNT = HOTBAR_ITEM_IDS.length
+export const HOTBAR_SLOT_COUNT = 9
 export const MAIN_INVENTORY_SLOT_COUNT = 27
 export const TOTAL_INVENTORY_SLOT_COUNT = HOTBAR_SLOT_COUNT + MAIN_INVENTORY_SLOT_COUNT
 export const DEFAULT_INVENTORY_STACK_SIZE = 64
@@ -115,26 +114,23 @@ const findEmptySlot = (inventory: InventorySnapshot): number | null => {
 
 export const createEmptyInventorySlot = (): InventorySlot => ({ ...EMPTY_INVENTORY_SLOT })
 
-export const createDefaultInventory = (): InventorySnapshot => {
-  const starterMainStacks = new Map<number, (typeof STARTER_MAIN_INVENTORY_STACKS)[number]>(
-    STARTER_MAIN_INVENTORY_STACKS.map((stack) => [stack.slot, stack] as const),
-  )
-  const slots = Array.from({ length: TOTAL_INVENTORY_SLOT_COUNT }, (_, index): InventorySlot => {
-    if (index < HOTBAR_SLOT_COUNT) {
-      return {
-        itemId: HOTBAR_ITEM_IDS[index] ?? ITEM_IDS.empty,
-        count: DEFAULT_INVENTORY_STACK_SIZE,
-      }
-    }
+export const createEmptyInventory = (): InventorySnapshot => ({
+  slots: Array.from({ length: TOTAL_INVENTORY_SLOT_COUNT }, () => createEmptyInventorySlot()),
+  selectedSlot: 0,
+  cursor: null,
+})
 
-    const starterStack = starterMainStacks.get(index - HOTBAR_SLOT_COUNT)
-    return starterStack
-      ? {
-          itemId: starterStack.itemId ?? ITEM_IDS.empty,
-          count: starterStack.count ?? 0,
-        }
-      : createEmptyInventorySlot()
-  })
+export const createStarterInventory = (): InventorySnapshot => {
+  const slots = Array.from({ length: TOTAL_INVENTORY_SLOT_COUNT }, () => createEmptyInventorySlot())
+  for (const stack of STARTER_INVENTORY_STACKS) {
+    if (stack.slot < 0 || stack.slot >= slots.length) {
+      continue
+    }
+    slots[stack.slot] = {
+      itemId: stack.itemId ?? ITEM_IDS.empty,
+      count: stack.count ?? 0,
+    }
+  }
 
   return {
     slots,
@@ -146,7 +142,7 @@ export const createDefaultInventory = (): InventorySnapshot => {
 export const normalizeInventorySnapshot = (
   snapshot: InventorySnapshot | null | undefined,
 ): InventorySnapshot => {
-  const fallback = createDefaultInventory()
+  const fallback = createEmptyInventory()
   if (!snapshot) {
     return fallback
   }

@@ -11,7 +11,7 @@ import type { WorldStorage } from './world-storage.ts'
 
 import {
   addInventoryItem,
-  createDefaultInventory,
+  createStarterInventory,
   getSelectedInventorySlot,
   interactInventorySlot,
   normalizeInventorySnapshot,
@@ -416,7 +416,7 @@ export class PlayerSystem {
       flying: false,
     })
     this.entities.playerInventory.set(entityId, {
-      inventory: createDefaultInventory(),
+      inventory: createStarterInventory(),
     })
     this.entities.playerSession.set(entityId, { active: false })
     this.entities.playerPersistence.set(entityId, {

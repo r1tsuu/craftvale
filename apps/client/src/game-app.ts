@@ -4,7 +4,7 @@ import type { JoinedWorldPayload, LoadingProgressPayload, PlayerName } from '@cr
 import {
   Biomes,
   BLOCK_IDS,
-  createDefaultInventory,
+  createEmptyInventory,
   createLogger,
   getBiomeAt,
   getItemDisplayName,
@@ -17,8 +17,7 @@ import {
 } from '@craftvale/core/shared'
 
 import type { LocalWorldStorage } from './client/local-world-storage.ts'
-import type {
-  JsonSavedServerStorage} from './client/saved-servers.ts';
+import type { JsonSavedServerStorage } from './client/saved-servers.ts'
 import type { TextDrawCommand } from './render/text.ts'
 import type { ClientSettings } from './types.ts'
 
@@ -41,10 +40,7 @@ import {
   setMenuWorlds,
   suggestWorldName,
 } from './client/menu-state.ts'
-import {
-  isValidSavedServerAddress,
-  isValidSavedServerName
-} from './client/saved-servers.ts'
+import { isValidSavedServerAddress, isValidSavedServerName } from './client/saved-servers.ts'
 import { WebSocketClientAdapter } from './client/websocket-client-adapter.ts'
 import { WorkerClientAdapter } from './client/worker-client-adapter.ts'
 import { ClientWorldRuntime } from './client/world-runtime.ts'
@@ -1431,7 +1427,7 @@ export class GameApp {
       this.deps.player,
       worldRuntime ? [...worldRuntime.players.values()] : [],
       worldRuntime?.clientPlayerEntityId ?? null,
-      worldRuntime?.inventory ?? createDefaultInventory(),
+      worldRuntime?.inventory ?? createEmptyInventory(),
       worldRuntime?.worldTime,
       this.getFirstPersonSwingProgress(),
       this.state.clientSettings.renderDistance,

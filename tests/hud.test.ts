@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import { buildPlayHud } from '../apps/client/src/ui/hud.ts'
 import {
-  createDefaultInventory,
+  createStarterInventory,
   getMainInventorySlotIndex,
   setSelectedInventorySlot,
 } from '../packages/core/src/world/inventory.ts'
@@ -10,7 +10,7 @@ import { ITEM_IDS } from '../packages/core/src/world/items.ts'
 
 test('play HUD includes a centered crosshair', () => {
   const hud = buildPlayHud(1280, 720, {
-    inventory: createDefaultInventory(),
+    inventory: createStarterInventory(),
   })
   const panels = hud.filter((component) => component.kind === 'panel')
 
@@ -30,7 +30,7 @@ test('play HUD includes a centered crosshair', () => {
 
 test('play HUD can hide the crosshair from settings', () => {
   const hud = buildPlayHud(1280, 720, {
-    inventory: createDefaultInventory(),
+    inventory: createStarterInventory(),
     showCrosshair: false,
   })
 
@@ -39,7 +39,7 @@ test('play HUD can hide the crosshair from settings', () => {
 })
 
 test('play HUD still renders the hotbar and selected slot label', () => {
-  const inventory = setSelectedInventorySlot(createDefaultInventory(), 4)
+  const inventory = setSelectedInventorySlot(createStarterInventory(), 4)
   const hud = buildPlayHud(1280, 720, {
     inventory,
   })
@@ -58,7 +58,7 @@ test('play HUD still renders the hotbar and selected slot label', () => {
     expect.arrayContaining([
       expect.objectContaining({
         id: 'hotbar-selected-label',
-        text: '5. LEAVES  x64',
+        text: '5. LOG  x64',
       }),
       expect.objectContaining({
         id: 'hotbar-slot-8-key',
@@ -70,7 +70,7 @@ test('play HUD still renders the hotbar and selected slot label', () => {
 
 test('play HUD renders the current biome above the hotbar', () => {
   const hud = buildPlayHud(1280, 720, {
-    inventory: createDefaultInventory(),
+    inventory: createStarterInventory(),
     biomeName: 'FOREST',
   })
   const labels = hud.filter((component) => component.kind === 'label')
@@ -95,7 +95,7 @@ test('play HUD renders the current biome above the hotbar', () => {
 
 test('play HUD renders an authoritative world clock', () => {
   const hud = buildPlayHud(1280, 720, {
-    inventory: createDefaultInventory(),
+    inventory: createStarterInventory(),
     worldTime: {
       dayCount: 2,
       timeOfDayTicks: 18_000,
@@ -114,7 +114,7 @@ test('play HUD renders an authoritative world clock', () => {
 
 test('play HUD renders chat and creative mode indicators', () => {
   const hud = buildPlayHud(1280, 720, {
-    inventory: createDefaultInventory(),
+    inventory: createStarterInventory(),
     gamemode: 1,
     flying: true,
     chatOpen: true,
@@ -164,7 +164,7 @@ test('play HUD renders chat and creative mode indicators', () => {
 
 test('play HUD uses bottom-left passive chat layout with fading opacity', () => {
   const hud = buildPlayHud(1280, 720, {
-    inventory: createDefaultInventory(),
+    inventory: createStarterInventory(),
     chatOpen: false,
     chatNowMs: 11_000,
     chatMessages: [
@@ -208,7 +208,7 @@ test('play HUD uses bottom-left passive chat layout with fading opacity', () => 
 
 test('play HUD hides expired passive chat messages but keeps them while chat is open', () => {
   const closedHud = buildPlayHud(1280, 720, {
-    inventory: createDefaultInventory(),
+    inventory: createStarterInventory(),
     chatOpen: false,
     chatNowMs: 20_000,
     chatMessages: [
@@ -221,7 +221,7 @@ test('play HUD hides expired passive chat messages but keeps them while chat is 
   })
 
   const openHud = buildPlayHud(1280, 720, {
-    inventory: createDefaultInventory(),
+    inventory: createStarterInventory(),
     chatOpen: true,
     chatNowMs: 20_000,
     chatDraft: '',
@@ -246,7 +246,7 @@ test('play HUD hides expired passive chat messages but keeps them while chat is 
 })
 
 test('play HUD renders the full inventory overlay when inventory is open', () => {
-  const inventory = createDefaultInventory()
+  const inventory = createStarterInventory()
   inventory.slots[getMainInventorySlotIndex(0)] = { itemId: ITEM_IDS.log, count: 12 }
   inventory.cursor = { itemId: ITEM_IDS.brick, count: 8 }
   const hud = buildPlayHud(1280, 720, {
@@ -289,7 +289,7 @@ test('play HUD renders the full inventory overlay when inventory is open', () =>
 
 test('play HUD renders a pause menu overlay over gameplay', () => {
   const hud = buildPlayHud(1280, 720, {
-    inventory: createDefaultInventory(),
+    inventory: createStarterInventory(),
     pauseScreen: 'menu',
   })
 
@@ -330,7 +330,7 @@ test('play HUD renders a pause menu overlay over gameplay', () => {
 
 test('play HUD reuses the settings panel from pause context', () => {
   const hud = buildPlayHud(1280, 720, {
-    inventory: createDefaultInventory(),
+    inventory: createStarterInventory(),
     pauseScreen: 'settings',
     pauseSettings: {
       settings: {

@@ -319,8 +319,15 @@ export const GENERATED_ITEM_DEFINITIONS = {
   },
 } as const satisfies Record<ItemId, GeneratedItemDefinition>;
 
-export const HOTBAR_ITEM_IDS = [ITEM_IDS.grass, ITEM_IDS.dirt, ITEM_IDS.stone, ITEM_IDS.log, ITEM_IDS.leaves, ITEM_IDS.sand, ITEM_IDS.planks, ITEM_IDS.cobblestone, ITEM_IDS.brick] as const satisfies readonly ItemId[];
-
-export const STARTER_MAIN_INVENTORY_STACKS = [
-  { slot: 0, itemId: ITEM_IDS.glowstone, count: 64 },
+export const STARTER_INVENTORY_STACKS = [
+  { slot: 0, itemId: ITEM_IDS.grass, count: 64 },
+  { slot: 1, itemId: ITEM_IDS.glowstone, count: 64 },
+  { slot: 2, itemId: ITEM_IDS.dirt, count: 64 },
+  { slot: 3, itemId: ITEM_IDS.stone, count: 64 },
+  { slot: 4, itemId: ITEM_IDS.log, count: 64 },
+  { slot: 5, itemId: ITEM_IDS.leaves, count: 64 },
+  { slot: 6, itemId: ITEM_IDS.sand, count: 64 },
+  { slot: 7, itemId: ITEM_IDS.planks, count: 64 },
+  { slot: 8, itemId: ITEM_IDS.cobblestone, count: 64 },
+  { slot: 9, itemId: ITEM_IDS.brick, count: 64 },
 ] as const satisfies readonly StarterInventoryStackDefinition[];

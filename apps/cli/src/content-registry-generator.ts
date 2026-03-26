@@ -7,8 +7,7 @@ import {
   AUTHORED_ITEM_SPECS,
   type AuthoredBlockSpec,
   type AuthoredItemSpec,
-  DEFAULT_HOTBAR_ITEM_KEYS,
-  DEFAULT_MAIN_INVENTORY_STACK_SPECS,
+  DEFAULT_STARTER_INVENTORY_STACK_SPECS,
 } from '../../../packages/core/src/world/content-spec.ts'
 import { projectRoot } from './paths.ts'
 
@@ -149,16 +148,18 @@ const validateReferences = (
     }
   }
 
-  for (const key of DEFAULT_HOTBAR_ITEM_KEYS) {
-    if (!itemKeys.has(key)) {
-      throw new Error(`Default hotbar references unknown item key "${key}".`)
-    }
-  }
-
-  for (const stack of DEFAULT_MAIN_INVENTORY_STACK_SPECS) {
+  const starterSlots = new Set<number>()
+  for (const stack of DEFAULT_STARTER_INVENTORY_STACK_SPECS) {
     if (!itemKeys.has(stack.itemKey)) {
-      throw new Error(`Default inventory references unknown item key "${stack.itemKey}".`)
+      throw new Error(`Starter inventory references unknown item key "${stack.itemKey}".`)
     }
+    if (stack.slot < 0 || !Number.isInteger(stack.slot)) {
+      throw new Error(`Starter inventory slot "${stack.slot}" must be a non-negative integer.`)
+    }
+    if (starterSlots.has(stack.slot)) {
+      throw new Error(`Starter inventory defines duplicate slot "${stack.slot}".`)
+    }
+    starterSlots.add(stack.slot)
   }
 }
 
@@ -259,8 +260,7 @@ const buildContentRegistrySource = (
 ): string => {
   const blockDefinitions = blocks.map(formatBlockDefinition).join('\n')
   const itemDefinitions = items.map(formatItemDefinition).join('\n')
-  const hotbarIds = DEFAULT_HOTBAR_ITEM_KEYS.map((key) => `ITEM_IDS.${key}`).join(', ')
-  const starterStacks = DEFAULT_MAIN_INVENTORY_STACK_SPECS.map(
+  const starterStacks = DEFAULT_STARTER_INVENTORY_STACK_SPECS.map(
     (stack) =>
       `  { slot: ${stack.slot}, itemId: ITEM_IDS.${stack.itemKey}, count: ${stack.count} },`,
   ).join('\n')
@@ -312,9 +312,7 @@ const buildContentRegistrySource = (
     `${itemDefinitions}\n`,
     '} as const satisfies Record<ItemId, GeneratedItemDefinition>;\n',
     '\n',
-    `export const HOTBAR_ITEM_IDS = [${hotbarIds}] as const satisfies readonly ItemId[];\n`,
-    '\n',
-    'export const STARTER_MAIN_INVENTORY_STACKS = [\n',
+    'export const STARTER_INVENTORY_STACKS = [\n',
     `${starterStacks}\n`,
     '] as const satisfies readonly StarterInventoryStackDefinition[];\n',
   ].join('')
