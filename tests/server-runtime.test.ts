@@ -72,6 +72,54 @@ test("server runtime applies queued gameplay only on tick boundaries and preserv
   }
 });
 
+test("server runtime broadcasts smoothed TPS stats after each tick", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-server-runtime-stats-"));
+  let nowMs = 0;
+
+  try {
+    const transport = createInMemoryTransportPair<
+      ServerToClientMessage,
+      ClientToServerMessage,
+      ClientToServerMessage,
+      ServerToClientMessage
+    >();
+    const client = new PortClientAdapter(transport.left);
+    const server = new PortServerAdapter(transport.right);
+    const storage = new BinaryWorldStorage(rootDir);
+    const worldRecord = await storage.createWorld("Alpha", 42);
+    const runtime = new ServerRuntime(server, new AuthoritativeWorld(worldRecord, storage), {
+      autoStart: false,
+      now: () => nowMs,
+      tickIntervalMs: 50,
+    });
+    const receivedTps: number[] = [];
+
+    client.eventBus.on("serverStats", ({ tps }) => {
+      receivedTps.push(tps);
+    });
+
+    await client.eventBus.send({
+      type: "joinWorld",
+      payload: {
+        playerName: "Alice",
+      },
+    });
+
+    nowMs = 50;
+    await runtime.processPendingTicks(nowMs);
+    await Bun.sleep(0);
+
+    expect(receivedTps.length).toBe(1);
+    expect(receivedTps[0]).toBeCloseTo(20, 5);
+    expect(runtime.getTickStats().smoothedTps).toBeCloseTo(20, 5);
+
+    await runtime.shutdown();
+    client.close();
+  } finally {
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
 test("server runtime caps catch-up work when the authoritative tick loop falls behind", async () => {
   const rootDir = await mkdtemp(join(tmpdir(), "craftvale-server-runtime-cap-"));
   let nowMs = 0;

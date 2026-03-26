@@ -28,6 +28,7 @@ export interface ServerTickStats {
   tickIntervalMs: number;
   maxCatchUpTicks: number;
   lastTickDurationMs: number;
+  smoothedTps: number | null;
   droppedCatchUpTicks: number;
 }
 
@@ -43,6 +44,7 @@ export class ServerRuntime {
   private nextIntentSequence = 1;
   private tickCount = 0;
   private lastTickDurationMs = 0;
+  private smoothedTps: number | null = null;
   private droppedCatchUpTicks = 0;
 
   public constructor(
@@ -148,6 +150,7 @@ export class ServerRuntime {
       tickIntervalMs: this.tickIntervalMs,
       maxCatchUpTicks: this.maxCatchUpTicks,
       lastTickDurationMs: this.lastTickDurationMs,
+      smoothedTps: this.smoothedTps,
       droppedCatchUpTicks: this.droppedCatchUpTicks,
     };
   }
@@ -262,10 +265,13 @@ export class ServerRuntime {
     const startedAt = this.now();
     const result = await this.world.runTick(intents, this.tickIntervalMs / 1000);
     this.lastTickDurationMs = Math.max(0, this.now() - startedAt);
+    const effectiveTps = 1000 / Math.max(this.tickIntervalMs, this.lastTickDurationMs || this.tickIntervalMs);
+    this.smoothedTps = this.smoothedTps === null
+      ? effectiveTps
+      : this.smoothedTps * 0.9 + effectiveTps * 0.1;
     this.tickCount += 1;
 
     if (this.lastTickDurationMs > this.tickIntervalMs) {
-      const effectiveTps = 1000 / this.lastTickDurationMs;
       this.options.logInfo?.(
         `server tick overran in world "${this.world.summary.name}" (${this.lastTickDurationMs.toFixed(1)} ms, ${effectiveTps.toFixed(1)} TPS)`,
       );
@@ -279,6 +285,13 @@ export class ServerRuntime {
       this.broadcast({
         type: "worldTimeUpdated",
         payload: { worldTime: result.worldTime },
+      });
+    }
+
+    if (this.smoothedTps !== null) {
+      this.broadcast({
+        type: "serverStats",
+        payload: { tps: this.smoothedTps },
       });
     }
 

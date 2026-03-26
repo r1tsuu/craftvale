@@ -78,6 +78,10 @@ export interface SaveStatusPayload {
   error?: string;
 }
 
+export interface ServerStatsPayload {
+  tps: number;
+}
+
 export type LoadingProgressStage =
   | "preparing-world"
   | "generating-startup-area"
@@ -150,6 +154,7 @@ export interface ServerEventMap {
   chatMessage: { entry: ChatEntry };
   loadingProgress: LoadingProgressPayload;
   worldTimeUpdated: { worldTime: WorldTimeState };
+  serverStats: ServerStatsPayload;
   saveStatus: SaveStatusPayload;
   worldDeleted: { name: string };
   serverError: { message: string; requestId?: string };
@@ -238,6 +243,7 @@ const SERVER_EVENT_TYPES = new Set<keyof ServerEventMap>([
   "chatMessage",
   "loadingProgress",
   "worldTimeUpdated",
+  "serverStats",
   "saveStatus",
   "worldDeleted",
   "serverError",

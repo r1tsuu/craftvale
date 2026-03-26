@@ -52,6 +52,7 @@ import type {
 } from "@craftvale/core/shared";
 import type { ClientSettings } from "./types.ts";
 import { evaluateUi, type UiResolvedComponent } from "./ui/components.ts";
+import { buildDebugOverlayText } from "./ui/debug-overlay.ts";
 import { buildPlayHud } from "./ui/hud.ts";
 import { buildLoadingScreen } from "./ui/loading.ts";
 import { buildMainMenu } from "./ui/menu.ts";
@@ -89,6 +90,7 @@ export interface GameAppState {
   previousTime: number;
   accumulator: number;
   smoothedFps: number;
+  serverTps: number | null;
   pendingFixedStepInputEdges: PendingFixedStepInputEdges;
   firstPersonSwingRemaining: number;
   appMode: AppMode;
@@ -135,6 +137,7 @@ export class GameApp {
       previousTime: 0,
       accumulator: 0,
       smoothedFps: 60,
+      serverTps: null,
       pendingFixedStepInputEdges: createPendingFixedStepInputEdges(),
       firstPersonSwingRemaining: 0,
       appMode: "menu",
@@ -413,6 +416,7 @@ export class GameApp {
     this.clientWorldRuntime = null;
     this.connectionMode = null;
     this.connectedServerAddress = null;
+    this.state.serverTps = null;
   }
 
   private async connectLocalClient(worldName: string): Promise<void> {
@@ -624,6 +628,9 @@ export class GameApp {
       adapter.eventBus.on("worldTimeUpdated", ({ worldTime }) => {
         worldRuntime.applyWorldTime(worldTime);
       }),
+      adapter.eventBus.on("serverStats", ({ tps }) => {
+        this.state.serverTps = Math.max(0, tps);
+      }),
       adapter.eventBus.on("loadingProgress", (progress) => {
         this.applyLoadingProgress(progress);
       }),
@@ -685,60 +692,23 @@ export class GameApp {
     const playerBlockZ = Math.floor(z);
     const playerSkyLight = world.getSkyLight(playerBlockX, playerBlockY, playerBlockZ);
     const playerBlockLight = world.getBlockLight(playerBlockX, playerBlockY, playerBlockZ);
-    const focusedLightText = focusedBlock
-      ? `  FOCUS S:${world.getSkyLight(focusedBlock.x, focusedBlock.y, focusedBlock.z)} B:${world.getBlockLight(focusedBlock.x, focusedBlock.y, focusedBlock.z)}`
-      : "";
-
-    return [
-      {
-        text: `FPS: ${this.state.smoothedFps.toFixed(1)}`,
-        x: 20,
-        y: 20,
-        scale: 3,
-        color: [0.98, 0.98, 0.98],
-        shadowColor: [0.05, 0.06, 0.08],
-      },
-      {
-        text: `POS X:${x.toFixed(2)} Y:${y.toFixed(2)} Z:${z.toFixed(2)}`,
-        x: 20,
-        y: 53,
-        scale: 3,
-        color: [0.98, 0.98, 0.98],
-        shadowColor: [0.05, 0.06, 0.08],
-      },
-      {
-        text: `WORLD: ${this.state.currentWorldName ?? "NONE"}`,
-        x: 20,
-        y: 86,
-        scale: 3,
-        color: [0.98, 0.98, 0.98],
-        shadowColor: [0.05, 0.06, 0.08],
-      },
-      {
-        text: this.state.lastServerMessage || "SERVER CONNECTED",
-        x: 20,
-        y: 119,
-        scale: 2,
-        color: [0.9, 0.92, 0.95],
-        shadowColor: [0.05, 0.06, 0.08],
-      },
-      {
-        text: `ROT YAW:${yawDegrees.toFixed(1)} PITCH:${pitchDegrees.toFixed(1)}`,
-        x: 20,
-        y: 147,
-        scale: 3,
-        color: [0.98, 0.98, 0.98],
-        shadowColor: [0.05, 0.06, 0.08],
-      },
-      {
-        text: `LIGHT PLAYER S:${playerSkyLight} B:${playerBlockLight}${focusedLightText}`,
-        x: 20,
-        y: 180,
-        scale: 3,
-        color: [0.98, 0.98, 0.98],
-        shadowColor: [0.05, 0.06, 0.08],
-      },
-    ];
+    return buildDebugOverlayText({
+      fps: this.state.smoothedFps,
+      tps: this.state.serverTps,
+      worldName: this.state.currentWorldName,
+      lastServerMessage: this.state.lastServerMessage,
+      position: [x, y, z],
+      yawDegrees,
+      pitchDegrees,
+      playerSkyLight,
+      playerBlockLight,
+      focusedSkyLight: focusedBlock
+        ? world.getSkyLight(focusedBlock.x, focusedBlock.y, focusedBlock.z)
+        : null,
+      focusedBlockLight: focusedBlock
+        ? world.getBlockLight(focusedBlock.x, focusedBlock.y, focusedBlock.z)
+        : null,
+    });
   }
 
   private getCurrentBiomeName(worldX: number, worldZ: number): string | null {
