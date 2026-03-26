@@ -23,6 +23,7 @@ interface DebugIndicatorThresholds {
 export interface DebugOverlayInput {
   fps: number;
   tps: number | null;
+  tpsSourceLabel: string | null;
   worldName: string | null;
   lastServerMessage: string;
   position: readonly [number, number, number];
@@ -82,6 +83,7 @@ export const buildDebugOverlayText = (
     input.focusedSkyLight !== null && input.focusedBlockLight !== null
       ? `  FOCUS S:${input.focusedSkyLight} B:${input.focusedBlockLight}`
       : "";
+  const tpsLabel = input.tpsSourceLabel ? `TPS ${input.tpsSourceLabel}` : "TPS";
 
   return [
     {
@@ -93,7 +95,7 @@ export const buildDebugOverlayText = (
       shadowColor: DEBUG_INDICATOR_COLORS.shadow,
     },
     {
-      text: input.tps === null ? "TPS: --" : `TPS: ${input.tps.toFixed(1)}`,
+      text: input.tps === null ? `${tpsLabel}: --` : `${tpsLabel}: ${input.tps.toFixed(1)}`,
       x: DEBUG_LINE_X,
       y: 20 + DEBUG_LINE_GAP,
       scale: DEBUG_LINE_SCALE,

@@ -11,6 +11,7 @@ test("debug overlay includes TPS and colors healthy indicators as good", () => {
   const overlay = buildDebugOverlayText({
     fps: 60,
     tps: 20,
+    tpsSourceLabel: "WORKER",
     worldName: "Alpha",
     lastServerMessage: "",
     position: [12.5, 70, -4.25],
@@ -29,7 +30,7 @@ test("debug overlay includes TPS and colors healthy indicators as good", () => {
         color: DEBUG_INDICATOR_COLORS.good,
       }),
       expect.objectContaining({
-        text: "TPS: 20.0",
+        text: "TPS WORKER: 20.0",
         color: DEBUG_INDICATOR_COLORS.good,
       }),
       expect.objectContaining({
@@ -44,6 +45,7 @@ test("debug overlay colors degraded indicators and shows missing TPS neutrally",
   const overlay = buildDebugOverlayText({
     fps: 22,
     tps: null,
+    tpsSourceLabel: "WS",
     worldName: null,
     lastServerMessage: "SERVER CONNECTED",
     position: [0, 65, 0],
@@ -62,7 +64,7 @@ test("debug overlay colors degraded indicators and shows missing TPS neutrally",
         color: DEBUG_INDICATOR_COLORS.bad,
       }),
       expect.objectContaining({
-        text: "TPS: --",
+        text: "TPS WS: --",
         color: DEBUG_INDICATOR_COLORS.neutral,
       }),
       expect.objectContaining({

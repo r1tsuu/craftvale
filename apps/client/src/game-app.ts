@@ -692,9 +692,15 @@ export class GameApp {
     const playerBlockZ = Math.floor(z);
     const playerSkyLight = world.getSkyLight(playerBlockX, playerBlockY, playerBlockZ);
     const playerBlockLight = world.getBlockLight(playerBlockX, playerBlockY, playerBlockZ);
+    const tpsSourceLabel = this.connectionMode === "local"
+      ? "WORKER"
+      : this.connectionMode === "remote"
+      ? "WS"
+      : null;
     return buildDebugOverlayText({
       fps: this.state.smoothedFps,
       tps: this.state.serverTps,
+      tpsSourceLabel,
       worldName: this.state.currentWorldName,
       lastServerMessage: this.state.lastServerMessage,
       position: [x, y, z],
