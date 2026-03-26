@@ -305,6 +305,22 @@ export const AUTHORED_BLOCK_SPECS = [
       side: 'diamond-ore',
     },
   },
+  {
+    key: 'playerArm',
+    name: 'player arm',
+    collidable: false,
+    breakable: false,
+    occlusion: 'none',
+    renderPass: 'opaque',
+    dropItemKey: null,
+    emittedLightLevel: 0,
+    color: [0.77, 0.61, 0.47],
+    tiles: {
+      top: 'arm',
+      bottom: 'arm',
+      side: 'arm',
+    },
+  },
 ] as const satisfies readonly AuthoredBlockSpec[]
 
 export const AUTHORED_ITEM_SPECS = [

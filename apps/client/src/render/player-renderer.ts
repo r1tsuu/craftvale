@@ -15,6 +15,7 @@ import type { PlayerController } from '../game/player.ts'
 import {
   FIRST_PERSON_ARM_CAMERA_OFFSET,
   FIRST_PERSON_ARM_PART,
+  FIRST_PERSON_ARM_ROLL,
   FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET,
   FIRST_PERSON_HELD_ITEM_SCALE,
   getFirstPersonSwingAmount,
@@ -82,10 +83,53 @@ const createModelMatrix = (
   ])
 }
 
+const createModelMatrixWithRoll = (
+  position: Vec3,
+  scale: readonly [number, number, number],
+  forward: Vec3,
+  roll: number,
+): Float32Array => {
+  const basis = createOrientationBasis(forward)
+  const cosR = Math.cos(roll)
+  const sinR = Math.sin(roll)
+  const right = {
+    x: basis.right.x * cosR + basis.up.x * sinR,
+    y: basis.right.y * cosR + basis.up.y * sinR,
+    z: basis.right.z * cosR + basis.up.z * sinR,
+  }
+  const up = {
+    x: -basis.right.x * sinR + basis.up.x * cosR,
+    y: -basis.right.y * sinR + basis.up.y * cosR,
+    z: -basis.right.z * sinR + basis.up.z * cosR,
+  }
+  return new Float32Array([
+    right.x * scale[0],
+    right.y * scale[0],
+    right.z * scale[0],
+    0,
+    up.x * scale[1],
+    up.y * scale[1],
+    up.z * scale[1],
+    0,
+    basis.back.x * scale[2],
+    basis.back.y * scale[2],
+    basis.back.z * scale[2],
+    0,
+    position.x,
+    position.y,
+    position.z,
+    1,
+  ])
+}
+
 const addScaled = (base: Vec3, direction: Vec3, magnitude: number): Vec3 =>
   addVec3(base, scaleVec3(direction, magnitude))
 
 export class PlayerRenderer {
+  private bobPhase = 0
+  private bobOffset = 0
+  private prevPosition: readonly [number, number, number] | null = null
+
   public constructor(
     private readonly setModelMatrix: (matrix: Float32Array) => void,
     private readonly getBlockMesh: (blockId: BlockId) => RenderableMesh | null,
@@ -103,11 +147,33 @@ export class PlayerRenderer {
     heldBlockId: BlockId | null,
     swingProgress = 0,
   ): void {
+    const BOB_FREQUENCY = 2.5
+    const BOB_AMPLITUDE = 0.014
+    const BOB_DECAY = 0.85
+    const pos = player.state.position
+    if (this.prevPosition !== null) {
+      const dx = pos[0] - this.prevPosition[0]
+      const dz = pos[2] - this.prevPosition[2]
+      const horizDist = Math.sqrt(dx * dx + dz * dz)
+      if (horizDist > 0.001) {
+        this.bobPhase += horizDist * BOB_FREQUENCY
+        this.bobOffset = Math.sin(this.bobPhase) * BOB_AMPLITUDE
+      } else {
+        this.bobOffset *= BOB_DECAY
+        if (Math.abs(this.bobOffset) < 0.0001) this.bobOffset = 0
+      }
+    }
+    this.prevPosition = pos
+
     const eye = player.getEyePositionVec3()
     const cameraForward = player.getForwardVector()
     const cameraBasis = createOrientationBasis(cameraForward)
     const swingAmount = getFirstPersonSwingAmount(swingProgress)
 
+    const armForward = createForwardVector(
+      player.state.yaw - 0.55 + swingAmount * 0.35,
+      player.state.pitch + 0.05 - swingAmount * 0.5,
+    )
     const armPosition = addScaled(
       addScaled(
         addScaled(
@@ -116,22 +182,20 @@ export class PlayerRenderer {
           FIRST_PERSON_ARM_CAMERA_OFFSET.right - swingAmount * 0.18,
         ),
         cameraBasis.up,
-        FIRST_PERSON_ARM_CAMERA_OFFSET.up - swingAmount * 0.14,
+        FIRST_PERSON_ARM_CAMERA_OFFSET.up - swingAmount * 0.14 + this.bobOffset,
       ),
       cameraForward,
       FIRST_PERSON_ARM_CAMERA_OFFSET.forward - swingAmount * 0.1,
     )
-    this.renderCuboid(
-      FIRST_PERSON_ARM_PART.blockId,
-      armPosition,
-      FIRST_PERSON_ARM_PART.size,
-      createForwardVector(
-        player.state.yaw - 0.5 + swingAmount * 0.35,
-        player.state.pitch + 0.7 - swingAmount * 0.5,
-      ),
-    )
 
     if (heldBlockId === null) {
+      this.renderCuboidWithRoll(
+        FIRST_PERSON_ARM_PART.blockId,
+        armPosition,
+        FIRST_PERSON_ARM_PART.size,
+        armForward,
+        FIRST_PERSON_ARM_ROLL,
+      )
       return
     }
 
@@ -143,7 +207,7 @@ export class PlayerRenderer {
           FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET.right - swingAmount * 0.14,
         ),
         cameraBasis.up,
-        FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET.up - swingAmount * 0.18,
+        FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET.up - swingAmount * 0.18 + this.bobOffset,
       ),
       cameraForward,
       FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET.forward - swingAmount * 0.12,
@@ -153,8 +217,8 @@ export class PlayerRenderer {
       heldPosition,
       [FIRST_PERSON_HELD_ITEM_SCALE, FIRST_PERSON_HELD_ITEM_SCALE, FIRST_PERSON_HELD_ITEM_SCALE],
       createForwardVector(
-        player.state.yaw - 0.35 + swingAmount * 0.28,
-        player.state.pitch + 0.42 - swingAmount * 0.42,
+        player.state.yaw - 0.55 + swingAmount * 0.28,
+        player.state.pitch + 0.32 - swingAmount * 0.42,
       ),
     )
   }
@@ -189,6 +253,22 @@ export class PlayerRenderer {
     }
 
     this.setModelMatrix(createModelMatrix(position, scale, forward))
+    this.drawMesh(mesh)
+  }
+
+  private renderCuboidWithRoll(
+    blockId: BlockId,
+    position: Vec3,
+    scale: readonly [number, number, number],
+    forward: Vec3,
+    roll: number,
+  ): void {
+    const mesh = this.getBlockMesh(blockId)
+    if (!mesh) {
+      return
+    }
+
+    this.setModelMatrix(createModelMatrixWithRoll(position, scale, forward, roll))
     this.drawMesh(mesh)
   }
 }

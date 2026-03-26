@@ -101,6 +101,8 @@ export class VoxelRenderer {
   private readonly modelLocation: number
   private readonly atlasSamplerLocation: number
   private readonly daylightLocation: number
+  private readonly forceSkyLightLocation: number
+  private readonly forceBlockLightLocation: number
   private readonly atlasTexture: number
   private readonly meshes = new Map<string, GpuChunkMesh>()
   private readonly blockCubeMeshes = new Map<BlockId, GpuMesh | null>()
@@ -145,6 +147,11 @@ export class VoxelRenderer {
     this.modelLocation = nativeBridge.gl.getUniformLocation(this.program, 'uModel')
     this.atlasSamplerLocation = nativeBridge.gl.getUniformLocation(this.program, 'uAtlas')
     this.daylightLocation = nativeBridge.gl.getUniformLocation(this.program, 'uDaylight')
+    this.forceSkyLightLocation = nativeBridge.gl.getUniformLocation(this.program, 'uForceSkyLight')
+    this.forceBlockLightLocation = nativeBridge.gl.getUniformLocation(
+      this.program,
+      'uForceBlockLight',
+    )
     this.atlasTexture = this.createAtlasTexture()
     this.focusHighlightRenderer = new FocusHighlightRenderer(nativeBridge)
     this.playerRenderer = new PlayerRenderer(
@@ -270,7 +277,23 @@ export class VoxelRenderer {
 
     this.nativeBridge.gl.bindVertexArray(0)
     this.focusHighlightRenderer.render(focusedBlock, viewProjection)
-    this.prepareVoxelProgram(viewProjection, daylightFactor)
+    // Switch to viewmodel projection (fixed 70° FOV)
+    const vmViewProjection = player.getViewModelViewProjection(aspect)
+    this.nativeBridge.gl.useProgram(this.program)
+    this.nativeBridge.gl.uniformMatrix4fv(this.viewProjectionLocation, vmViewProjection)
+    // Sample env lighting at player eye
+    const eyePos = player.getEyePositionVec3()
+    const eyeBlockX = Math.floor(eyePos.x)
+    const eyeBlockY = Math.floor(eyePos.y)
+    const eyeBlockZ = Math.floor(eyePos.z)
+    this.nativeBridge.gl.uniform1f(
+      this.forceSkyLightLocation,
+      world.getSkyLight(eyeBlockX, eyeBlockY, eyeBlockZ),
+    )
+    this.nativeBridge.gl.uniform1f(
+      this.forceBlockLightLocation,
+      world.getBlockLight(eyeBlockX, eyeBlockY, eyeBlockZ),
+    )
     this.nativeBridge.gl.disable(GL.DEPTH_TEST)
     this.playerRenderer.renderFirstPersonViewModel(
       player,
@@ -279,6 +302,9 @@ export class VoxelRenderer {
     )
     this.nativeBridge.gl.bindVertexArray(0)
     this.nativeBridge.gl.enable(GL.DEPTH_TEST)
+    // Reset overrides
+    this.nativeBridge.gl.uniform1f(this.forceSkyLightLocation, -1)
+    this.nativeBridge.gl.uniform1f(this.forceBlockLightLocation, -1)
     this.textOverlayRenderer.render(
       [
         ...overlayText,
@@ -296,6 +322,8 @@ export class VoxelRenderer {
     this.nativeBridge.gl.bindTexture(GL.TEXTURE_2D, this.atlasTexture)
     this.nativeBridge.gl.uniform1i(this.atlasSamplerLocation, 0)
     this.nativeBridge.gl.uniform1f(this.daylightLocation, daylightFactor)
+    this.nativeBridge.gl.uniform1f(this.forceSkyLightLocation, -1)
+    this.nativeBridge.gl.uniform1f(this.forceBlockLightLocation, -1)
     this.nativeBridge.gl.uniformMatrix4fv(this.viewProjectionLocation, viewProjection)
     this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL)
   }

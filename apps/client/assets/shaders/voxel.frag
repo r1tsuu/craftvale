@@ -7,6 +7,8 @@ in float vBlockLight;
 
 uniform sampler2D uAtlas;
 uniform float uDaylight;
+uniform float uForceSkyLight;
+uniform float uForceBlockLight;
 
 out vec4 fragColor;
 
@@ -16,8 +18,10 @@ void main() {
     discard;
   }
 
-  float skyLight = clamp(vSkyLight / 15.0, 0.0, 1.0) * uDaylight;
-  float blockLight = clamp(vBlockLight / 15.0, 0.0, 1.0);
+  float rawSkyLight = uForceSkyLight >= 0.0 ? uForceSkyLight : vSkyLight;
+  float rawBlockLight = uForceBlockLight >= 0.0 ? uForceBlockLight : vBlockLight;
+  float skyLight = clamp(rawSkyLight / 15.0, 0.0, 1.0) * uDaylight;
+  float blockLight = clamp(rawBlockLight / 15.0, 0.0, 1.0);
   float brightness = max(0.06, max(skyLight, blockLight));
   fragColor = vec4(sampled.rgb * vShade * brightness, sampled.a);
 }

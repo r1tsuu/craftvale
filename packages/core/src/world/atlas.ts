@@ -23,6 +23,7 @@ export type AtlasTileId =
   | 'iron-ore'
   | 'gold-ore'
   | 'diamond-ore'
+  | 'arm'
 
 export interface AtlasTileCoord {
   x: number
@@ -55,6 +56,7 @@ export const AtlasTiles: Record<AtlasTileId, AtlasTileCoord> = {
   'iron-ore': { x: 3, y: 3 },
   'gold-ore': { x: 0, y: 4 },
   'diamond-ore': { x: 1, y: 4 },
+  arm: { x: 2, y: 4 },
 }
 
 export const ATLAS_TILE_IDS = Object.keys(AtlasTiles) as AtlasTileId[]

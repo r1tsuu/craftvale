@@ -19,6 +19,7 @@ export const BLOCK_IDS = {
   ironOre: 14,
   goldOre: 15,
   diamondOre: 16,
+  playerArm: 17,
 } as const;
 
 export const ITEM_IDS = {
@@ -45,5 +46,5 @@ export type ItemKey = keyof typeof ITEM_IDS;
 export type BlockId = (typeof BLOCK_IDS)[BlockKey];
 export type ItemId = (typeof ITEM_IDS)[ItemKey];
 
-export const BLOCK_ID_VALUES = [BLOCK_IDS.air, BLOCK_IDS.grass, BLOCK_IDS.dirt, BLOCK_IDS.stone, BLOCK_IDS.log, BLOCK_IDS.leaves, BLOCK_IDS.sand, BLOCK_IDS.planks, BLOCK_IDS.cobblestone, BLOCK_IDS.brick, BLOCK_IDS.bedrock, BLOCK_IDS.glowstone, BLOCK_IDS.water, BLOCK_IDS.coalOre, BLOCK_IDS.ironOre, BLOCK_IDS.goldOre, BLOCK_IDS.diamondOre] as const;
+export const BLOCK_ID_VALUES = [BLOCK_IDS.air, BLOCK_IDS.grass, BLOCK_IDS.dirt, BLOCK_IDS.stone, BLOCK_IDS.log, BLOCK_IDS.leaves, BLOCK_IDS.sand, BLOCK_IDS.planks, BLOCK_IDS.cobblestone, BLOCK_IDS.brick, BLOCK_IDS.bedrock, BLOCK_IDS.glowstone, BLOCK_IDS.water, BLOCK_IDS.coalOre, BLOCK_IDS.ironOre, BLOCK_IDS.goldOre, BLOCK_IDS.diamondOre, BLOCK_IDS.playerArm] as const;
 export const ITEM_ID_VALUES = [ITEM_IDS.empty, ITEM_IDS.grass, ITEM_IDS.dirt, ITEM_IDS.stone, ITEM_IDS.log, ITEM_IDS.leaves, ITEM_IDS.sand, ITEM_IDS.planks, ITEM_IDS.cobblestone, ITEM_IDS.brick, ITEM_IDS.glowstone, ITEM_IDS.coalOre, ITEM_IDS.ironOre, ITEM_IDS.goldOre, ITEM_IDS.diamondOre] as const;

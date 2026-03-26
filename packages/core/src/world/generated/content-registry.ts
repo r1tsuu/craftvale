@@ -306,6 +306,22 @@ export const GENERATED_BLOCK_DEFINITIONS = {
       side: "diamond-ore",
     },
   },
+  [BLOCK_IDS.playerArm]: {
+    id: BLOCK_IDS.playerArm,
+    name: "player arm",
+    collidable: false,
+    breakable: false,
+    occlusion: "none",
+    renderPass: "opaque",
+    dropItemId: null,
+    emittedLightLevel: 0,
+    color: [0.77, 0.61, 0.47],
+    tiles: {
+      top: "arm",
+      bottom: "arm",
+      side: "arm",
+    },
+  },
 } as const satisfies Record<BlockId, GeneratedBlockDefinition>;
 
 export const GENERATED_ITEM_DEFINITIONS = {

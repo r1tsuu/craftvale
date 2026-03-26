@@ -20,7 +20,7 @@ export interface CuboidPartDefinition {
 
 export const PLAYER_HEAD_BLOCK_ID: BlockId = BLOCK_IDS.sand
 export const PLAYER_TORSO_BLOCK_ID: BlockId = BLOCK_IDS.brick
-export const PLAYER_ARM_BLOCK_ID: BlockId = BLOCK_IDS.sand
+export const PLAYER_ARM_BLOCK_ID: BlockId = BLOCK_IDS.playerArm
 export const PLAYER_LEG_BLOCK_ID: BlockId = BLOCK_IDS.cobblestone
 
 export const PLAYER_BODY_PARTS: readonly CuboidPartDefinition[] = [
@@ -68,24 +68,26 @@ export const PLAYER_NAMEPLATE_HEIGHT = 2.15
 export const FIRST_PERSON_ARM_PART: CuboidPartDefinition = {
   id: 'first-person-arm',
   blockId: PLAYER_ARM_BLOCK_ID,
-  size: [0.22, 0.72, 0.22],
+  size: [0.14, 0.6, 0.14],
   offset: [0, 0, 0],
   pitchFollowsLook: true,
 }
 
 export const FIRST_PERSON_ARM_CAMERA_OFFSET = {
-  right: 0.34,
-  up: -0.28,
-  forward: 0.5,
+  right: 0.58,
+  up: -0.44,
+  forward: 0.50,
 } as const
 
 export const FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET = {
-  right: 0.2,
-  up: -0.38,
-  forward: 0.62,
+  right: 0.50,
+  up: -0.36,
+  forward: 0.52,
 } as const
 
-export const FIRST_PERSON_HELD_ITEM_SCALE = 0.28
+export const FIRST_PERSON_ARM_ROLL = 0.35
+
+export const FIRST_PERSON_HELD_ITEM_SCALE = 0.32
 
 export const getFirstPersonSwingAmount = (progress: number): number => {
   const clamped = Math.min(Math.max(progress, 0), 1)

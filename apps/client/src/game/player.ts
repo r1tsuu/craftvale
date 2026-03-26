@@ -24,6 +24,7 @@ const JUMP_VELOCITY = 7.5
 const GRAVITY = 24
 const BASE_MOUSE_SENSITIVITY = 0.0025
 const DEFAULT_FOV_DEGREES = 70
+const VIEWMODEL_FOV_DEGREES = 70
 const PLAYER_RADIUS = 0.32
 const PLAYER_HEIGHT = 1.8
 const PLAYER_EYE_HEIGHT = 1.62
@@ -195,6 +196,19 @@ export class PlayerController {
     const target = addVec3(eye, this.getForwardVector())
     const view = createLookAtMat4(eye, target, WORLD_UP)
     const projection = createPerspectiveMat4((this.fovDegrees * Math.PI) / 180, aspect, 0.1, 500)
+    return multiplyMat4(projection, view)
+  }
+
+  public getViewModelViewProjection(aspect: number): Float32Array {
+    const eye = this.getEyePositionVec3()
+    const target = addVec3(eye, this.getForwardVector())
+    const view = createLookAtMat4(eye, target, WORLD_UP)
+    const projection = createPerspectiveMat4(
+      (VIEWMODEL_FOV_DEGREES * Math.PI) / 180,
+      aspect,
+      0.01,
+      5.0,
+    )
     return multiplyMat4(projection, view)
   }
 

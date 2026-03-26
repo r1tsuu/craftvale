@@ -53,6 +53,8 @@ export class ItemOverlayRenderer {
   private readonly modelLocation: number
   private readonly atlasSamplerLocation: number
   private readonly daylightLocation: number
+  private readonly forceSkyLightLocation: number
+  private readonly forceBlockLightLocation: number
   private readonly atlasTexture: number
   private readonly blockMeshes = new Map<BlockId, GpuMesh | null>()
 
@@ -86,6 +88,11 @@ export class ItemOverlayRenderer {
     this.modelLocation = nativeBridge.gl.getUniformLocation(this.program, 'uModel')
     this.atlasSamplerLocation = nativeBridge.gl.getUniformLocation(this.program, 'uAtlas')
     this.daylightLocation = nativeBridge.gl.getUniformLocation(this.program, 'uDaylight')
+    this.forceSkyLightLocation = nativeBridge.gl.getUniformLocation(this.program, 'uForceSkyLight')
+    this.forceBlockLightLocation = nativeBridge.gl.getUniformLocation(
+      this.program,
+      'uForceBlockLight',
+    )
     this.atlasTexture = this.createAtlasTexture()
   }
 
@@ -118,6 +125,8 @@ export class ItemOverlayRenderer {
     this.nativeBridge.gl.bindTexture(GL.TEXTURE_2D, this.atlasTexture)
     this.nativeBridge.gl.uniform1i(this.atlasSamplerLocation, 0)
     this.nativeBridge.gl.uniform1f(this.daylightLocation, 1)
+    this.nativeBridge.gl.uniform1f(this.forceSkyLightLocation, -1)
+    this.nativeBridge.gl.uniform1f(this.forceBlockLightLocation, -1)
     this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, ITEM_MODEL)
 
     for (const item of drawableItems) {
