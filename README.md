@@ -193,14 +193,14 @@ Content authoring and generation now live in [`architecture.md`](./architecture.
 
 ## Code Size Snapshot
 
-Source-line snapshot as of 2026-03-25 using `wc -l` over TypeScript, C, and shader files. This excludes docs, JSON/package metadata, lockfiles, and binary assets.
+Source-line snapshot as of 2026-03-26 using `wc -l` over TypeScript, C, and shader files. This excludes docs, JSON/package metadata, lockfiles, and binary assets.
 
-- `apps/client/src`: 9,310 lines of TypeScript
-- `apps/client/assets/shaders`: 90 lines of GLSL
-- `apps/dedicated-server`: 338 lines of TypeScript
-- `packages/core`: 6,953 lines of TypeScript
-- `apps/cli/src`: 723 lines of TypeScript
+- `apps/client/src`: 8,782 lines of TypeScript
+- `apps/client/assets/shaders`: 118 lines of GLSL
+- `apps/dedicated-server`: 343 lines of TypeScript
+- `packages/core`: 8,548 lines of TypeScript
+- `apps/cli/src`: 1,160 lines of TypeScript
 - `native`: 459 lines of C
-- `tests`: 3,999 lines of TypeScript
-- Total source lines including tests: 21,872
-- Total source lines excluding tests: 17,873
+- `tests`: 5,029 lines of TypeScript
+- Total source lines including tests: 24,439
+- Total source lines excluding tests: 19,410
