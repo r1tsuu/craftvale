@@ -2,8 +2,8 @@ import type { LoadingProgressPayload } from '@craftvale/core/shared'
 
 import { STARTUP_CHUNK_RADIUS } from '@craftvale/core/shared'
 
-import type { UiResolvedComponent } from '../ui/components.ts'
 import type { TextDrawCommand } from '../render/text.ts'
+import type { UiResolvedComponent } from '../ui/components.ts'
 
 import { evaluateUi } from '../ui/components.ts'
 import { buildLoadingScreen } from '../ui/loading.ts'
@@ -114,7 +114,7 @@ export class LoadingController {
     return Math.max(0, Math.min(STARTUP_CHUNK_RADIUS, renderDistance))
   }
 
-  public failLoading(token: number, statusText: string): void {
+  public failLoading(token: number): void {
     if (!this.isLoadingTokenActive(token)) {
       return
     }

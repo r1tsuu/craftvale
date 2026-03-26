@@ -1,4 +1,5 @@
-import type { Vec3 } from '@craftvale/core/shared'
+import type { Vec3 ,
+  VoxelWorld} from '@craftvale/core/shared'
 
 import {
   Biomes,
@@ -9,15 +10,15 @@ import {
   getMainInventorySlotIndex,
   getPlacedBlockIdForItem,
   getSelectedInventorySlot,
-  raycastVoxel,
-  VoxelWorld,
+  raycastVoxel
 } from '@craftvale/core/shared'
 import { heapStats } from 'bun:jsc'
 
+import type { PlayerController } from '../game/player.ts'
 import type { TextDrawCommand } from '../render/text.ts'
-import type { UiResolvedComponent } from '../ui/components.ts'
 import type { ClientSettings } from '../types.ts'
 import type { InputState } from '../types.ts'
+import type { UiResolvedComponent } from '../ui/components.ts'
 import type { IClientAdapter } from './client-adapter.ts'
 import type { ClientWorldRuntime } from './world-runtime.ts'
 
@@ -26,7 +27,6 @@ import {
   createPendingFixedStepInputEdges,
   type PendingFixedStepInputEdges,
 } from '../game/fixed-step-input.ts'
-import { PlayerController } from '../game/player.ts'
 import {
   isGameplaySuppressed,
   type PauseScreen,
@@ -34,9 +34,9 @@ import {
   resolvePlayChatTypedText,
   resolvePlayEscapeAction,
 } from '../game/play-overlay.ts'
+import { evaluateUi } from '../ui/components.ts'
 import { buildDebugOverlayText } from '../ui/debug-overlay.ts'
 import { buildPlayHud } from '../ui/hud.ts'
-import { evaluateUi } from '../ui/components.ts'
 import { createDefaultClientSettings } from './client-settings.ts'
 
 const FIXED_TIMESTEP = 1 / 60

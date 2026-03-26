@@ -1,4 +1,5 @@
 import type { JoinedWorldPayload, PlayerName } from '@craftvale/core/shared'
+import type { Vec3 } from '@craftvale/core/shared'
 
 import {
   createEmptyInventory,
@@ -14,7 +15,6 @@ import type { LocalWorldStorage } from './local-world-storage.ts'
 import type { JsonSavedServerStorage } from './saved-servers.ts'
 
 import {
-  applyFixedStepInputEdges,
   createPendingFixedStepInputEdges,
   type PendingFixedStepInputEdges,
   queueFixedStepInputEdges,
@@ -23,18 +23,15 @@ import { shouldLockCursor } from '../game/play-overlay.ts'
 import { PlayerController } from '../game/player.ts'
 import { NativeBridge } from '../platform/native.ts'
 import { VoxelRenderer } from '../render/renderer.ts'
-import type { Vec3 } from '@craftvale/core/shared'
+import { type IClientAdapter } from './client-adapter.ts'
 import {
   cloneClientSettings,
   createDefaultClientSettings,
-  type JsonClientSettingsStorage as _JsonClientSettingsStorage,
   normalizeClientSettings,
 } from './client-settings.ts'
-import { type IClientAdapter } from './client-adapter.ts'
 import { LoadingController } from './loading-controller.ts'
 import { MenuController } from './menu-controller.ts'
 import { PlayController } from './play-controller.ts'
-import { setMenuBusy, setMenuStatus } from './menu-state.ts'
 import { WebSocketClientAdapter } from './websocket-client-adapter.ts'
 import { getBaseWindowTitle, getSessionWindowTitle } from './window-title.ts'
 import { WorkerClientAdapter } from './worker-client-adapter.ts'

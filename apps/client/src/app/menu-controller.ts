@@ -1,9 +1,9 @@
 import type { PlayerName } from '@craftvale/core/shared'
 
-import type { UiResolvedComponent } from '../ui/components.ts'
 import type { TextDrawCommand } from '../render/text.ts'
 import type { ClientSettings } from '../types.ts'
 import type { InputState } from '../types.ts'
+import type { UiResolvedComponent } from '../ui/components.ts'
 import type { LocalWorldStorage } from './local-world-storage.ts'
 import type { JsonSavedServerStorage } from './saved-servers.ts'
 
