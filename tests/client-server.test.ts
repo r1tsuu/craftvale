@@ -407,6 +407,25 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
     harness.client.eventBus.send({
       type: 'submitChat',
       payload: {
+        text: '/seed',
+      },
+    })
+    await Bun.sleep(0)
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toContain('World seed: 42')
+
+    harness.client.eventBus.send({
+      type: 'submitChat',
+      payload: {
+        text: '/teleport 20 80 -6',
+      },
+    })
+    await Bun.sleep(0)
+    expect(harness.worldRuntime.getClientPlayer()?.state.position).toEqual([20, 80, -6])
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toContain('Teleported to X:20 Y:80 Z:-6')
+
+    harness.client.eventBus.send({
+      type: 'submitChat',
+      payload: {
         text: 'hello world',
       },
     })

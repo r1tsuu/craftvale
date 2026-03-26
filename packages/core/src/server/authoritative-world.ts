@@ -237,6 +237,23 @@ export class AuthoritativeWorld {
     return this.playerSystem.setPlayerGamemode(entityId, gamemode)
   }
 
+  public async teleportPlayer(
+    entityId: EntityId,
+    position: readonly [number, number, number],
+  ): Promise<PlayerSnapshot> {
+    await this.ensureInitialized()
+    const snapshot = this.playerSystem.getPlayerSnapshot(entityId)
+    return this.playerSystem.updatePlayerState(
+      entityId,
+      {
+        position: [...position],
+        yaw: snapshot.state.yaw,
+        pitch: snapshot.state.pitch,
+      },
+      snapshot.flying,
+    )
+  }
+
   public async getChunkPayload(coord: ChunkCoord): Promise<ChunkPayload> {
     await this.ensureInitialized()
     return this.toChunkPayload((await this.ensureChunkLoaded(coord)).chunk)

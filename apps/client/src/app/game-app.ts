@@ -7,6 +7,7 @@ import {
   createEmptyInventory,
   createLogger,
   getBiomeAt,
+  getBlockKey,
   getItemDisplayName,
   getMainInventorySlotIndex,
   getPlacedBlockIdForItem,
@@ -15,6 +16,7 @@ import {
   STARTUP_CHUNK_RADIUS,
   VoxelWorld,
 } from '@craftvale/core/shared'
+import { heapStats } from 'bun:jsc'
 
 import type { TextDrawCommand } from '../render/text.ts'
 import type { ClientSettings } from '../types.ts'
@@ -70,6 +72,13 @@ import { ClientWorldRuntime } from './world-runtime.ts'
 const FIXED_TIMESTEP = 1 / 60
 const FIRST_PERSON_SWING_DURATION = 0.18
 const appLogger = createLogger('app', 'cyan')
+
+const formatMegabytes = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+
+const getDebugMemoryUsageText = (): string => {
+  const stats = heapStats()
+  return `${formatMegabytes(stats.heapSize)} / ${formatMegabytes(stats.heapCapacity)} (+${formatMegabytes(stats.extraMemorySize)})`
+}
 
 export type AppMode = 'menu' | 'loading' | 'playing'
 
@@ -660,6 +669,9 @@ export class GameApp {
     const playerBlockZ = Math.floor(z)
     const playerSkyLight = world.getSkyLight(playerBlockX, playerBlockY, playerBlockZ)
     const playerBlockLight = world.getBlockLight(playerBlockX, playerBlockY, playerBlockZ)
+    const focusedBlockKey = focusedBlock
+      ? getBlockKey(world.getBlock(focusedBlock.x, focusedBlock.y, focusedBlock.z))
+      : null
     const tpsSourceLabel =
       this.connectionMode === 'local' ? 'WORKER' : this.connectionMode === 'remote' ? 'WS' : null
     return buildDebugOverlayText({
@@ -667,12 +679,15 @@ export class GameApp {
       tps: this.state.serverTps,
       tpsSourceLabel,
       worldName: this.state.currentWorldName,
+      memoryUsageText: getDebugMemoryUsageText(),
+      loadedChunkCount: world.getLoadedChunkCount(),
       lastServerMessage: this.state.lastServerMessage,
       position: [x, y, z],
       yawDegrees,
       pitchDegrees,
       playerSkyLight,
       playerBlockLight,
+      focusedBlockKey,
       focusedSkyLight: focusedBlock
         ? world.getSkyLight(focusedBlock.x, focusedBlock.y, focusedBlock.z)
         : null,

@@ -14,12 +14,15 @@ test('debug overlay includes TPS and colors healthy indicators as good', () => {
     tps: 20,
     tpsSourceLabel: 'WORKER',
     worldName: 'Alpha',
+    memoryUsageText: '12.3MB / 48.0MB (+1.4MB)',
+    loadedChunkCount: 25,
     lastServerMessage: '',
     position: [12.5, 70, -4.25],
     yawDegrees: 45,
     pitchDegrees: -10,
     playerSkyLight: 15,
     playerBlockLight: 0,
+    focusedBlockKey: 'glowstone',
     focusedSkyLight: 15,
     focusedBlockLight: 8,
   })
@@ -35,6 +38,15 @@ test('debug overlay includes TPS and colors healthy indicators as good', () => {
         color: DEBUG_INDICATOR_COLORS.good,
       }),
       expect.objectContaining({
+        text: 'MEM: 12.3MB / 48.0MB (+1.4MB)',
+      }),
+      expect.objectContaining({
+        text: 'CHUNKS: 25',
+      }),
+      expect.objectContaining({
+        text: 'FOCUS BLOCK: glowstone',
+      }),
+      expect.objectContaining({
         text: 'LIGHT PLAYER S:15 B:0  FOCUS S:15 B:8',
         color: DEBUG_INDICATOR_COLORS.good,
       }),
@@ -48,12 +60,15 @@ test('debug overlay colors degraded indicators and shows missing TPS neutrally',
     tps: null,
     tpsSourceLabel: 'WS',
     worldName: null,
+    memoryUsageText: '8.0MB / 48.0MB (+0.7MB)',
+    loadedChunkCount: 0,
     lastServerMessage: 'SERVER CONNECTED',
     position: [0, 65, 0],
     yawDegrees: 0,
     pitchDegrees: 0,
     playerSkyLight: 0,
     playerBlockLight: 2,
+    focusedBlockKey: null,
     focusedSkyLight: null,
     focusedBlockLight: null,
   })
@@ -71,6 +86,9 @@ test('debug overlay colors degraded indicators and shows missing TPS neutrally',
       expect.objectContaining({
         text: 'LIGHT PLAYER S:0 B:2',
         color: DEBUG_INDICATOR_COLORS.bad,
+      }),
+      expect.objectContaining({
+        text: 'FOCUS BLOCK: --',
       }),
     ]),
   )

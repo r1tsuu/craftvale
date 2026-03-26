@@ -140,6 +140,10 @@ export class VoxelWorld {
     return [...this.chunks.values()].map((chunk) => chunk.coord)
   }
 
+  public getLoadedChunkCount(): number {
+    return this.chunks.size
+  }
+
   public clear(): void {
     this.chunks.clear()
   }

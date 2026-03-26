@@ -10,10 +10,13 @@ export const DEBUG_INDICATOR_COLORS = {
 }
 
 const DEBUG_LINE_X = 20
+const DEBUG_LINE_START_Y = 20
 const DEBUG_LINE_SCALE = 3
 const DEBUG_LINE_GAP = 33
+const DEBUG_ROTATION_Y = DEBUG_LINE_START_Y + DEBUG_LINE_GAP * 7
+const DEBUG_LIGHTING_Y = DEBUG_LINE_START_Y + DEBUG_LINE_GAP * 8
 const DEBUG_STATUS_SCALE = 2
-const DEBUG_STATUS_Y = 152
+const DEBUG_STATUS_Y = DEBUG_LINE_START_Y + DEBUG_LINE_GAP * 9 + 8
 
 interface DebugIndicatorThresholds {
   good: number
@@ -25,12 +28,15 @@ export interface DebugOverlayInput {
   tps: number | null
   tpsSourceLabel: string | null
   worldName: string | null
+  memoryUsageText: string
+  loadedChunkCount: number
   lastServerMessage: string
   position: readonly [number, number, number]
   yawDegrees: number
   pitchDegrees: number
   playerSkyLight: number
   playerBlockLight: number
+  focusedBlockKey: string | null
   focusedSkyLight: number | null
   focusedBlockLight: number | null
 }
@@ -87,7 +93,7 @@ export const buildDebugOverlayText = (input: DebugOverlayInput): TextDrawCommand
     {
       text: `FPS: ${input.fps.toFixed(1)}`,
       x: DEBUG_LINE_X,
-      y: 20,
+      y: DEBUG_LINE_START_Y,
       scale: DEBUG_LINE_SCALE,
       color: getDebugFpsColor(input.fps),
       shadowColor: DEBUG_INDICATOR_COLORS.shadow,
@@ -95,7 +101,7 @@ export const buildDebugOverlayText = (input: DebugOverlayInput): TextDrawCommand
     {
       text: input.tps === null ? `${tpsLabel}: --` : `${tpsLabel}: ${input.tps.toFixed(1)}`,
       x: DEBUG_LINE_X,
-      y: 20 + DEBUG_LINE_GAP,
+      y: DEBUG_LINE_START_Y + DEBUG_LINE_GAP,
       scale: DEBUG_LINE_SCALE,
       color: getDebugTpsColor(input.tps),
       shadowColor: DEBUG_INDICATOR_COLORS.shadow,
@@ -103,7 +109,7 @@ export const buildDebugOverlayText = (input: DebugOverlayInput): TextDrawCommand
     {
       text: `POS X:${x.toFixed(2)} Y:${y.toFixed(2)} Z:${z.toFixed(2)}`,
       x: DEBUG_LINE_X,
-      y: 20 + DEBUG_LINE_GAP * 2,
+      y: DEBUG_LINE_START_Y + DEBUG_LINE_GAP * 2,
       scale: DEBUG_LINE_SCALE,
       color: DEBUG_INDICATOR_COLORS.neutral,
       shadowColor: DEBUG_INDICATOR_COLORS.shadow,
@@ -111,9 +117,33 @@ export const buildDebugOverlayText = (input: DebugOverlayInput): TextDrawCommand
     {
       text: `WORLD: ${input.worldName ?? 'NONE'}`,
       x: DEBUG_LINE_X,
-      y: 20 + DEBUG_LINE_GAP * 3,
+      y: DEBUG_LINE_START_Y + DEBUG_LINE_GAP * 3,
       scale: DEBUG_LINE_SCALE,
       color: DEBUG_INDICATOR_COLORS.neutral,
+      shadowColor: DEBUG_INDICATOR_COLORS.shadow,
+    },
+    {
+      text: `MEM: ${input.memoryUsageText}`,
+      x: DEBUG_LINE_X,
+      y: DEBUG_LINE_START_Y + DEBUG_LINE_GAP * 4,
+      scale: DEBUG_LINE_SCALE,
+      color: DEBUG_INDICATOR_COLORS.subtle,
+      shadowColor: DEBUG_INDICATOR_COLORS.shadow,
+    },
+    {
+      text: `CHUNKS: ${input.loadedChunkCount}`,
+      x: DEBUG_LINE_X,
+      y: DEBUG_LINE_START_Y + DEBUG_LINE_GAP * 5,
+      scale: DEBUG_LINE_SCALE,
+      color: DEBUG_INDICATOR_COLORS.neutral,
+      shadowColor: DEBUG_INDICATOR_COLORS.shadow,
+    },
+    {
+      text: `FOCUS BLOCK: ${input.focusedBlockKey ?? '--'}`,
+      x: DEBUG_LINE_X,
+      y: DEBUG_LINE_START_Y + DEBUG_LINE_GAP * 6,
+      scale: DEBUG_LINE_SCALE,
+      color: DEBUG_INDICATOR_COLORS.subtle,
       shadowColor: DEBUG_INDICATOR_COLORS.shadow,
     },
     {
@@ -127,7 +157,7 @@ export const buildDebugOverlayText = (input: DebugOverlayInput): TextDrawCommand
     {
       text: `ROT YAW:${input.yawDegrees.toFixed(1)} PITCH:${input.pitchDegrees.toFixed(1)}`,
       x: DEBUG_LINE_X,
-      y: 180,
+      y: DEBUG_ROTATION_Y,
       scale: DEBUG_LINE_SCALE,
       color: DEBUG_INDICATOR_COLORS.neutral,
       shadowColor: DEBUG_INDICATOR_COLORS.shadow,
@@ -135,7 +165,7 @@ export const buildDebugOverlayText = (input: DebugOverlayInput): TextDrawCommand
     {
       text: `LIGHT PLAYER S:${input.playerSkyLight} B:${input.playerBlockLight}${focusedLightText}`,
       x: DEBUG_LINE_X,
-      y: 213,
+      y: DEBUG_LIGHTING_Y,
       scale: DEBUG_LINE_SCALE,
       color: getDebugLightingColor(input.playerSkyLight, input.playerBlockLight),
       shadowColor: DEBUG_INDICATOR_COLORS.shadow,

@@ -35,6 +35,9 @@ export { BLOCK_IDS }
 export type { BlockKey }
 
 const BLOCK_ID_SET = new Set<number>(Object.values(BLOCK_IDS))
+const BLOCK_KEYS_BY_ID = Object.fromEntries(
+  Object.entries(BLOCK_IDS).map(([key, blockId]) => [blockId, key]),
+) as Record<BlockId, BlockKey>
 
 export const Blocks: Record<BlockId, BlockDefinition> = GENERATED_BLOCK_DEFINITIONS as Record<
   GeneratedBlockId,
@@ -43,6 +46,8 @@ export const Blocks: Record<BlockId, BlockDefinition> = GENERATED_BLOCK_DEFINITI
 
 export const isValidBlockId = (blockId: number): blockId is BlockId =>
   Number.isInteger(blockId) && BLOCK_ID_SET.has(blockId)
+
+export const getBlockKey = (blockId: BlockId): BlockKey => BLOCK_KEYS_BY_ID[blockId]
 
 export const isSolidBlock = (blockId: BlockId): boolean => Blocks[blockId].collidable
 

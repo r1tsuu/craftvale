@@ -10,6 +10,7 @@ import {
   type SaveStatusPayload,
   type ServerEventMap,
 } from '../shared/messages.ts'
+import { isWithinWorldBlockY, WORLD_MAX_BLOCK_Y, WORLD_MIN_BLOCK_Y } from '../world/constants.ts'
 
 type QueuedGameplayIntentInput =
   | Omit<Extract<QueuedGameplayIntent, { kind: 'mutateBlock' }>, 'sequence'>
@@ -336,6 +337,12 @@ export class WorldSessionController implements WorldSessionPeer {
       case 'gamemode':
         await this.handleGamemodeCommand(world, playerEntityId, args)
         return
+      case 'seed':
+        this.handleSeedCommand(world)
+        return
+      case 'teleport':
+        await this.handleTeleportCommand(world, playerEntityId, args)
+        return
       case 'timeset':
         await this.handleTimesetCommand(world, args)
         return
@@ -362,6 +369,45 @@ export class WorldSessionController implements WorldSessionPeer {
       payload: { player },
     })
     this.emitSystemMessage(gamemode === 1 ? 'Gamemode set to creative.' : 'Gamemode set to normal.')
+  }
+
+  private handleSeedCommand(world: AuthoritativeWorld): void {
+    this.emitSystemMessage(`World seed: ${world.summary.seed}.`)
+  }
+
+  private async handleTeleportCommand(
+    world: AuthoritativeWorld,
+    playerEntityId: EntityId,
+    args: string[],
+  ): Promise<void> {
+    if (args.length !== 3) {
+      this.emitSystemMessage('Usage: /teleport <x> <y> <z>')
+      return
+    }
+
+    const [xToken, yToken, zToken] = args
+    const x = Number(xToken)
+    const y = Number(yToken)
+    const z = Number(zToken)
+
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+      this.emitSystemMessage('Usage: /teleport <x> <y> <z>')
+      return
+    }
+
+    if (!isWithinWorldBlockY(y)) {
+      this.emitSystemMessage(
+        `Teleport Y must be between ${WORLD_MIN_BLOCK_Y} and ${WORLD_MAX_BLOCK_Y}.`,
+      )
+      return
+    }
+
+    const player = await world.teleportPlayer(playerEntityId, [x, y, z])
+    this.host.broadcast({
+      type: 'playerUpdated',
+      payload: { player },
+    })
+    this.emitSystemMessage(`Teleported to X:${x} Y:${y} Z:${z}.`)
   }
 
   private async handleTimesetCommand(world: AuthoritativeWorld, args: string[]): Promise<void> {
