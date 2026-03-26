@@ -1,156 +1,148 @@
-import { createInterface } from "node:readline/promises";
-import process from "node:process";
+import process from 'node:process'
+import { createInterface } from 'node:readline/promises'
 
-const PORT_RELEASE_POLL_MS = 100;
-const PORT_RELEASE_TIMEOUT_MS = 1_500;
+const PORT_RELEASE_POLL_MS = 100
+const PORT_RELEASE_TIMEOUT_MS = 1_500
 
-const readCommandOutput = async (command: string[]): Promise<{
-  exitCode: number;
-  stdout: string;
+const readCommandOutput = async (
+  command: string[],
+): Promise<{
+  exitCode: number
+  stdout: string
 }> => {
   const subprocess = Bun.spawn(command, {
-    stdin: "ignore",
-    stdout: "pipe",
-    stderr: "ignore",
-  });
-  const stdout = subprocess.stdout
-    ? await new Response(subprocess.stdout).text()
-    : "";
-  const exitCode = await subprocess.exited;
+    stdin: 'ignore',
+    stdout: 'pipe',
+    stderr: 'ignore',
+  })
+  const stdout = subprocess.stdout ? await new Response(subprocess.stdout).text() : ''
+  const exitCode = await subprocess.exited
   return {
     exitCode,
     stdout,
-  };
-};
+  }
+}
 
 const findListeningPids = async (port: number): Promise<number[]> => {
-  const result = await readCommandOutput([
-    "lsof",
-    "-nP",
-    `-iTCP:${port}`,
-    "-sTCP:LISTEN",
-    "-t",
-  ]);
+  const result = await readCommandOutput(['lsof', '-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'])
 
   if (result.exitCode !== 0 && result.stdout.trim().length === 0) {
-    return [];
+    return []
   }
 
   return result.stdout
     .split(/\s+/)
     .map((value) => Number(value.trim()))
-    .filter((value) => Number.isInteger(value) && value > 0);
-};
+    .filter((value) => Number.isInteger(value) && value > 0)
+}
 
 const waitForPortRelease = async (port: number, timeoutMs: number): Promise<boolean> => {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + timeoutMs
 
   while (Date.now() < deadline) {
     if ((await findListeningPids(port)).length === 0) {
-      return true;
+      return true
     }
 
-    await Bun.sleep(PORT_RELEASE_POLL_MS);
+    await Bun.sleep(PORT_RELEASE_POLL_MS)
   }
 
-  return (await findListeningPids(port)).length === 0;
-};
+  return (await findListeningPids(port)).length === 0
+}
 
 const killPortProcesses = async (port: number, pids: readonly number[]): Promise<void> => {
-  const uniquePids = [...new Set(pids)];
+  const uniquePids = [...new Set(pids)]
 
   for (const pid of uniquePids) {
     try {
-      process.kill(pid, "SIGTERM");
+      process.kill(pid, 'SIGTERM')
     } catch (error) {
-      if (
-        !(error instanceof Error && "code" in error && error.code === "ESRCH")
-      ) {
-        throw error;
+      if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) {
+        throw error
       }
     }
   }
 
   if (await waitForPortRelease(port, PORT_RELEASE_TIMEOUT_MS)) {
-    return;
+    return
   }
 
-  const remainingPids = await findListeningPids(port);
+  const remainingPids = await findListeningPids(port)
   for (const pid of remainingPids) {
     try {
-      process.kill(pid, "SIGKILL");
+      process.kill(pid, 'SIGKILL')
     } catch (error) {
-      if (
-        !(error instanceof Error && "code" in error && error.code === "ESRCH")
-      ) {
-        throw error;
+      if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) {
+        throw error
       }
     }
   }
 
   if (!(await waitForPortRelease(port, PORT_RELEASE_TIMEOUT_MS))) {
-    throw new Error(`Failed to free port ${port}.`);
+    throw new Error(`Failed to free port ${port}.`)
   }
-};
+}
 
 const promptForPortConflict = async (
   port: number,
   pids: readonly number[],
-): Promise<"kill" | "stop"> => {
+): Promise<'kill' | 'stop'> => {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new Error(
-      `Port ${port} is already in use by PID ${pids.join(", ")}. Run interactively to choose kill or stop.`,
-    );
+      `Port ${port} is already in use by PID ${pids.join(', ')}. Run interactively to choose kill or stop.`,
+    )
   }
 
   const prompt = createInterface({
     input: process.stdin,
     output: process.stdout,
-  });
+  })
 
   try {
     while (true) {
-      const answer = (await prompt.question(
-        `Port ${port} is already in use by PID ${pids.join(", ")}. Kill it and continue or stop? [k/s]: `,
-      ))
+      const answer = (
+        await prompt.question(
+          `Port ${port} is already in use by PID ${pids.join(', ')}. Kill it and continue or stop? [k/s]: `,
+        )
+      )
         .trim()
-        .toLowerCase();
+        .toLowerCase()
 
-      if (answer === "k" || answer === "kill") {
-        return "kill";
+      if (answer === 'k' || answer === 'kill') {
+        return 'kill'
       }
 
-      if (answer === "s" || answer === "stop" || answer === "") {
-        return "stop";
+      if (answer === 's' || answer === 'stop' || answer === '') {
+        return 'stop'
       }
     }
   } finally {
-    prompt.close();
+    prompt.close()
   }
-};
+}
 
 export const ensurePortAvailable = async (port: number): Promise<void> => {
   while (true) {
-    const pids = await findListeningPids(port);
+    const pids = await findListeningPids(port)
     if (pids.length === 0) {
-      return;
+      return
     }
 
-    const decision = await promptForPortConflict(port, pids);
-    if (decision === "stop") {
-      throw new Error(`Startup cancelled because port ${port} is already in use.`);
+    const decision = await promptForPortConflict(port, pids)
+    if (decision === 'stop') {
+      throw new Error(`Startup cancelled because port ${port} is already in use.`)
     }
 
-    await killPortProcesses(port, pids);
+    await killPortProcesses(port, pids)
   }
-};
+}
 
 export const forceReleasePort = async (port: number): Promise<number[]> => {
-  const pids = await findListeningPids(port);
+  const pids = await findListeningPids(port)
   if (pids.length === 0) {
-    return [];
+    return []
   }
 
-  await killPortProcesses(port, pids);
-  return [...new Set(pids)];
-};
+  await killPortProcesses(port, pids)
+  return [...new Set(pids)]
+}

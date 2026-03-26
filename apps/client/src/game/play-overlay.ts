@@ -1,77 +1,77 @@
-export type PauseScreen = "closed" | "menu" | "settings";
+export type PauseScreen = 'closed' | 'menu' | 'settings'
 
 export interface PlayOverlayState {
-  chatOpen: boolean;
-  inventoryOpen: boolean;
-  pauseScreen: PauseScreen;
+  chatOpen: boolean
+  inventoryOpen: boolean
+  pauseScreen: PauseScreen
 }
 
 export type PlayEscapeAction =
-  | "close-inventory"
-  | "close-chat"
-  | "back-to-pause-menu"
-  | "resume-game"
-  | "open-pause-menu";
+  | 'close-inventory'
+  | 'close-chat'
+  | 'back-to-pause-menu'
+  | 'resume-game'
+  | 'open-pause-menu'
 
 export const resolvePlayChatOpenDraft = (input: {
-  enterPressed: boolean;
-  slashPressed: boolean;
-  typedText: string;
+  enterPressed: boolean
+  slashPressed: boolean
+  typedText: string
 }): string | null => {
   if (input.enterPressed) {
-    return "";
+    return ''
   }
 
-  if (input.typedText.startsWith("/")) {
-    return input.typedText;
+  if (input.typedText.startsWith('/')) {
+    return input.typedText
   }
 
   if (input.slashPressed) {
-    return "/";
+    return '/'
   }
 
-  return null;
-};
+  return null
+}
 
 export const resolvePlayChatTypedText = (input: {
-  slashPressed: boolean;
-  typedText: string;
+  slashPressed: boolean
+  typedText: string
 }): string => {
   if (!input.slashPressed) {
-    return input.typedText;
+    return input.typedText
   }
 
-  if (input.typedText.startsWith("/")) {
-    return input.typedText;
+  if (input.typedText.startsWith('/')) {
+    return input.typedText
   }
 
-  return `/${input.typedText}`;
-};
+  return `/${input.typedText}`
+}
 
 export const resolvePlayEscapeAction = (state: PlayOverlayState): PlayEscapeAction => {
   if (state.inventoryOpen) {
-    return "close-inventory";
+    return 'close-inventory'
   }
 
   if (state.chatOpen) {
-    return "close-chat";
+    return 'close-chat'
   }
 
-  if (state.pauseScreen === "settings") {
-    return "back-to-pause-menu";
+  if (state.pauseScreen === 'settings') {
+    return 'back-to-pause-menu'
   }
 
-  if (state.pauseScreen === "menu") {
-    return "resume-game";
+  if (state.pauseScreen === 'menu') {
+    return 'resume-game'
   }
 
-  return "open-pause-menu";
-};
+  return 'open-pause-menu'
+}
 
 export const isGameplaySuppressed = (state: PlayOverlayState): boolean =>
-  state.chatOpen || state.inventoryOpen || state.pauseScreen !== "closed";
+  state.chatOpen || state.inventoryOpen || state.pauseScreen !== 'closed'
 
 export const shouldLockCursor = (
-  appMode: "menu" | "loading" | "playing",
-  state: Pick<PlayOverlayState, "inventoryOpen" | "pauseScreen">,
-): boolean => appMode === "playing" && !state.inventoryOpen && state.pauseScreen === "closed";
+  appMode: 'menu' | 'loading' | 'playing',
+  state: Pick<PlayOverlayState, 'inventoryOpen' | 'pauseScreen'>,
+): boolean => appMode === 'playing' && !state.inventoryOpen && state.pauseScreen === 'closed'

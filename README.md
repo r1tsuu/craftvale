@@ -59,6 +59,10 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `bun run generate:content` regenerates block/item ids and registries from the authored content spec
 - `bun run generate:tile-sources` writes one PNG per voxel tile into `apps/client/assets/textures/tiles-src`
 - `bun run generate:atlas` rebuilds `apps/client/assets/textures/voxel-atlas.png` from those source tile PNGs
+- `bun run lint` runs ESLint across the repo
+- `bun run lint:fix` runs ESLint and applies safe auto-fixes
+- `bun run format` runs Prettier across supported files in the repo
+- `bun run format:check` checks formatting without rewriting files
 - `bun run typecheck` runs TypeScript checks
 - `bun test` runs the automated tests
 - Launch options: `--player-name=<name>` or `--player-name <name>` overrides the local player name for that run
@@ -205,6 +209,12 @@ To add a new glowing placeable block:
 - Keep the subject short and action-oriented, for example `feat: add player-name profiles`.
 - Every commit should include a body that explains what changed and why.
 - Commits created through Codex should include `Co-authored-by: Codex <codex@openai.com>`.
+
+## Editor Setup
+
+- The repo includes `.vscode/settings.json` with format-on-save enabled.
+- VSCode defaults to Prettier for formatting and applies ESLint fixes on save.
+- The recommended extensions live in `.vscode/extensions.json`.
 
 ## Notes
 

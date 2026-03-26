@@ -1,3 +1,3 @@
-import { syncGeneratedContentRegistry } from "./content-registry-generator.ts";
+import { syncGeneratedContentRegistry } from './content-registry-generator.ts'
 
-await syncGeneratedContentRegistry();
+await syncGeneratedContentRegistry()

@@ -1,45 +1,42 @@
-import { expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { expect, test } from 'bun:test'
+import { resolve } from 'node:path'
+
 import {
-  parseCliFlagValue,
   parseClientDir,
+  parseCliFlagValue,
   parseServerDir,
-} from "../packages/core/src/utils/cli.ts";
+} from '../packages/core/src/utils/cli.ts'
 
-test("parseCliFlagValue supports separated and inline values", () => {
-  expect(parseCliFlagValue(["--port", "3210"], "port")).toBe("3210");
-  expect(parseCliFlagValue(["--client-dir", "./client-data"], "client-dir")).toBe("./client-data");
-  expect(parseCliFlagValue(["--server-dir=./server-data"], "server-dir")).toBe("./server-data");
-});
+test('parseCliFlagValue supports separated and inline values', () => {
+  expect(parseCliFlagValue(['--port', '3210'], 'port')).toBe('3210')
+  expect(parseCliFlagValue(['--client-dir', './client-data'], 'client-dir')).toBe('./client-data')
+  expect(parseCliFlagValue(['--server-dir=./server-data'], 'server-dir')).toBe('./server-data')
+})
 
-test("parseCliFlagValue fails fast on missing values", () => {
-  expect(() => parseCliFlagValue(["--port"], "port")).toThrow("Missing value for --port");
-  expect(() => parseCliFlagValue(["--client-dir"], "client-dir")).toThrow(
-    "Missing value for --client-dir",
-  );
-  expect(() => parseCliFlagValue(["--server-dir", "--port=3210"], "server-dir")).toThrow(
-    "Missing value for --server-dir",
-  );
-});
+test('parseCliFlagValue fails fast on missing values', () => {
+  expect(() => parseCliFlagValue(['--port'], 'port')).toThrow('Missing value for --port')
+  expect(() => parseCliFlagValue(['--client-dir'], 'client-dir')).toThrow(
+    'Missing value for --client-dir',
+  )
+  expect(() => parseCliFlagValue(['--server-dir', '--port=3210'], 'server-dir')).toThrow(
+    'Missing value for --server-dir',
+  )
+})
 
-test("parseClientDir and parseServerDir resolve explicit split roots", () => {
-  expect(parseClientDir(["--client-dir", "./client-data"])).toBe(
-    resolve("./client-data"),
-  );
-  expect(parseServerDir(["--server-dir=./server-data"])).toBe(
-    resolve("./server-data"),
-  );
-  expect(parseClientDir(["--client-dir=./client-2"])).toBe(resolve("./client-2"));
-  expect(parseServerDir(["--server-dir", "./server-2"])).toBe(resolve("./server-2"));
-  expect(parseClientDir([])).toBeUndefined();
-  expect(parseServerDir([])).toBeUndefined();
-});
+test('parseClientDir and parseServerDir resolve explicit split roots', () => {
+  expect(parseClientDir(['--client-dir', './client-data'])).toBe(resolve('./client-data'))
+  expect(parseServerDir(['--server-dir=./server-data'])).toBe(resolve('./server-data'))
+  expect(parseClientDir(['--client-dir=./client-2'])).toBe(resolve('./client-2'))
+  expect(parseServerDir(['--server-dir', './server-2'])).toBe(resolve('./server-2'))
+  expect(parseClientDir([])).toBeUndefined()
+  expect(parseServerDir([])).toBeUndefined()
+})
 
-test("parseClientDir and parseServerDir can resolve relative paths from app roots", () => {
-  expect(parseClientDir(["--client-dir", "./x"], resolve("./apps/client"))).toBe(
-    resolve("./apps/client", "./x"),
-  );
-  expect(parseServerDir(["--server-dir=./y"], resolve("./apps/dedicated-server"))).toBe(
-    resolve("./apps/dedicated-server", "./y"),
-  );
-});
+test('parseClientDir and parseServerDir can resolve relative paths from app roots', () => {
+  expect(parseClientDir(['--client-dir', './x'], resolve('./apps/client'))).toBe(
+    resolve('./apps/client', './x'),
+  )
+  expect(parseServerDir(['--server-dir=./y'], resolve('./apps/dedicated-server'))).toBe(
+    resolve('./apps/dedicated-server', './y'),
+  )
+})

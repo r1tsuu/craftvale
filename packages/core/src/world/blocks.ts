@@ -1,82 +1,79 @@
-import type { BlockId, ItemId } from "../types.ts";
-import type { AtlasTileId } from "./atlas.ts";
+import type { BlockId, ItemId } from '../types.ts'
+import type { AtlasTileId } from './atlas.ts'
+
 import {
   BLOCK_IDS,
   type BlockKey,
   type BlockId as GeneratedBlockId,
-} from "./generated/content-ids.ts";
-import { GENERATED_BLOCK_DEFINITIONS } from "./generated/content-registry.ts";
+} from './generated/content-ids.ts'
+import { GENERATED_BLOCK_DEFINITIONS } from './generated/content-registry.ts'
 
-export type BlockFaceRole = "top" | "bottom" | "side";
-export type BlockOcclusionMode = "none" | "full" | "self";
-export type BlockRenderPass = "opaque" | "cutout";
+export type BlockFaceRole = 'top' | 'bottom' | 'side'
+export type BlockOcclusionMode = 'none' | 'full' | 'self'
+export type BlockRenderPass = 'opaque' | 'cutout'
 
 export interface BlockTiles {
-  top: AtlasTileId;
-  bottom: AtlasTileId;
-  side: AtlasTileId;
+  top: AtlasTileId
+  bottom: AtlasTileId
+  side: AtlasTileId
 }
 
 export interface BlockDefinition {
-  id: BlockId;
-  name: string;
-  collidable: boolean;
-  breakable: boolean;
-  occlusion: BlockOcclusionMode;
-  renderPass: BlockRenderPass | null;
-  dropItemId: ItemId | null;
-  emittedLightLevel: number;
-  color: [number, number, number];
-  tiles?: BlockTiles;
+  id: BlockId
+  name: string
+  collidable: boolean
+  breakable: boolean
+  occlusion: BlockOcclusionMode
+  renderPass: BlockRenderPass | null
+  dropItemId: ItemId | null
+  emittedLightLevel: number
+  color: [number, number, number]
+  tiles?: BlockTiles
 }
 
-export { BLOCK_IDS };
-export type { BlockKey };
+export { BLOCK_IDS }
+export type { BlockKey }
 
-const BLOCK_ID_SET = new Set<number>(Object.values(BLOCK_IDS));
+const BLOCK_ID_SET = new Set<number>(Object.values(BLOCK_IDS))
 
 export const Blocks: Record<BlockId, BlockDefinition> = GENERATED_BLOCK_DEFINITIONS as Record<
   GeneratedBlockId,
   BlockDefinition
->;
+>
 
 export const isValidBlockId = (blockId: number): blockId is BlockId =>
-  Number.isInteger(blockId) && BLOCK_ID_SET.has(blockId);
+  Number.isInteger(blockId) && BLOCK_ID_SET.has(blockId)
 
-export const isSolidBlock = (blockId: BlockId): boolean => Blocks[blockId].collidable;
+export const isSolidBlock = (blockId: BlockId): boolean => Blocks[blockId].collidable
 
-export const isBreakableBlock = (blockId: BlockId): boolean => Blocks[blockId].breakable;
+export const isBreakableBlock = (blockId: BlockId): boolean => Blocks[blockId].breakable
 
-export const getDroppedItemIdForBlock = (blockId: BlockId): ItemId | null => Blocks[blockId].dropItemId;
+export const getDroppedItemIdForBlock = (blockId: BlockId): ItemId | null =>
+  Blocks[blockId].dropItemId
 
 export const getBlockEmittedLightLevel = (blockId: BlockId): number =>
-  Blocks[blockId].emittedLightLevel;
+  Blocks[blockId].emittedLightLevel
 
-export const isCollectibleBlock = (blockId: BlockId): boolean => getDroppedItemIdForBlock(blockId) !== null;
+export const isCollectibleBlock = (blockId: BlockId): boolean =>
+  getDroppedItemIdForBlock(blockId) !== null
 
 export const getBlockRenderPass = (blockId: BlockId): BlockRenderPass | null =>
-  Blocks[blockId].renderPass;
+  Blocks[blockId].renderPass
 
-export const doesBlockOccludeNeighborFace = (
-  blockId: BlockId,
-  neighborId: BlockId,
-): boolean => {
-  const neighbor = Blocks[neighborId];
-  if (neighbor.occlusion === "none") {
-    return false;
+export const doesBlockOccludeNeighborFace = (blockId: BlockId, neighborId: BlockId): boolean => {
+  const neighbor = Blocks[neighborId]
+  if (neighbor.occlusion === 'none') {
+    return false
   }
 
-  if (neighbor.occlusion === "full") {
-    return true;
+  if (neighbor.occlusion === 'full') {
+    return true
   }
 
-  return blockId === neighborId;
-};
+  return blockId === neighborId
+}
 
-export const getBlockFaceTile = (
-  blockId: BlockId,
-  face: BlockFaceRole,
-): AtlasTileId | null => {
-  const tiles = Blocks[blockId].tiles;
-  return tiles ? tiles[face] : null;
-};
+export const getBlockFaceTile = (blockId: BlockId, face: BlockFaceRole): AtlasTileId | null => {
+  const tiles = Blocks[blockId].tiles
+  return tiles ? tiles[face] : null
+}

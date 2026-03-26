@@ -9,25 +9,27 @@ import type {
   PlayerSnapshot,
   PlayerState,
   WorldTimeState,
-} from "@craftvale/core/shared";
-import type { ChunkPayload, JoinedWorldPayload } from "@craftvale/core/shared";
+} from '@craftvale/core/shared'
+import type { ChunkPayload, JoinedWorldPayload } from '@craftvale/core/shared'
+
 import {
-  BLOCK_IDS,
   ACTIVE_CHUNK_RADIUS,
+  BLOCK_IDS,
   CHUNK_SIZE,
-  LIGHT_LEVEL_MAX,
-  STARTUP_CHUNK_RADIUS,
-  VoxelWorld,
-  createDefaultWorldTimeState,
   createDefaultInventory,
+  createDefaultWorldTimeState,
   getBlockEmittedLightLevel,
   getChunkCoordsAroundPosition,
   isBreakableBlock,
+  LIGHT_LEVEL_MAX,
   normalizeInventorySnapshot,
-} from "@craftvale/core/shared";
-import type { IClientAdapter } from "./client-adapter.ts";
+  STARTUP_CHUNK_RADIUS,
+  VoxelWorld,
+} from '@craftvale/core/shared'
 
-const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
+import type { IClientAdapter } from './client-adapter.ts'
+
+const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`
 const PREDICTED_LIGHT_DIRECTIONS = [
   [1, 0, 0],
   [-1, 0, 0],
@@ -35,38 +37,38 @@ const PREDICTED_LIGHT_DIRECTIONS = [
   [0, -1, 0],
   [0, 0, 1],
   [0, 0, -1],
-] as const;
+] as const
 
 export class ClientWorldRuntime {
-  public readonly world = new VoxelWorld();
-  public inventory: InventorySnapshot = createDefaultInventory();
-  public worldTime: WorldTimeState = createDefaultWorldTimeState();
-  public clientPlayerName: PlayerName | null = null;
-  public clientPlayerEntityId: EntityId | null = null;
-  public readonly players = new Map<EntityId, PlayerSnapshot>();
-  public readonly droppedItems = new Map<EntityId, DroppedItemSnapshot>();
-  private readonly playerEntityIdsByName = new Map<PlayerName, EntityId>();
-  public chatMessages: ChatEntry[] = [];
-  private readonly pendingChunkKeys = new Set<string>();
+  public readonly world = new VoxelWorld()
+  public inventory: InventorySnapshot = createDefaultInventory()
+  public worldTime: WorldTimeState = createDefaultWorldTimeState()
+  public clientPlayerName: PlayerName | null = null
+  public clientPlayerEntityId: EntityId | null = null
+  public readonly players = new Map<EntityId, PlayerSnapshot>()
+  public readonly droppedItems = new Map<EntityId, DroppedItemSnapshot>()
+  private readonly playerEntityIdsByName = new Map<PlayerName, EntityId>()
+  public chatMessages: ChatEntry[] = []
+  private readonly pendingChunkKeys = new Set<string>()
   private readonly chunkWaiters = new Set<{
-    coords: ChunkCoord[];
-    resolve: () => void;
-  }>();
+    coords: ChunkCoord[]
+    resolve: () => void
+  }>()
 
   public constructor(private readonly adapter: IClientAdapter) {}
 
   public reset(): void {
-    this.world.clear();
-    this.inventory = createDefaultInventory();
-    this.worldTime = createDefaultWorldTimeState();
-    this.clientPlayerName = null;
-    this.clientPlayerEntityId = null;
-    this.players.clear();
-    this.droppedItems.clear();
-    this.playerEntityIdsByName.clear();
-    this.chatMessages = [];
-    this.pendingChunkKeys.clear();
-    this.chunkWaiters.clear();
+    this.world.clear()
+    this.inventory = createDefaultInventory()
+    this.worldTime = createDefaultWorldTimeState()
+    this.clientPlayerName = null
+    this.clientPlayerEntityId = null
+    this.players.clear()
+    this.droppedItems.clear()
+    this.playerEntityIdsByName.clear()
+    this.chatMessages = []
+    this.pendingChunkKeys.clear()
+    this.chunkWaiters.clear()
   }
 
   public applyChunk(chunk: ChunkPayload): void {
@@ -76,13 +78,13 @@ export class ClientWorldRuntime {
       chunk.revision,
       chunk.skyLight,
       chunk.blockLight,
-    );
-    this.pendingChunkKeys.delete(chunkKey(chunk.coord));
-    this.resolveWaiters();
+    )
+    this.pendingChunkKeys.delete(chunkKey(chunk.coord))
+    this.resolveWaiters()
   }
 
   public applyInventory(inventory: InventorySnapshot): void {
-    this.inventory = normalizeInventorySnapshot(inventory);
+    this.inventory = normalizeInventorySnapshot(inventory)
   }
 
   public applyPredictedBreak(
@@ -91,73 +93,73 @@ export class ClientWorldRuntime {
     worldZ: number,
     gamemode: PlayerGamemode,
   ): boolean {
-    const current = this.world.getBlock(worldX, worldY, worldZ);
+    const current = this.world.getBlock(worldX, worldY, worldZ)
     if (current === BLOCK_IDS.air) {
-      return false;
+      return false
     }
 
     if (!isBreakableBlock(current) && gamemode !== 1) {
-      return false;
+      return false
     }
 
-    this.world.setBlock(worldX, worldY, worldZ, BLOCK_IDS.air);
-    this.refreshPredictedBreakLighting(worldX, worldY, worldZ);
-    return true;
+    this.world.setBlock(worldX, worldY, worldZ, BLOCK_IDS.air)
+    this.refreshPredictedBreakLighting(worldX, worldY, worldZ)
+    return true
   }
 
   public applyJoinedWorld(joined: JoinedWorldPayload): void {
     this.worldTime = {
       dayCount: joined.worldTime.dayCount,
       timeOfDayTicks: joined.worldTime.timeOfDayTicks,
-    };
-    this.clientPlayerName = joined.clientPlayerName;
-    this.clientPlayerEntityId = joined.clientPlayer.entityId;
-    this.players.clear();
-    this.droppedItems.clear();
-    this.playerEntityIdsByName.clear();
-    this.applyPlayer(joined.clientPlayer);
+    }
+    this.clientPlayerName = joined.clientPlayerName
+    this.clientPlayerEntityId = joined.clientPlayer.entityId
+    this.players.clear()
+    this.droppedItems.clear()
+    this.playerEntityIdsByName.clear()
+    this.applyPlayer(joined.clientPlayer)
     for (const player of joined.players) {
-      this.applyPlayer(player);
+      this.applyPlayer(player)
     }
     for (const item of joined.droppedItems) {
-      this.applyDroppedItem(item);
+      this.applyDroppedItem(item)
     }
-    this.applyInventory(joined.inventory);
+    this.applyInventory(joined.inventory)
   }
 
   public applyWorldTime(worldTime: WorldTimeState): void {
     this.worldTime = {
       dayCount: worldTime.dayCount,
       timeOfDayTicks: worldTime.timeOfDayTicks,
-    };
+    }
   }
 
   public applyPlayer(player: PlayerSnapshot): void {
-    const previousEntityId = this.playerEntityIdsByName.get(player.name);
+    const previousEntityId = this.playerEntityIdsByName.get(player.name)
     if (previousEntityId && previousEntityId !== player.entityId) {
-      this.players.delete(previousEntityId);
+      this.players.delete(previousEntityId)
     }
 
-    const snapshot = this.clonePlayerSnapshot(player);
-    this.players.set(player.entityId, snapshot);
-    this.playerEntityIdsByName.set(player.name, player.entityId);
+    const snapshot = this.clonePlayerSnapshot(player)
+    this.players.set(player.entityId, snapshot)
+    this.playerEntityIdsByName.set(player.name, player.entityId)
 
     if (player.name === this.clientPlayerName) {
-      this.clientPlayerEntityId = player.entityId;
+      this.clientPlayerEntityId = player.entityId
     }
   }
 
   public removePlayer(entityId: EntityId, playerName?: PlayerName): void {
-    const snapshot = this.players.get(entityId);
-    this.players.delete(entityId);
+    const snapshot = this.players.get(entityId)
+    this.players.delete(entityId)
 
-    const resolvedPlayerName = playerName ?? snapshot?.name;
+    const resolvedPlayerName = playerName ?? snapshot?.name
     if (resolvedPlayerName && this.playerEntityIdsByName.get(resolvedPlayerName) === entityId) {
-      this.playerEntityIdsByName.delete(resolvedPlayerName);
+      this.playerEntityIdsByName.delete(resolvedPlayerName)
     }
 
     if (this.clientPlayerEntityId === entityId) {
-      this.clientPlayerEntityId = null;
+      this.clientPlayerEntityId = null
     }
   }
 
@@ -169,19 +171,19 @@ export class ClientWorldRuntime {
       itemId: item.itemId,
       count: item.count,
       pickupCooldownMs: item.pickupCooldownMs,
-    });
+    })
   }
 
   public removeDroppedItem(entityId: EntityId): void {
-    this.droppedItems.delete(entityId);
+    this.droppedItems.delete(entityId)
   }
 
   public getClientPlayer(): PlayerSnapshot | null {
     if (!this.clientPlayerEntityId) {
-      return null;
+      return null
     }
 
-    return this.players.get(this.clientPlayerEntityId) ?? null;
+    return this.players.get(this.clientPlayerEntityId) ?? null
   }
 
   public createLocalPlayerSnapshot(
@@ -190,7 +192,7 @@ export class ClientWorldRuntime {
     flying: boolean,
   ): PlayerSnapshot | null {
     if (!this.clientPlayerName || !this.clientPlayerEntityId) {
-      return null;
+      return null
     }
 
     return {
@@ -204,18 +206,18 @@ export class ClientWorldRuntime {
         yaw: state.yaw,
         pitch: state.pitch,
       },
-    };
+    }
   }
 
   public appendChatMessage(entry: ChatEntry, maxMessages = 24): void {
-    this.chatMessages = [...this.chatMessages, this.cloneChatEntry(entry)].slice(-maxMessages);
+    this.chatMessages = [...this.chatMessages, this.cloneChatEntry(entry)].slice(-maxMessages)
   }
 
   public getChunkCoordsAroundPosition(
     position: readonly [number, number, number],
     radius = ACTIVE_CHUNK_RADIUS,
   ): ChunkCoord[] {
-    return getChunkCoordsAroundPosition(position, radius);
+    return getChunkCoordsAroundPosition(position, radius)
   }
 
   public getStartupChunkCoordsAroundPosition(
@@ -224,38 +226,38 @@ export class ClientWorldRuntime {
   ): ChunkCoord[] {
     return getChunkCoordsAroundPosition(position, radius, {
       nearestFirst: true,
-    });
+    })
   }
 
   public async requestMissingChunks(coords: readonly ChunkCoord[]): Promise<void> {
-    const missingCoords: ChunkCoord[] = [];
+    const missingCoords: ChunkCoord[] = []
 
     for (const coord of coords) {
-      const key = chunkKey(coord);
+      const key = chunkKey(coord)
       if (this.world.hasChunk(coord) || this.pendingChunkKeys.has(key)) {
-        continue;
+        continue
       }
 
-      this.pendingChunkKeys.add(key);
-      missingCoords.push(coord);
+      this.pendingChunkKeys.add(key)
+      missingCoords.push(coord)
     }
 
     if (missingCoords.length === 0) {
-      return;
+      return
     }
 
     try {
       await this.adapter.eventBus.send({
-        type: "requestChunks",
+        type: 'requestChunks',
         payload: {
           coords: missingCoords,
         },
-      });
+      })
     } catch (error) {
       for (const coord of missingCoords) {
-        this.pendingChunkKeys.delete(chunkKey(coord));
+        this.pendingChunkKeys.delete(chunkKey(coord))
       }
-      throw error;
+      throw error
     }
   }
 
@@ -263,78 +265,79 @@ export class ClientWorldRuntime {
     position: readonly [number, number, number],
     radius = ACTIVE_CHUNK_RADIUS,
   ): Promise<void> {
-    await this.requestMissingChunks(this.getChunkCoordsAroundPosition(position, radius));
+    await this.requestMissingChunks(this.getChunkCoordsAroundPosition(position, radius))
   }
 
   public waitForChunks(coords: readonly ChunkCoord[]): Promise<void> {
     if (coords.every((coord) => this.world.hasChunk(coord))) {
-      return Promise.resolve();
+      return Promise.resolve()
     }
 
     return new Promise((resolve) => {
       this.chunkWaiters.add({
         coords: [...coords],
         resolve,
-      });
-    });
+      })
+    })
   }
 
   private resolveWaiters(): void {
     for (const waiter of [...this.chunkWaiters]) {
       if (waiter.coords.every((coord) => this.world.hasChunk(coord))) {
-        this.chunkWaiters.delete(waiter);
-        waiter.resolve();
+        this.chunkWaiters.delete(waiter)
+        waiter.resolve()
       }
     }
   }
 
   private refreshPredictedBreakLighting(worldX: number, worldY: number, worldZ: number): void {
-    const skyLight = this.resolvePredictedSkyLight(worldX, worldY, worldZ);
-    const blockLight = this.resolvePredictedBlockLight(worldX, worldY, worldZ);
-    this.world.setLighting(worldX, worldY, worldZ, skyLight, blockLight);
+    const skyLight = this.resolvePredictedSkyLight(worldX, worldY, worldZ)
+    const blockLight = this.resolvePredictedBlockLight(worldX, worldY, worldZ)
+    this.world.setLighting(worldX, worldY, worldZ, skyLight, blockLight)
   }
 
   private resolvePredictedSkyLight(worldX: number, worldY: number, worldZ: number): number {
     if (this.hasClearSkyPath(worldX, worldY, worldZ)) {
-      return LIGHT_LEVEL_MAX;
+      return LIGHT_LEVEL_MAX
     }
 
-    return this.getPredictedNeighborLight(worldX, worldY, worldZ, "sky");
+    return this.getPredictedNeighborLight(worldX, worldY, worldZ, 'sky')
   }
 
   private resolvePredictedBlockLight(worldX: number, worldY: number, worldZ: number): number {
     return Math.max(
       getBlockEmittedLightLevel(this.world.getBlock(worldX, worldY, worldZ)),
-      this.getPredictedNeighborLight(worldX, worldY, worldZ, "block"),
-    );
+      this.getPredictedNeighborLight(worldX, worldY, worldZ, 'block'),
+    )
   }
 
   private hasClearSkyPath(worldX: number, worldY: number, worldZ: number): boolean {
     for (let y = worldY + 1; y < CHUNK_SIZE; y += 1) {
       if (this.world.getBlock(worldX, y, worldZ) !== BLOCK_IDS.air) {
-        return false;
+        return false
       }
     }
 
-    return true;
+    return true
   }
 
   private getPredictedNeighborLight(
     worldX: number,
     worldY: number,
     worldZ: number,
-    channel: "sky" | "block",
+    channel: 'sky' | 'block',
   ): number {
-    let maxLight = 0;
+    let maxLight = 0
 
     for (const [dx, dy, dz] of PREDICTED_LIGHT_DIRECTIONS) {
-      const sample = channel === "sky"
-        ? this.world.getSkyLight(worldX + dx, worldY + dy, worldZ + dz)
-        : this.world.getBlockLight(worldX + dx, worldY + dy, worldZ + dz);
-      maxLight = Math.max(maxLight, Math.max(0, sample - 1));
+      const sample =
+        channel === 'sky'
+          ? this.world.getSkyLight(worldX + dx, worldY + dy, worldZ + dz)
+          : this.world.getBlockLight(worldX + dx, worldY + dy, worldZ + dz)
+      maxLight = Math.max(maxLight, Math.max(0, sample - 1))
     }
 
-    return maxLight;
+    return maxLight
   }
 
   private clonePlayerSnapshot(player: PlayerSnapshot): PlayerSnapshot {
@@ -349,7 +352,7 @@ export class ClientWorldRuntime {
         yaw: player.state.yaw,
         pitch: player.state.pitch,
       },
-    };
+    }
   }
 
   private cloneChatEntry(entry: ChatEntry): ChatEntry {
@@ -358,6 +361,6 @@ export class ClientWorldRuntime {
       text: entry.text,
       senderName: entry.senderName,
       receivedAt: entry.receivedAt,
-    };
+    }
   }
 }

@@ -1,19 +1,20 @@
+import type { BlockId, ChunkCoord } from '../types.ts'
+import type { Chunk } from '../world/chunk.ts'
+
 import {
-  LIGHT_LEVEL_MAX,
   advanceWorldTime,
   cloneWorldTimeState,
   createDefaultWorldTimeState,
+  LIGHT_LEVEL_MAX,
   normalizeWorldTimeState,
   type WorldTimeState,
-} from "../shared/lighting.ts";
-import type { BlockId, ChunkCoord } from "../types.ts";
-import { BLOCK_IDS, getBlockEmittedLightLevel } from "../world/blocks.ts";
-import { Chunk } from "../world/chunk.ts";
-import { CHUNK_SIZE } from "../world/constants.ts";
+} from '../shared/lighting.ts'
+import { BLOCK_IDS, getBlockEmittedLightLevel } from '../world/blocks.ts'
+import { CHUNK_SIZE } from '../world/constants.ts'
 
-const LIGHT_PADDING_CHUNKS = 1;
-const WORLD_MIN_Y = 0;
-const WORLD_MAX_Y = CHUNK_SIZE - 1;
+const LIGHT_PADDING_CHUNKS = 1
+const WORLD_MIN_Y = 0
+const WORLD_MAX_Y = CHUNK_SIZE - 1
 const LIGHT_DIRECTIONS = [
   [1, 0, 0],
   [-1, 0, 0],
@@ -21,36 +22,34 @@ const LIGHT_DIRECTIONS = [
   [0, -1, 0],
   [0, 0, 1],
   [0, 0, -1],
-] as const;
+] as const
 
 interface LightRegion {
-  minChunkX: number;
-  minChunkZ: number;
-  width: number;
-  depth: number;
-  skyLight: Uint8Array;
-  blockLight: Uint8Array;
+  minChunkX: number
+  minChunkZ: number
+  width: number
+  depth: number
+  skyLight: Uint8Array
+  blockLight: Uint8Array
 }
 
-const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
-
-const isLightPassable = (blockId: BlockId): boolean => blockId === BLOCK_IDS.air;
+const isLightPassable = (blockId: BlockId): boolean => blockId === BLOCK_IDS.air
 
 export class LightingSystem {
-  private worldTime = createDefaultWorldTimeState();
+  private worldTime = createDefaultWorldTimeState()
 
   public getTimeState(): WorldTimeState {
-    return cloneWorldTimeState(this.worldTime);
+    return cloneWorldTimeState(this.worldTime)
   }
 
   public setTimeState(time: WorldTimeState): WorldTimeState {
-    this.worldTime = normalizeWorldTimeState(time);
-    return this.getTimeState();
+    this.worldTime = normalizeWorldTimeState(time)
+    return this.getTimeState()
   }
 
   public advanceTime(deltaTicks: number): WorldTimeState {
-    this.worldTime = advanceWorldTime(this.worldTime, deltaTicks);
-    return this.getTimeState();
+    this.worldTime = advanceWorldTime(this.worldTime, deltaTicks)
+    return this.getTimeState()
   }
 
   public relightLoadedChunks(
@@ -58,98 +57,99 @@ export class LightingSystem {
     getBlockAt: (worldX: number, worldY: number, worldZ: number) => BlockId,
   ): ChunkCoord[] {
     if (chunks.length === 0) {
-      return [];
+      return []
     }
 
-    const region = this.buildLightRegion(chunks, getBlockAt);
-    const changedCoords: ChunkCoord[] = [];
+    const region = this.buildLightRegion(chunks, getBlockAt)
+    const changedCoords: ChunkCoord[] = []
 
     for (const chunk of chunks) {
-      const nextSkyLight = new Uint8Array(chunk.skyLight.length);
-      const nextBlockLight = new Uint8Array(chunk.blockLight.length);
-      let changed = false;
+      const nextSkyLight = new Uint8Array(chunk.skyLight.length)
+      const nextBlockLight = new Uint8Array(chunk.blockLight.length)
+      let changed = false
 
       for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
         for (let localZ = 0; localZ < CHUNK_SIZE; localZ += 1) {
           for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
-            const worldX = chunk.coord.x * CHUNK_SIZE + localX;
-            const worldZ = chunk.coord.z * CHUNK_SIZE + localZ;
-            const regionIndex = this.getRegionIndex(region, worldX, localY, worldZ);
-            const chunkIndex = localX + CHUNK_SIZE * (localZ + CHUNK_SIZE * localY);
-            const skyValue = region.skyLight[regionIndex] ?? 0;
-            const blockValue = region.blockLight[regionIndex] ?? 0;
-            nextSkyLight[chunkIndex] = skyValue;
-            nextBlockLight[chunkIndex] = blockValue;
+            const worldX = chunk.coord.x * CHUNK_SIZE + localX
+            const worldZ = chunk.coord.z * CHUNK_SIZE + localZ
+            const regionIndex = this.getRegionIndex(region, worldX, localY, worldZ)
+            const chunkIndex = localX + CHUNK_SIZE * (localZ + CHUNK_SIZE * localY)
+            const skyValue = region.skyLight[regionIndex] ?? 0
+            const blockValue = region.blockLight[regionIndex] ?? 0
+            nextSkyLight[chunkIndex] = skyValue
+            nextBlockLight[chunkIndex] = blockValue
             if (
               !changed &&
-              (chunk.skyLight[chunkIndex] !== skyValue || chunk.blockLight[chunkIndex] !== blockValue)
+              (chunk.skyLight[chunkIndex] !== skyValue ||
+                chunk.blockLight[chunkIndex] !== blockValue)
             ) {
-              changed = true;
+              changed = true
             }
           }
         }
       }
 
       if (changed) {
-        chunk.replaceLighting(nextSkyLight, nextBlockLight);
-        changedCoords.push(chunk.coord);
+        chunk.replaceLighting(nextSkyLight, nextBlockLight)
+        changedCoords.push(chunk.coord)
       }
     }
 
-    return changedCoords;
+    return changedCoords
   }
 
   private buildLightRegion(
     chunks: readonly Chunk[],
     getBlockAt: (worldX: number, worldY: number, worldZ: number) => BlockId,
   ): LightRegion {
-    let minChunkX = Number.POSITIVE_INFINITY;
-    let maxChunkX = Number.NEGATIVE_INFINITY;
-    let minChunkZ = Number.POSITIVE_INFINITY;
-    let maxChunkZ = Number.NEGATIVE_INFINITY;
+    let minChunkX = Number.POSITIVE_INFINITY
+    let maxChunkX = Number.NEGATIVE_INFINITY
+    let minChunkZ = Number.POSITIVE_INFINITY
+    let maxChunkZ = Number.NEGATIVE_INFINITY
 
     for (const chunk of chunks) {
-      minChunkX = Math.min(minChunkX, chunk.coord.x);
-      maxChunkX = Math.max(maxChunkX, chunk.coord.x);
-      minChunkZ = Math.min(minChunkZ, chunk.coord.z);
-      maxChunkZ = Math.max(maxChunkZ, chunk.coord.z);
+      minChunkX = Math.min(minChunkX, chunk.coord.x)
+      maxChunkX = Math.max(maxChunkX, chunk.coord.x)
+      minChunkZ = Math.min(minChunkZ, chunk.coord.z)
+      maxChunkZ = Math.max(maxChunkZ, chunk.coord.z)
     }
 
-    minChunkX -= LIGHT_PADDING_CHUNKS;
-    maxChunkX += LIGHT_PADDING_CHUNKS;
-    minChunkZ -= LIGHT_PADDING_CHUNKS;
-    maxChunkZ += LIGHT_PADDING_CHUNKS;
+    minChunkX -= LIGHT_PADDING_CHUNKS
+    maxChunkX += LIGHT_PADDING_CHUNKS
+    minChunkZ -= LIGHT_PADDING_CHUNKS
+    maxChunkZ += LIGHT_PADDING_CHUNKS
 
-    const width = (maxChunkX - minChunkX + 1) * CHUNK_SIZE;
-    const depth = (maxChunkZ - minChunkZ + 1) * CHUNK_SIZE;
-    const volume = width * depth * CHUNK_SIZE;
-    const skyLight = new Uint8Array(volume);
-    const blockLight = new Uint8Array(volume);
-    const skyQueue: number[] = [];
-    const blockQueue: number[] = [];
+    const width = (maxChunkX - minChunkX + 1) * CHUNK_SIZE
+    const depth = (maxChunkZ - minChunkZ + 1) * CHUNK_SIZE
+    const volume = width * depth * CHUNK_SIZE
+    const skyLight = new Uint8Array(volume)
+    const blockLight = new Uint8Array(volume)
+    const skyQueue: number[] = []
+    const blockQueue: number[] = []
 
     for (let localZ = 0; localZ < depth; localZ += 1) {
       for (let localX = 0; localX < width; localX += 1) {
-        const worldX = minChunkX * CHUNK_SIZE + localX;
-        const worldZ = minChunkZ * CHUNK_SIZE + localZ;
-        let blocked = false;
+        const worldX = minChunkX * CHUNK_SIZE + localX
+        const worldZ = minChunkZ * CHUNK_SIZE + localZ
+        let blocked = false
 
         for (let worldY = WORLD_MAX_Y; worldY >= WORLD_MIN_Y; worldY -= 1) {
-          const blockId = getBlockAt(worldX, worldY, worldZ);
+          const blockId = getBlockAt(worldX, worldY, worldZ)
           if (!isLightPassable(blockId)) {
-            blocked = true;
-            const emittedLight = getBlockEmittedLightLevel(blockId);
+            blocked = true
+            const emittedLight = getBlockEmittedLightLevel(blockId)
             if (emittedLight > 0) {
               const index = this.getRegionIndex(
                 { minChunkX, minChunkZ, width, depth, skyLight, blockLight },
                 worldX,
                 worldY,
                 worldZ,
-              );
-              blockLight[index] = emittedLight;
-              blockQueue.push(index);
+              )
+              blockLight[index] = emittedLight
+              blockQueue.push(index)
             }
-            continue;
+            continue
           }
 
           const index = this.getRegionIndex(
@@ -157,10 +157,10 @@ export class LightingSystem {
             worldX,
             worldY,
             worldZ,
-          );
+          )
           if (!blocked) {
-            skyLight[index] = LIGHT_LEVEL_MAX;
-            skyQueue.push(index);
+            skyLight[index] = LIGHT_LEVEL_MAX
+            skyQueue.push(index)
           }
         }
       }
@@ -173,12 +173,12 @@ export class LightingSystem {
       depth,
       skyLight,
       blockLight,
-    };
+    }
 
-    this.propagateLight(skyLight, skyQueue, region, getBlockAt);
-    this.propagateLight(blockLight, blockQueue, region, getBlockAt);
+    this.propagateLight(skyLight, skyQueue, region, getBlockAt)
+    this.propagateLight(blockLight, blockQueue, region, getBlockAt)
 
-    return region;
+    return region
   }
 
   private propagateLight(
@@ -188,17 +188,17 @@ export class LightingSystem {
     getBlockAt: (worldX: number, worldY: number, worldZ: number) => BlockId,
   ): void {
     for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
-      const index = queue[queueIndex]!;
-      const lightLevel = channel[index] ?? 0;
+      const index = queue[queueIndex]!
+      const lightLevel = channel[index] ?? 0
       if (lightLevel <= 1) {
-        continue;
+        continue
       }
 
-      const { x, y, z } = this.getRegionPosition(region, index);
+      const { x, y, z } = this.getRegionPosition(region, index)
       for (const [dx, dy, dz] of LIGHT_DIRECTIONS) {
-        const nextX = x + dx;
-        const nextY = y + dy;
-        const nextZ = z + dz;
+        const nextX = x + dx
+        const nextY = y + dy
+        const nextZ = z + dz
         if (
           nextY < WORLD_MIN_Y ||
           nextY > WORLD_MAX_Y ||
@@ -207,21 +207,21 @@ export class LightingSystem {
           nextZ < region.minChunkZ * CHUNK_SIZE ||
           nextZ >= region.minChunkZ * CHUNK_SIZE + region.depth
         ) {
-          continue;
+          continue
         }
 
         if (!isLightPassable(getBlockAt(nextX, nextY, nextZ))) {
-          continue;
+          continue
         }
 
-        const nextIndex = this.getRegionIndex(region, nextX, nextY, nextZ);
-        const nextLight = lightLevel - 1;
+        const nextIndex = this.getRegionIndex(region, nextX, nextY, nextZ)
+        const nextLight = lightLevel - 1
         if (nextLight <= (channel[nextIndex] ?? 0)) {
-          continue;
+          continue
         }
 
-        channel[nextIndex] = nextLight;
-        queue.push(nextIndex);
+        channel[nextIndex] = nextLight
+        queue.push(nextIndex)
       }
     }
   }
@@ -232,25 +232,28 @@ export class LightingSystem {
     worldY: number,
     worldZ: number,
   ): number {
-    const localX = worldX - region.minChunkX * CHUNK_SIZE;
-    const localZ = worldZ - region.minChunkZ * CHUNK_SIZE;
-    return localX + region.width * (localZ + region.depth * worldY);
+    const localX = worldX - region.minChunkX * CHUNK_SIZE
+    const localZ = worldZ - region.minChunkZ * CHUNK_SIZE
+    return localX + region.width * (localZ + region.depth * worldY)
   }
 
-  private getRegionPosition(region: LightRegion, index: number): {
-    x: number;
-    y: number;
-    z: number;
+  private getRegionPosition(
+    region: LightRegion,
+    index: number,
+  ): {
+    x: number
+    y: number
+    z: number
   } {
-    const plane = region.width * region.depth;
-    const y = Math.floor(index / plane);
-    const withinPlane = index - y * plane;
-    const z = Math.floor(withinPlane / region.width);
-    const x = withinPlane - z * region.width;
+    const plane = region.width * region.depth
+    const y = Math.floor(index / plane)
+    const withinPlane = index - y * plane
+    const z = Math.floor(withinPlane / region.width)
+    const x = withinPlane - z * region.width
     return {
       x: region.minChunkX * CHUNK_SIZE + x,
       y,
       z: region.minChunkZ * CHUNK_SIZE + z,
-    };
+    }
   }
 }

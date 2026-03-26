@@ -1,14 +1,15 @@
-import { expect, test } from "bun:test";
+import { expect, test } from 'bun:test'
+
 import {
   decodeClientToServerMessage,
   decodeServerToClientMessage,
   encodeTransportMessage,
-} from "../packages/core/src/shared/message-codec.ts";
+} from '../packages/core/src/shared/message-codec.ts'
 
-test("transport codec round-trips chunk payload bytes for server messages", () => {
+test('transport codec round-trips chunk payload bytes for server messages', () => {
   const encoded = encodeTransportMessage({
-    kind: "event",
-    type: "chunkDelivered",
+    kind: 'event',
+    type: 'chunkDelivered',
     payload: {
       chunk: {
         coord: { x: 1, y: 0, z: -2 },
@@ -18,45 +19,47 @@ test("transport codec round-trips chunk payload bytes for server messages", () =
         revision: 4,
       },
     },
-  });
+  })
 
-  const decoded = decodeServerToClientMessage(encoded);
-  if (decoded.kind !== "event" || decoded.type !== "chunkDelivered") {
-    throw new Error("Decoded message had the wrong shape.");
+  const decoded = decodeServerToClientMessage(encoded)
+  if (decoded.kind !== 'event' || decoded.type !== 'chunkDelivered') {
+    throw new Error('Decoded message had the wrong shape.')
   }
 
-  const chunkPayload = (decoded.payload as {
-    chunk: {
-      blocks: Uint8Array;
-    };
-  }).chunk;
-  expect(chunkPayload.blocks).toBeInstanceOf(Uint8Array);
-  expect([...chunkPayload.blocks]).toEqual([1, 2, 3, 255]);
-});
+  const chunkPayload = (
+    decoded.payload as {
+      chunk: {
+        blocks: Uint8Array
+      }
+    }
+  ).chunk
+  expect(chunkPayload.blocks).toBeInstanceOf(Uint8Array)
+  expect([...chunkPayload.blocks]).toEqual([1, 2, 3, 255])
+})
 
-test("transport codec round-trips request payloads for client messages", () => {
+test('transport codec round-trips request payloads for client messages', () => {
   const encoded = encodeTransportMessage({
-    kind: "request",
-    id: "client-1",
-    type: "requestChunks",
+    kind: 'request',
+    id: 'client-1',
+    type: 'requestChunks',
     payload: {
       coords: [
         { x: 0, y: 0, z: 0 },
         { x: 1, y: 0, z: 0 },
       ],
     },
-  });
+  })
 
-  const decoded = decodeClientToServerMessage(encoded);
+  const decoded = decodeClientToServerMessage(encoded)
   expect(decoded).toEqual({
-    kind: "request",
-    id: "client-1",
-    type: "requestChunks",
+    kind: 'request',
+    id: 'client-1',
+    type: 'requestChunks',
     payload: {
       coords: [
         { x: 0, y: 0, z: 0 },
         { x: 1, y: 0, z: 0 },
       ],
     },
-  });
-});
+  })
+})

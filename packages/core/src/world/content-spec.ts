@@ -1,339 +1,339 @@
-import type { AtlasTileId } from "./atlas.ts";
+import type { AtlasTileId } from './atlas.ts'
 
-export type AuthoredBlockOcclusionMode = "none" | "full" | "self";
-export type AuthoredBlockRenderPass = "opaque" | "cutout";
+export type AuthoredBlockOcclusionMode = 'none' | 'full' | 'self'
+export type AuthoredBlockRenderPass = 'opaque' | 'cutout'
 
 export interface AuthoredBlockTiles {
-  top: AtlasTileId;
-  bottom: AtlasTileId;
-  side: AtlasTileId;
+  top: AtlasTileId
+  bottom: AtlasTileId
+  side: AtlasTileId
 }
 
 export interface AuthoredBlockSpec {
-  key: string;
-  name: string;
-  collidable: boolean;
-  breakable: boolean;
-  occlusion: AuthoredBlockOcclusionMode;
-  renderPass: AuthoredBlockRenderPass | null;
-  dropItemKey: string | null;
-  emittedLightLevel: number;
-  color: readonly [number, number, number];
-  tiles?: AuthoredBlockTiles;
+  key: string
+  name: string
+  collidable: boolean
+  breakable: boolean
+  occlusion: AuthoredBlockOcclusionMode
+  renderPass: AuthoredBlockRenderPass | null
+  dropItemKey: string | null
+  emittedLightLevel: number
+  color: readonly [number, number, number]
+  tiles?: AuthoredBlockTiles
 }
 
 export interface AuthoredItemSpec {
-  key: string;
-  name: string;
-  color: readonly [number, number, number];
-  maxStackSize: number;
-  placesBlockKey: string | null;
-  renderBlockKey: string | null;
+  key: string
+  name: string
+  color: readonly [number, number, number]
+  maxStackSize: number
+  placesBlockKey: string | null
+  renderBlockKey: string | null
 }
 
 export interface DefaultInventoryStackSpec {
-  slot: number;
-  itemKey: string;
-  count: number;
+  slot: number
+  itemKey: string
+  count: number
 }
 
 export const AUTHORED_BLOCK_SPECS = [
   {
-    key: "air",
-    name: "air",
+    key: 'air',
+    name: 'air',
     collidable: false,
     breakable: false,
-    occlusion: "none",
+    occlusion: 'none',
     renderPass: null,
     dropItemKey: null,
     emittedLightLevel: 0,
     color: [0, 0, 0],
   },
   {
-    key: "grass",
-    name: "grass",
+    key: 'grass',
+    name: 'grass',
     collidable: true,
     breakable: true,
-    occlusion: "full",
-    renderPass: "opaque",
-    dropItemKey: "grass",
+    occlusion: 'full',
+    renderPass: 'opaque',
+    dropItemKey: 'grass',
     emittedLightLevel: 0,
     color: [0.42, 0.71, 0.31],
     tiles: {
-      top: "grass-top",
-      bottom: "dirt",
-      side: "grass-side",
+      top: 'grass-top',
+      bottom: 'dirt',
+      side: 'grass-side',
     },
   },
   {
-    key: "dirt",
-    name: "dirt",
+    key: 'dirt',
+    name: 'dirt',
     collidable: true,
     breakable: true,
-    occlusion: "full",
-    renderPass: "opaque",
-    dropItemKey: "dirt",
+    occlusion: 'full',
+    renderPass: 'opaque',
+    dropItemKey: 'dirt',
     emittedLightLevel: 0,
     color: [0.48, 0.34, 0.2],
     tiles: {
-      top: "dirt",
-      bottom: "dirt",
-      side: "dirt",
+      top: 'dirt',
+      bottom: 'dirt',
+      side: 'dirt',
     },
   },
   {
-    key: "stone",
-    name: "stone",
+    key: 'stone',
+    name: 'stone',
     collidable: true,
     breakable: true,
-    occlusion: "full",
-    renderPass: "opaque",
-    dropItemKey: "stone",
+    occlusion: 'full',
+    renderPass: 'opaque',
+    dropItemKey: 'stone',
     emittedLightLevel: 0,
     color: [0.5, 0.5, 0.56],
     tiles: {
-      top: "stone",
-      bottom: "stone",
-      side: "stone",
+      top: 'stone',
+      bottom: 'stone',
+      side: 'stone',
     },
   },
   {
-    key: "log",
-    name: "log",
+    key: 'log',
+    name: 'log',
     collidable: true,
     breakable: true,
-    occlusion: "full",
-    renderPass: "opaque",
-    dropItemKey: "log",
+    occlusion: 'full',
+    renderPass: 'opaque',
+    dropItemKey: 'log',
     emittedLightLevel: 0,
     color: [0.48, 0.37, 0.24],
     tiles: {
-      top: "log-top",
-      bottom: "log-top",
-      side: "log-side",
+      top: 'log-top',
+      bottom: 'log-top',
+      side: 'log-side',
     },
   },
   {
-    key: "leaves",
-    name: "leaves",
+    key: 'leaves',
+    name: 'leaves',
     collidable: true,
     breakable: true,
-    occlusion: "self",
-    renderPass: "cutout",
-    dropItemKey: "leaves",
+    occlusion: 'self',
+    renderPass: 'cutout',
+    dropItemKey: 'leaves',
     emittedLightLevel: 0,
     color: [0.32, 0.58, 0.22],
     tiles: {
-      top: "leaves",
-      bottom: "leaves",
-      side: "leaves",
+      top: 'leaves',
+      bottom: 'leaves',
+      side: 'leaves',
     },
   },
   {
-    key: "sand",
-    name: "sand",
+    key: 'sand',
+    name: 'sand',
     collidable: true,
     breakable: true,
-    occlusion: "full",
-    renderPass: "opaque",
-    dropItemKey: "sand",
+    occlusion: 'full',
+    renderPass: 'opaque',
+    dropItemKey: 'sand',
     emittedLightLevel: 0,
     color: [0.84, 0.78, 0.52],
     tiles: {
-      top: "sand",
-      bottom: "sand",
-      side: "sand",
+      top: 'sand',
+      bottom: 'sand',
+      side: 'sand',
     },
   },
   {
-    key: "planks",
-    name: "planks",
+    key: 'planks',
+    name: 'planks',
     collidable: true,
     breakable: true,
-    occlusion: "full",
-    renderPass: "opaque",
-    dropItemKey: "planks",
+    occlusion: 'full',
+    renderPass: 'opaque',
+    dropItemKey: 'planks',
     emittedLightLevel: 0,
     color: [0.72, 0.55, 0.31],
     tiles: {
-      top: "planks",
-      bottom: "planks",
-      side: "planks",
+      top: 'planks',
+      bottom: 'planks',
+      side: 'planks',
     },
   },
   {
-    key: "cobblestone",
-    name: "cobblestone",
+    key: 'cobblestone',
+    name: 'cobblestone',
     collidable: true,
     breakable: true,
-    occlusion: "full",
-    renderPass: "opaque",
-    dropItemKey: "cobblestone",
+    occlusion: 'full',
+    renderPass: 'opaque',
+    dropItemKey: 'cobblestone',
     emittedLightLevel: 0,
     color: [0.58, 0.58, 0.61],
     tiles: {
-      top: "cobblestone",
-      bottom: "cobblestone",
-      side: "cobblestone",
+      top: 'cobblestone',
+      bottom: 'cobblestone',
+      side: 'cobblestone',
     },
   },
   {
-    key: "brick",
-    name: "brick",
+    key: 'brick',
+    name: 'brick',
     collidable: true,
     breakable: true,
-    occlusion: "full",
-    renderPass: "opaque",
-    dropItemKey: "brick",
+    occlusion: 'full',
+    renderPass: 'opaque',
+    dropItemKey: 'brick',
     emittedLightLevel: 0,
     color: [0.69, 0.27, 0.22],
     tiles: {
-      top: "brick",
-      bottom: "brick",
-      side: "brick",
+      top: 'brick',
+      bottom: 'brick',
+      side: 'brick',
     },
   },
   {
-    key: "bedrock",
-    name: "bedrock",
+    key: 'bedrock',
+    name: 'bedrock',
     collidable: true,
     breakable: false,
-    occlusion: "full",
-    renderPass: "opaque",
+    occlusion: 'full',
+    renderPass: 'opaque',
     dropItemKey: null,
     emittedLightLevel: 0,
     color: [0.24, 0.24, 0.27],
     tiles: {
-      top: "bedrock",
-      bottom: "bedrock",
-      side: "bedrock",
+      top: 'bedrock',
+      bottom: 'bedrock',
+      side: 'bedrock',
     },
   },
   {
-    key: "glowstone",
-    name: "glowstone",
+    key: 'glowstone',
+    name: 'glowstone',
     collidable: true,
     breakable: true,
-    occlusion: "full",
-    renderPass: "opaque",
-    dropItemKey: "glowstone",
+    occlusion: 'full',
+    renderPass: 'opaque',
+    dropItemKey: 'glowstone',
     emittedLightLevel: 15,
     color: [0.94, 0.79, 0.37],
     tiles: {
-      top: "glowstone",
-      bottom: "glowstone",
-      side: "glowstone",
+      top: 'glowstone',
+      bottom: 'glowstone',
+      side: 'glowstone',
     },
   },
-] as const satisfies readonly AuthoredBlockSpec[];
+] as const satisfies readonly AuthoredBlockSpec[]
 
 export const AUTHORED_ITEM_SPECS = [
   {
-    key: "empty",
-    name: "empty",
+    key: 'empty',
+    name: 'empty',
     color: [0, 0, 0],
     maxStackSize: 0,
     placesBlockKey: null,
     renderBlockKey: null,
   },
   {
-    key: "grass",
-    name: "grass block",
+    key: 'grass',
+    name: 'grass block',
     color: [0.42, 0.71, 0.31],
     maxStackSize: 64,
-    placesBlockKey: "grass",
-    renderBlockKey: "grass",
+    placesBlockKey: 'grass',
+    renderBlockKey: 'grass',
   },
   {
-    key: "dirt",
-    name: "dirt",
+    key: 'dirt',
+    name: 'dirt',
     color: [0.48, 0.34, 0.2],
     maxStackSize: 64,
-    placesBlockKey: "dirt",
-    renderBlockKey: "dirt",
+    placesBlockKey: 'dirt',
+    renderBlockKey: 'dirt',
   },
   {
-    key: "stone",
-    name: "stone",
+    key: 'stone',
+    name: 'stone',
     color: [0.5, 0.5, 0.56],
     maxStackSize: 64,
-    placesBlockKey: "stone",
-    renderBlockKey: "stone",
+    placesBlockKey: 'stone',
+    renderBlockKey: 'stone',
   },
   {
-    key: "log",
-    name: "log",
+    key: 'log',
+    name: 'log',
     color: [0.48, 0.37, 0.24],
     maxStackSize: 64,
-    placesBlockKey: "log",
-    renderBlockKey: "log",
+    placesBlockKey: 'log',
+    renderBlockKey: 'log',
   },
   {
-    key: "leaves",
-    name: "leaves",
+    key: 'leaves',
+    name: 'leaves',
     color: [0.32, 0.58, 0.22],
     maxStackSize: 64,
-    placesBlockKey: "leaves",
-    renderBlockKey: "leaves",
+    placesBlockKey: 'leaves',
+    renderBlockKey: 'leaves',
   },
   {
-    key: "sand",
-    name: "sand",
+    key: 'sand',
+    name: 'sand',
     color: [0.84, 0.78, 0.52],
     maxStackSize: 64,
-    placesBlockKey: "sand",
-    renderBlockKey: "sand",
+    placesBlockKey: 'sand',
+    renderBlockKey: 'sand',
   },
   {
-    key: "planks",
-    name: "planks",
+    key: 'planks',
+    name: 'planks',
     color: [0.72, 0.55, 0.31],
     maxStackSize: 64,
-    placesBlockKey: "planks",
-    renderBlockKey: "planks",
+    placesBlockKey: 'planks',
+    renderBlockKey: 'planks',
   },
   {
-    key: "cobblestone",
-    name: "cobblestone",
+    key: 'cobblestone',
+    name: 'cobblestone',
     color: [0.58, 0.58, 0.61],
     maxStackSize: 64,
-    placesBlockKey: "cobblestone",
-    renderBlockKey: "cobblestone",
+    placesBlockKey: 'cobblestone',
+    renderBlockKey: 'cobblestone',
   },
   {
-    key: "brick",
-    name: "brick",
+    key: 'brick',
+    name: 'brick',
     color: [0.69, 0.27, 0.22],
     maxStackSize: 64,
-    placesBlockKey: "brick",
-    renderBlockKey: "brick",
+    placesBlockKey: 'brick',
+    renderBlockKey: 'brick',
   },
   {
-    key: "glowstone",
-    name: "glowstone",
+    key: 'glowstone',
+    name: 'glowstone',
     color: [0.94, 0.79, 0.37],
     maxStackSize: 64,
-    placesBlockKey: "glowstone",
-    renderBlockKey: "glowstone",
+    placesBlockKey: 'glowstone',
+    renderBlockKey: 'glowstone',
   },
-] as const satisfies readonly AuthoredItemSpec[];
+] as const satisfies readonly AuthoredItemSpec[]
 
 export const DEFAULT_HOTBAR_ITEM_KEYS = [
-  "grass",
-  "dirt",
-  "stone",
-  "log",
-  "leaves",
-  "sand",
-  "planks",
-  "cobblestone",
-  "brick",
-] as const satisfies readonly string[];
+  'grass',
+  'dirt',
+  'stone',
+  'log',
+  'leaves',
+  'sand',
+  'planks',
+  'cobblestone',
+  'brick',
+] as const satisfies readonly string[]
 
 export const DEFAULT_MAIN_INVENTORY_STACK_SPECS = [
   {
     slot: 0,
-    itemKey: "glowstone",
+    itemKey: 'glowstone',
     count: 64,
   },
-] as const satisfies readonly DefaultInventoryStackSpec[];
+] as const satisfies readonly DefaultInventoryStackSpec[]

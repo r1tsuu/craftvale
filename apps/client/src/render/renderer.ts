@@ -1,66 +1,71 @@
+import type {
+  VoxelWorld} from '@craftvale/core/shared';
+
 import {
-  CHUNK_SIZE,
-  VoxelWorld,
-  buildChunkMesh,
-  createIdentityMat4,
-  createDefaultWorldTimeState,
-  getBlockRenderPass,
-  getWorldDaylightFactor,
-  getItemRenderBlockId,
   type BlockId,
+  buildChunkMesh,
+  CHUNK_SIZE,
   type ChunkCoord,
+  createDefaultWorldTimeState,
+  createIdentityMat4,
   type DroppedItemSnapshot,
+  getBlockRenderPass,
+  getItemRenderBlockId,
+  getWorldDaylightFactor,
   type InventorySnapshot,
   type MeshData,
   type PlayerSnapshot,
   type Vec3,
   type WorldTimeState,
-} from "@craftvale/core/shared";
-import { PlayerController } from "../game/player.ts";
-import { GL, NativeBridge, loadTextAsset } from "../platform/native.ts";
-import { UiRenderer } from "../ui/renderer.ts";
-import { loadVoxelAtlasImageData } from "../world/atlas.ts";
-import type { UiResolvedComponent } from "../ui/components.ts";
-import { FocusHighlightRenderer } from "./highlight.ts";
-import { buildItemBlockMesh } from "./item-mesh.ts";
+} from '@craftvale/core/shared'
+
+import type { PlayerController } from '../game/player.ts'
+import type { NativeBridge } from '../platform/native.ts';
+import type { UiResolvedComponent } from '../ui/components.ts'
+
+import { GL, loadTextAsset } from '../platform/native.ts'
+import { UiRenderer } from '../ui/renderer.ts'
+import { loadVoxelAtlasImageData } from '../world/atlas.ts'
+import { FocusHighlightRenderer } from './highlight.ts'
+import { buildItemBlockMesh } from './item-mesh.ts'
 import {
-  PLAYER_NAMEPLATE_HEIGHT,
-  getHeldItemBlockId,
   collectVisibleRemotePlayers,
-} from "./player-model.ts";
-import { PlayerRenderer } from "./player-renderer.ts";
-import { TextOverlayRenderer, type TextDrawCommand } from "./text.ts";
-import { measureTextHeight, measureTextWidth } from "./text-mesh.ts";
+  getHeldItemBlockId,
+  PLAYER_NAMEPLATE_HEIGHT,
+} from './player-model.ts'
+import { PlayerRenderer } from './player-renderer.ts'
+import { measureTextHeight, measureTextWidth } from './text-mesh.ts'
+import { type TextDrawCommand, TextOverlayRenderer } from './text.ts'
 
 interface GpuMesh {
-  vao: number;
-  vbo: number;
-  ebo: number;
-  indexCount: number;
+  vao: number
+  vbo: number
+  ebo: number
+  indexCount: number
 }
 
 interface GpuChunkMesh {
-  opaque: GpuMesh | null;
-  cutout: GpuMesh | null;
+  opaque: GpuMesh | null
+  cutout: GpuMesh | null
 }
 
-const ITEM_RENDER_SCALE = 0.35;
-const IDENTITY_MODEL = createIdentityMat4();
+const ITEM_RENDER_SCALE = 0.35
+const IDENTITY_MODEL = createIdentityMat4()
 
-const meshKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`;
-const PLAYER_NAMEPLATE_SCALE = 2;
-const PLAYER_NAMEPLATE_MARGIN = 6;
+const meshKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`
+const PLAYER_NAMEPLATE_SCALE = 2
+const PLAYER_NAMEPLATE_MARGIN = 6
 
 const compileShader = (nativeBridge: NativeBridge, type: number, source: string): number => {
-  const shader = nativeBridge.gl.createShader(type);
-  nativeBridge.gl.shaderSource(shader, source);
+  const shader = nativeBridge.gl.createShader(type)
+  nativeBridge.gl.shaderSource(shader, source)
   if (!nativeBridge.gl.compileShader(shader)) {
-    const log = nativeBridge.gl.getShaderInfoLog(shader);
-    nativeBridge.gl.deleteShader(shader);
-    throw new Error(`Shader compilation failed:\n${log}`);
+    const log = nativeBridge.gl.getShaderInfoLog(shader)
+    nativeBridge.gl.deleteShader(shader)
+    throw new Error(`Shader compilation failed:\n${log}`)
   }
-  return shader;
-};
+  return shader
+}
 
 const projectWorldToScreen = (
   matrix: Float32Array,
@@ -70,95 +75,90 @@ const projectWorldToScreen = (
   width: number,
   height: number,
 ): { x: number; y: number } | null => {
-  const clipX = matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12];
-  const clipY = matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13];
-  const clipW = matrix[3] * x + matrix[7] * y + matrix[11] * z + matrix[15];
+  const clipX = matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12]
+  const clipY = matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13]
+  const clipW = matrix[3] * x + matrix[7] * y + matrix[11] * z + matrix[15]
 
   if (clipW <= 0.001) {
-    return null;
+    return null
   }
 
-  const ndcX = clipX / clipW;
-  const ndcY = clipY / clipW;
+  const ndcX = clipX / clipW
+  const ndcY = clipY / clipW
   if (ndcX < -1 || ndcX > 1 || ndcY < -1 || ndcY > 1) {
-    return null;
+    return null
   }
 
   return {
-    x: ((ndcX + 1) * 0.5) * width,
-    y: ((1 - ndcY) * 0.5) * height,
-  };
-};
+    x: (ndcX + 1) * 0.5 * width,
+    y: (1 - ndcY) * 0.5 * height,
+  }
+}
 
 export class VoxelRenderer {
-  private readonly program: number;
-  private readonly viewProjectionLocation: number;
-  private readonly modelLocation: number;
-  private readonly atlasSamplerLocation: number;
-  private readonly daylightLocation: number;
-  private readonly atlasTexture: number;
-  private readonly meshes = new Map<string, GpuChunkMesh>();
-  private readonly blockCubeMeshes = new Map<BlockId, GpuMesh | null>();
-  private readonly focusHighlightRenderer: FocusHighlightRenderer;
-  private readonly playerRenderer: PlayerRenderer;
-  private readonly textOverlayRenderer: TextOverlayRenderer;
-  private readonly uiRenderer: UiRenderer;
+  private readonly program: number
+  private readonly viewProjectionLocation: number
+  private readonly modelLocation: number
+  private readonly atlasSamplerLocation: number
+  private readonly daylightLocation: number
+  private readonly atlasTexture: number
+  private readonly meshes = new Map<string, GpuChunkMesh>()
+  private readonly blockCubeMeshes = new Map<BlockId, GpuMesh | null>()
+  private readonly focusHighlightRenderer: FocusHighlightRenderer
+  private readonly playerRenderer: PlayerRenderer
+  private readonly textOverlayRenderer: TextOverlayRenderer
+  private readonly uiRenderer: UiRenderer
 
   public constructor(private readonly nativeBridge: NativeBridge) {
-    this.nativeBridge.gl.enable(GL.DEPTH_TEST);
-    this.nativeBridge.gl.enable(GL.CULL_FACE);
-    this.nativeBridge.gl.cullFace(GL.BACK);
-    this.nativeBridge.gl.depthFunc(GL.LESS);
+    this.nativeBridge.gl.enable(GL.DEPTH_TEST)
+    this.nativeBridge.gl.enable(GL.CULL_FACE)
+    this.nativeBridge.gl.cullFace(GL.BACK)
+    this.nativeBridge.gl.depthFunc(GL.LESS)
 
     const vertexShader = compileShader(
       nativeBridge,
       GL.VERTEX_SHADER,
-      loadTextAsset("assets/shaders/voxel.vert"),
-    );
+      loadTextAsset('assets/shaders/voxel.vert'),
+    )
     const fragmentShader = compileShader(
       nativeBridge,
       GL.FRAGMENT_SHADER,
-      loadTextAsset("assets/shaders/voxel.frag"),
-    );
+      loadTextAsset('assets/shaders/voxel.frag'),
+    )
 
-    this.program = nativeBridge.gl.createProgram();
-    nativeBridge.gl.attachShader(this.program, vertexShader);
-    nativeBridge.gl.attachShader(this.program, fragmentShader);
+    this.program = nativeBridge.gl.createProgram()
+    nativeBridge.gl.attachShader(this.program, vertexShader)
+    nativeBridge.gl.attachShader(this.program, fragmentShader)
 
     if (!nativeBridge.gl.linkProgram(this.program)) {
-      const log = nativeBridge.gl.getProgramInfoLog(this.program);
-      throw new Error(`Program link failed:\n${log}`);
+      const log = nativeBridge.gl.getProgramInfoLog(this.program)
+      throw new Error(`Program link failed:\n${log}`)
     }
 
-    nativeBridge.gl.deleteShader(vertexShader);
-    nativeBridge.gl.deleteShader(fragmentShader);
+    nativeBridge.gl.deleteShader(vertexShader)
+    nativeBridge.gl.deleteShader(fragmentShader)
 
     this.viewProjectionLocation = nativeBridge.gl.getUniformLocation(
       this.program,
-      "uViewProjection",
-    );
-    this.modelLocation = nativeBridge.gl.getUniformLocation(this.program, "uModel");
-    this.atlasSamplerLocation = nativeBridge.gl.getUniformLocation(this.program, "uAtlas");
-    this.daylightLocation = nativeBridge.gl.getUniformLocation(this.program, "uDaylight");
-    this.atlasTexture = this.createAtlasTexture();
-    this.focusHighlightRenderer = new FocusHighlightRenderer(nativeBridge);
+      'uViewProjection',
+    )
+    this.modelLocation = nativeBridge.gl.getUniformLocation(this.program, 'uModel')
+    this.atlasSamplerLocation = nativeBridge.gl.getUniformLocation(this.program, 'uAtlas')
+    this.daylightLocation = nativeBridge.gl.getUniformLocation(this.program, 'uDaylight')
+    this.atlasTexture = this.createAtlasTexture()
+    this.focusHighlightRenderer = new FocusHighlightRenderer(nativeBridge)
     this.playerRenderer = new PlayerRenderer(
       (matrix) => {
-        this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, matrix);
+        this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, matrix)
       },
       (blockId) => this.getBlockCubeMesh(blockId),
       (mesh) => {
-        this.nativeBridge.gl.bindVertexArray(mesh.vao);
-        this.nativeBridge.gl.drawElements(
-          GL.TRIANGLES,
-          mesh.indexCount,
-          GL.UNSIGNED_INT,
-          0,
-        );
+        this.nativeBridge.gl.bindVertexArray(mesh.vao)
+        this.nativeBridge.gl.drawElements(GL.TRIANGLES, mesh.indexCount, GL.UNSIGNED_INT, 0)
       },
-    );
-    this.textOverlayRenderer = new TextOverlayRenderer(nativeBridge);
-    this.uiRenderer = new UiRenderer(nativeBridge);
+    )
+    this.textOverlayRenderer = new TextOverlayRenderer(nativeBridge)
+    this.uiRenderer = new UiRenderer(nativeBridge)
   }
 
   public render(
@@ -179,93 +179,85 @@ export class VoxelRenderer {
     uiWidth: number,
     uiHeight: number,
   ): void {
-    const resolvedWorldTime = worldTime ?? createDefaultWorldTimeState();
-    const daylightFactor = getWorldDaylightFactor(resolvedWorldTime);
-    this.nativeBridge.gl.viewport(0, 0, width, height);
+    const resolvedWorldTime = worldTime ?? createDefaultWorldTimeState()
+    const daylightFactor = getWorldDaylightFactor(resolvedWorldTime)
+    this.nativeBridge.gl.viewport(0, 0, width, height)
     this.nativeBridge.gl.clearColor(
       0.04 + daylightFactor * 0.52,
       0.06 + daylightFactor * 0.7,
       0.12 + daylightFactor * 0.82,
       1,
-    );
-    this.nativeBridge.gl.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
+    )
+    this.nativeBridge.gl.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
 
-    const aspect = Math.max(width / Math.max(height, 1), 0.01);
-    const viewProjection = player.getViewProjection(aspect);
-    this.prepareVoxelProgram(viewProjection, daylightFactor);
+    const aspect = Math.max(width / Math.max(height, 1), 0.01)
+    const viewProjection = player.getViewProjection(aspect)
+    this.prepareVoxelProgram(viewProjection, daylightFactor)
 
-    const playerChunkX = Math.floor(player.state.position[0] / CHUNK_SIZE);
-    const playerChunkZ = Math.floor(player.state.position[2] / CHUNK_SIZE);
+    const playerChunkX = Math.floor(player.state.position[0] / CHUNK_SIZE)
+    const playerChunkZ = Math.floor(player.state.position[2] / CHUNK_SIZE)
 
-    const visibleCoords = world.getLoadedChunkCoords().filter(
-      (coord) =>
-        Math.abs(coord.x - playerChunkX) <= renderDistance &&
-        Math.abs(coord.z - playerChunkZ) <= renderDistance,
-    );
+    const visibleCoords = world
+      .getLoadedChunkCoords()
+      .filter(
+        (coord) =>
+          Math.abs(coord.x - playerChunkX) <= renderDistance &&
+          Math.abs(coord.z - playerChunkZ) <= renderDistance,
+      )
     const visibleDroppedItems = droppedItems.filter((item) => {
-      const itemChunkX = Math.floor(item.position[0] / CHUNK_SIZE);
-      const itemChunkZ = Math.floor(item.position[2] / CHUNK_SIZE);
+      const itemChunkX = Math.floor(item.position[0] / CHUNK_SIZE)
+      const itemChunkZ = Math.floor(item.position[2] / CHUNK_SIZE)
       return (
         Math.abs(itemChunkX - playerChunkX) <= renderDistance &&
         Math.abs(itemChunkZ - playerChunkZ) <= renderDistance
-      );
-    });
+      )
+    })
     const visibleRemotePlayers = collectVisibleRemotePlayers(
       players,
       clientPlayerEntityId,
       player.state.position,
       renderDistance,
-    );
+    )
 
     for (const coord of visibleCoords) {
-      this.syncChunkMesh(world, coord);
-      const gpuMesh = this.meshes.get(meshKey(coord));
+      this.syncChunkMesh(world, coord)
+      const gpuMesh = this.meshes.get(meshKey(coord))
       if (!gpuMesh?.opaque) {
-        continue;
+        continue
       }
 
-      this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL);
-      this.nativeBridge.gl.bindVertexArray(gpuMesh.opaque.vao);
-      this.nativeBridge.gl.drawElements(
-        GL.TRIANGLES,
-        gpuMesh.opaque.indexCount,
-        GL.UNSIGNED_INT,
-        0,
-      );
+      this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL)
+      this.nativeBridge.gl.bindVertexArray(gpuMesh.opaque.vao)
+      this.nativeBridge.gl.drawElements(GL.TRIANGLES, gpuMesh.opaque.indexCount, GL.UNSIGNED_INT, 0)
     }
 
-    this.renderDroppedItems(visibleDroppedItems, "opaque");
-    this.playerRenderer.renderWorldPlayers(visibleRemotePlayers);
+    this.renderDroppedItems(visibleDroppedItems, 'opaque')
+    this.playerRenderer.renderWorldPlayers(visibleRemotePlayers)
 
     for (const coord of visibleCoords) {
-      const gpuMesh = this.meshes.get(meshKey(coord));
+      const gpuMesh = this.meshes.get(meshKey(coord))
       if (!gpuMesh?.cutout) {
-        continue;
+        continue
       }
 
-      this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL);
-      this.nativeBridge.gl.bindVertexArray(gpuMesh.cutout.vao);
-      this.nativeBridge.gl.drawElements(
-        GL.TRIANGLES,
-        gpuMesh.cutout.indexCount,
-        GL.UNSIGNED_INT,
-        0,
-      );
+      this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL)
+      this.nativeBridge.gl.bindVertexArray(gpuMesh.cutout.vao)
+      this.nativeBridge.gl.drawElements(GL.TRIANGLES, gpuMesh.cutout.indexCount, GL.UNSIGNED_INT, 0)
     }
 
-    this.renderDroppedItems(visibleDroppedItems, "cutout");
+    this.renderDroppedItems(visibleDroppedItems, 'cutout')
 
-    this.nativeBridge.gl.bindVertexArray(0);
-    this.focusHighlightRenderer.render(focusedBlock, viewProjection);
-    this.prepareVoxelProgram(viewProjection, daylightFactor);
-    this.nativeBridge.gl.disable(GL.DEPTH_TEST);
+    this.nativeBridge.gl.bindVertexArray(0)
+    this.focusHighlightRenderer.render(focusedBlock, viewProjection)
+    this.prepareVoxelProgram(viewProjection, daylightFactor)
+    this.nativeBridge.gl.disable(GL.DEPTH_TEST)
     this.playerRenderer.renderFirstPersonViewModel(
       player,
       getHeldItemBlockId(inventory),
       firstPersonSwingProgress,
-    );
-    this.nativeBridge.gl.bindVertexArray(0);
-    this.nativeBridge.gl.enable(GL.DEPTH_TEST);
+    )
+    this.nativeBridge.gl.bindVertexArray(0)
+    this.nativeBridge.gl.enable(GL.DEPTH_TEST)
     this.textOverlayRenderer.render(
       [
         ...overlayText,
@@ -273,18 +265,18 @@ export class VoxelRenderer {
       ],
       width,
       height,
-    );
-    this.uiRenderer.render(uiComponents, uiWidth, uiHeight, width, height);
+    )
+    this.uiRenderer.render(uiComponents, uiWidth, uiHeight, width, height)
   }
 
   private prepareVoxelProgram(viewProjection: Float32Array, daylightFactor: number): void {
-    this.nativeBridge.gl.useProgram(this.program);
-    this.nativeBridge.gl.activeTexture(GL.TEXTURE0);
-    this.nativeBridge.gl.bindTexture(GL.TEXTURE_2D, this.atlasTexture);
-    this.nativeBridge.gl.uniform1i(this.atlasSamplerLocation, 0);
-    this.nativeBridge.gl.uniform1f(this.daylightLocation, daylightFactor);
-    this.nativeBridge.gl.uniformMatrix4fv(this.viewProjectionLocation, viewProjection);
-    this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL);
+    this.nativeBridge.gl.useProgram(this.program)
+    this.nativeBridge.gl.activeTexture(GL.TEXTURE0)
+    this.nativeBridge.gl.bindTexture(GL.TEXTURE_2D, this.atlasTexture)
+    this.nativeBridge.gl.uniform1i(this.atlasSamplerLocation, 0)
+    this.nativeBridge.gl.uniform1f(this.daylightLocation, daylightFactor)
+    this.nativeBridge.gl.uniformMatrix4fv(this.viewProjectionLocation, viewProjection)
+    this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL)
   }
 
   private buildPlayerNameplateCommands(
@@ -293,7 +285,7 @@ export class VoxelRenderer {
     width: number,
     height: number,
   ): TextDrawCommand[] {
-    const commands: TextDrawCommand[] = [];
+    const commands: TextDrawCommand[] = []
 
     for (const player of players) {
       const projected = projectWorldToScreen(
@@ -303,13 +295,13 @@ export class VoxelRenderer {
         player.state.position[2],
         width,
         height,
-      );
+      )
       if (!projected) {
-        continue;
+        continue
       }
 
-      const textWidth = measureTextWidth(player.name, PLAYER_NAMEPLATE_SCALE);
-      const textHeight = measureTextHeight(PLAYER_NAMEPLATE_SCALE);
+      const textWidth = measureTextWidth(player.name, PLAYER_NAMEPLATE_SCALE)
+      const textHeight = measureTextHeight(PLAYER_NAMEPLATE_SCALE)
       commands.push({
         text: player.name,
         x: projected.x - textWidth / 2,
@@ -318,94 +310,89 @@ export class VoxelRenderer {
         color: [1, 1, 1, 1],
         shadowColor: [0, 0, 0, 0.9],
         shadowOffset: { x: 2, y: 2 },
-      });
+      })
     }
 
-    return commands;
+    return commands
   }
 
   private renderDroppedItems(
     droppedItems: readonly DroppedItemSnapshot[],
-    renderPass: "opaque" | "cutout",
+    renderPass: 'opaque' | 'cutout',
   ): void {
     for (const item of droppedItems) {
-      const renderBlockId = getItemRenderBlockId(item.itemId);
+      const renderBlockId = getItemRenderBlockId(item.itemId)
       if (renderBlockId === null || getBlockRenderPass(renderBlockId) !== renderPass) {
-        continue;
+        continue
       }
 
-      const mesh = this.getBlockCubeMesh(renderBlockId);
+      const mesh = this.getBlockCubeMesh(renderBlockId)
       if (!mesh) {
-        continue;
+        continue
       }
 
       this.nativeBridge.gl.uniformMatrix4fv(
         this.modelLocation,
         this.createDroppedItemModelMatrix(item),
-      );
-      this.nativeBridge.gl.bindVertexArray(mesh.vao);
-      this.nativeBridge.gl.drawElements(
-        GL.TRIANGLES,
-        mesh.indexCount,
-        GL.UNSIGNED_INT,
-        0,
-      );
+      )
+      this.nativeBridge.gl.bindVertexArray(mesh.vao)
+      this.nativeBridge.gl.drawElements(GL.TRIANGLES, mesh.indexCount, GL.UNSIGNED_INT, 0)
     }
   }
 
   private syncChunkMesh(world: VoxelWorld, coord: ChunkCoord): void {
-    const chunk = world.getChunk(coord);
+    const chunk = world.getChunk(coord)
     if (!chunk) {
-      return;
+      return
     }
 
-    const key = meshKey(coord);
-    const existing = this.meshes.get(key);
+    const key = meshKey(coord)
+    const existing = this.meshes.get(key)
     if (!chunk.dirty && existing) {
-      return;
+      return
     }
 
     if (existing) {
-      this.deleteGpuChunkMesh(existing);
-      this.meshes.delete(key);
+      this.deleteGpuChunkMesh(existing)
+      this.meshes.delete(key)
     }
 
-    const mesh = buildChunkMesh(world, coord);
+    const mesh = buildChunkMesh(world, coord)
     this.meshes.set(key, {
       opaque: this.createGpuMesh(mesh.opaque),
       cutout: this.createGpuMesh(mesh.cutout),
-    });
+    })
   }
 
   private getBlockCubeMesh(blockId: BlockId): GpuMesh | null {
     if (this.blockCubeMeshes.has(blockId)) {
-      return this.blockCubeMeshes.get(blockId) ?? null;
+      return this.blockCubeMeshes.get(blockId) ?? null
     }
 
-    const mesh = this.createGpuMesh(buildItemBlockMesh(blockId));
-    this.blockCubeMeshes.set(blockId, mesh);
-    return mesh;
+    const mesh = this.createGpuMesh(buildItemBlockMesh(blockId))
+    this.blockCubeMeshes.set(blockId, mesh)
+    return mesh
   }
 
   private createGpuMesh(mesh: MeshData): GpuMesh | null {
     if (mesh.indexCount === 0) {
-      return null;
+      return null
     }
 
-    const vao = this.nativeBridge.gl.genVertexArray();
-    const vbo = this.nativeBridge.gl.genBuffer();
-    const ebo = this.nativeBridge.gl.genBuffer();
+    const vao = this.nativeBridge.gl.genVertexArray()
+    const vbo = this.nativeBridge.gl.genBuffer()
+    const ebo = this.nativeBridge.gl.genBuffer()
 
-    this.nativeBridge.gl.bindVertexArray(vao);
-    this.nativeBridge.gl.bindBuffer(GL.ARRAY_BUFFER, vbo);
-    this.nativeBridge.gl.bufferData(GL.ARRAY_BUFFER, mesh.vertexData, GL.STATIC_DRAW);
-    this.nativeBridge.gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, ebo);
-    this.nativeBridge.gl.bufferData(GL.ELEMENT_ARRAY_BUFFER, mesh.indexData, GL.STATIC_DRAW);
+    this.nativeBridge.gl.bindVertexArray(vao)
+    this.nativeBridge.gl.bindBuffer(GL.ARRAY_BUFFER, vbo)
+    this.nativeBridge.gl.bufferData(GL.ARRAY_BUFFER, mesh.vertexData, GL.STATIC_DRAW)
+    this.nativeBridge.gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, ebo)
+    this.nativeBridge.gl.bufferData(GL.ELEMENT_ARRAY_BUFFER, mesh.indexData, GL.STATIC_DRAW)
 
-    const stride = 8 * Float32Array.BYTES_PER_ELEMENT;
-    this.nativeBridge.gl.enableVertexAttribArray(0);
-    this.nativeBridge.gl.vertexAttribPointer(0, 3, GL.FLOAT, false, stride, 0);
-    this.nativeBridge.gl.enableVertexAttribArray(1);
+    const stride = 8 * Float32Array.BYTES_PER_ELEMENT
+    this.nativeBridge.gl.enableVertexAttribArray(0)
+    this.nativeBridge.gl.vertexAttribPointer(0, 3, GL.FLOAT, false, stride, 0)
+    this.nativeBridge.gl.enableVertexAttribArray(1)
     this.nativeBridge.gl.vertexAttribPointer(
       1,
       2,
@@ -413,8 +400,8 @@ export class VoxelRenderer {
       false,
       stride,
       3 * Float32Array.BYTES_PER_ELEMENT,
-    );
-    this.nativeBridge.gl.enableVertexAttribArray(2);
+    )
+    this.nativeBridge.gl.enableVertexAttribArray(2)
     this.nativeBridge.gl.vertexAttribPointer(
       2,
       1,
@@ -422,8 +409,8 @@ export class VoxelRenderer {
       false,
       stride,
       5 * Float32Array.BYTES_PER_ELEMENT,
-    );
-    this.nativeBridge.gl.enableVertexAttribArray(3);
+    )
+    this.nativeBridge.gl.enableVertexAttribArray(3)
     this.nativeBridge.gl.vertexAttribPointer(
       3,
       1,
@@ -431,8 +418,8 @@ export class VoxelRenderer {
       false,
       stride,
       6 * Float32Array.BYTES_PER_ELEMENT,
-    );
-    this.nativeBridge.gl.enableVertexAttribArray(4);
+    )
+    this.nativeBridge.gl.enableVertexAttribArray(4)
     this.nativeBridge.gl.vertexAttribPointer(
       4,
       1,
@@ -440,45 +427,57 @@ export class VoxelRenderer {
       false,
       stride,
       7 * Float32Array.BYTES_PER_ELEMENT,
-    );
+    )
 
     return {
       vao,
       vbo,
       ebo,
       indexCount: mesh.indexCount,
-    };
+    }
   }
 
   private deleteGpuChunkMesh(mesh: GpuChunkMesh): void {
     if (mesh.opaque) {
-      this.nativeBridge.gl.deleteBuffer(mesh.opaque.vbo);
-      this.nativeBridge.gl.deleteBuffer(mesh.opaque.ebo);
-      this.nativeBridge.gl.deleteVertexArray(mesh.opaque.vao);
+      this.nativeBridge.gl.deleteBuffer(mesh.opaque.vbo)
+      this.nativeBridge.gl.deleteBuffer(mesh.opaque.ebo)
+      this.nativeBridge.gl.deleteVertexArray(mesh.opaque.vao)
     }
 
     if (mesh.cutout) {
-      this.nativeBridge.gl.deleteBuffer(mesh.cutout.vbo);
-      this.nativeBridge.gl.deleteBuffer(mesh.cutout.ebo);
-      this.nativeBridge.gl.deleteVertexArray(mesh.cutout.vao);
+      this.nativeBridge.gl.deleteBuffer(mesh.cutout.vbo)
+      this.nativeBridge.gl.deleteBuffer(mesh.cutout.ebo)
+      this.nativeBridge.gl.deleteVertexArray(mesh.cutout.vao)
     }
   }
 
   private createDroppedItemModelMatrix(item: DroppedItemSnapshot): Float32Array {
     return new Float32Array([
-      ITEM_RENDER_SCALE, 0, 0, 0,
-      0, ITEM_RENDER_SCALE, 0, 0,
-      0, 0, ITEM_RENDER_SCALE, 0,
-      item.position[0], item.position[1], item.position[2], 1,
-    ]);
+      ITEM_RENDER_SCALE,
+      0,
+      0,
+      0,
+      0,
+      ITEM_RENDER_SCALE,
+      0,
+      0,
+      0,
+      0,
+      ITEM_RENDER_SCALE,
+      0,
+      item.position[0],
+      item.position[1],
+      item.position[2],
+      1,
+    ])
   }
 
   private createAtlasTexture(): number {
-    const texture = this.nativeBridge.gl.genTexture();
-    const atlas = loadVoxelAtlasImageData();
+    const texture = this.nativeBridge.gl.genTexture()
+    const atlas = loadVoxelAtlasImageData()
 
-    this.nativeBridge.gl.activeTexture(GL.TEXTURE0);
-    this.nativeBridge.gl.bindTexture(GL.TEXTURE_2D, texture);
+    this.nativeBridge.gl.activeTexture(GL.TEXTURE0)
+    this.nativeBridge.gl.bindTexture(GL.TEXTURE_2D, texture)
     this.nativeBridge.gl.texImage2D(
       GL.TEXTURE_2D,
       0,
@@ -489,12 +488,12 @@ export class VoxelRenderer {
       GL.RGBA,
       GL.UNSIGNED_BYTE,
       atlas.pixels,
-    );
-    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.NEAREST);
-    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.NEAREST);
-    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE);
-    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, GL.CLAMP_TO_EDGE);
+    )
+    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.NEAREST)
+    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.NEAREST)
+    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE)
+    this.nativeBridge.gl.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, GL.CLAMP_TO_EDGE)
 
-    return texture;
+    return texture
   }
 }

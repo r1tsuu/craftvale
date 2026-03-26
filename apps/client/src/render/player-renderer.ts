@@ -1,80 +1,89 @@
-import { PlayerController } from "../game/player.ts";
 import {
   addVec3,
+  type BlockId,
   crossVec3,
   lengthVec3,
   normalizeVec3,
+  type PlayerSnapshot,
   scaleVec3,
   vec3,
-  type BlockId,
-  type PlayerSnapshot,
   type Vec3,
-} from "@craftvale/core/shared";
+} from '@craftvale/core/shared'
+
+import type { PlayerController } from '../game/player.ts'
+
 import {
   FIRST_PERSON_ARM_CAMERA_OFFSET,
   FIRST_PERSON_ARM_PART,
   FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET,
   FIRST_PERSON_HELD_ITEM_SCALE,
-  PLAYER_BODY_PARTS,
   getFirstPersonSwingAmount,
-} from "./player-model.ts";
+  PLAYER_BODY_PARTS,
+} from './player-model.ts'
 
 interface RenderableMesh {
-  vao: number;
-  indexCount: number;
+  vao: number
+  indexCount: number
 }
 
-const WORLD_UP = vec3(0, 1, 0);
+const WORLD_UP = vec3(0, 1, 0)
 
 const createForwardVector = (yaw: number, pitch: number): Vec3 =>
   normalizeVec3(
-    vec3(
-      Math.cos(pitch) * Math.cos(yaw),
-      Math.sin(pitch),
-      Math.cos(pitch) * Math.sin(yaw),
-    ),
-  );
+    vec3(Math.cos(pitch) * Math.cos(yaw), Math.sin(pitch), Math.cos(pitch) * Math.sin(yaw)),
+  )
 
-const createOrientationBasis = (forward: Vec3): {
-  right: Vec3;
-  up: Vec3;
-  back: Vec3;
+const createOrientationBasis = (
+  forward: Vec3,
+): {
+  right: Vec3
+  up: Vec3
+  back: Vec3
 } => {
-  const back = scaleVec3(forward, -1);
-  let right = crossVec3(WORLD_UP, back);
+  const back = scaleVec3(forward, -1)
+  let right = crossVec3(WORLD_UP, back)
   if (lengthVec3(right) === 0) {
-    right = vec3(1, 0, 0);
+    right = vec3(1, 0, 0)
   } else {
-    right = normalizeVec3(right);
+    right = normalizeVec3(right)
   }
 
-  const up = normalizeVec3(crossVec3(back, right));
+  const up = normalizeVec3(crossVec3(back, right))
   return {
     right,
     up,
     back,
-  };
-};
+  }
+}
 
 const createModelMatrix = (
   position: Vec3,
   scale: readonly [number, number, number],
   forward: Vec3,
 ): Float32Array => {
-  const basis = createOrientationBasis(forward);
+  const basis = createOrientationBasis(forward)
   return new Float32Array([
-    basis.right.x * scale[0], basis.right.y * scale[0], basis.right.z * scale[0], 0,
-    basis.up.x * scale[1], basis.up.y * scale[1], basis.up.z * scale[1], 0,
-    basis.back.x * scale[2], basis.back.y * scale[2], basis.back.z * scale[2], 0,
-    position.x, position.y, position.z, 1,
-  ]);
-};
+    basis.right.x * scale[0],
+    basis.right.y * scale[0],
+    basis.right.z * scale[0],
+    0,
+    basis.up.x * scale[1],
+    basis.up.y * scale[1],
+    basis.up.z * scale[1],
+    0,
+    basis.back.x * scale[2],
+    basis.back.y * scale[2],
+    basis.back.z * scale[2],
+    0,
+    position.x,
+    position.y,
+    position.z,
+    1,
+  ])
+}
 
-const addScaled = (
-  base: Vec3,
-  direction: Vec3,
-  magnitude: number,
-): Vec3 => addVec3(base, scaleVec3(direction, magnitude));
+const addScaled = (base: Vec3, direction: Vec3, magnitude: number): Vec3 =>
+  addVec3(base, scaleVec3(direction, magnitude))
 
 export class PlayerRenderer {
   public constructor(
@@ -85,7 +94,7 @@ export class PlayerRenderer {
 
   public renderWorldPlayers(players: readonly PlayerSnapshot[]): void {
     for (const player of players) {
-      this.renderWorldPlayer(player);
+      this.renderWorldPlayer(player)
     }
   }
 
@@ -94,10 +103,10 @@ export class PlayerRenderer {
     heldBlockId: BlockId | null,
     swingProgress = 0,
   ): void {
-    const eye = player.getEyePositionVec3();
-    const cameraForward = player.getForwardVector();
-    const cameraBasis = createOrientationBasis(cameraForward);
-    const swingAmount = getFirstPersonSwingAmount(swingProgress);
+    const eye = player.getEyePositionVec3()
+    const cameraForward = player.getForwardVector()
+    const cameraBasis = createOrientationBasis(cameraForward)
+    const swingAmount = getFirstPersonSwingAmount(swingProgress)
 
     const armPosition = addScaled(
       addScaled(
@@ -111,7 +120,7 @@ export class PlayerRenderer {
       ),
       cameraForward,
       FIRST_PERSON_ARM_CAMERA_OFFSET.forward - swingAmount * 0.1,
-    );
+    )
     this.renderCuboid(
       FIRST_PERSON_ARM_PART.blockId,
       armPosition,
@@ -120,10 +129,10 @@ export class PlayerRenderer {
         player.state.yaw - 0.5 + swingAmount * 0.35,
         player.state.pitch + 0.7 - swingAmount * 0.5,
       ),
-    );
+    )
 
     if (heldBlockId === null) {
-      return;
+      return
     }
 
     const heldPosition = addScaled(
@@ -138,41 +147,33 @@ export class PlayerRenderer {
       ),
       cameraForward,
       FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET.forward - swingAmount * 0.12,
-    );
+    )
     this.renderCuboid(
       heldBlockId,
       heldPosition,
-      [
-        FIRST_PERSON_HELD_ITEM_SCALE,
-        FIRST_PERSON_HELD_ITEM_SCALE,
-        FIRST_PERSON_HELD_ITEM_SCALE,
-      ],
+      [FIRST_PERSON_HELD_ITEM_SCALE, FIRST_PERSON_HELD_ITEM_SCALE, FIRST_PERSON_HELD_ITEM_SCALE],
       createForwardVector(
         player.state.yaw - 0.35 + swingAmount * 0.28,
         player.state.pitch + 0.42 - swingAmount * 0.42,
       ),
-    );
+    )
   }
 
   private renderWorldPlayer(player: PlayerSnapshot): void {
-    const bodyForward = createForwardVector(player.state.yaw, 0);
-    const bodyBasis = createOrientationBasis(bodyForward);
-    const root = vec3(...player.state.position);
+    const bodyForward = createForwardVector(player.state.yaw, 0)
+    const bodyBasis = createOrientationBasis(bodyForward)
+    const root = vec3(...player.state.position)
 
     for (const part of PLAYER_BODY_PARTS) {
       const partPosition = addScaled(
-        addScaled(
-          addScaled(root, bodyBasis.right, part.offset[0]),
-          bodyBasis.up,
-          part.offset[1],
-        ),
+        addScaled(addScaled(root, bodyBasis.right, part.offset[0]), bodyBasis.up, part.offset[1]),
         bodyForward,
         part.offset[2],
-      );
+      )
       const forward = part.pitchFollowsLook
         ? createForwardVector(player.state.yaw, player.state.pitch * 0.35)
-        : bodyForward;
-      this.renderCuboid(part.blockId, partPosition, part.size, forward);
+        : bodyForward
+      this.renderCuboid(part.blockId, partPosition, part.size, forward)
     }
   }
 
@@ -182,12 +183,12 @@ export class PlayerRenderer {
     scale: readonly [number, number, number],
     forward: Vec3,
   ): void {
-    const mesh = this.getBlockMesh(blockId);
+    const mesh = this.getBlockMesh(blockId)
     if (!mesh) {
-      return;
+      return
     }
 
-    this.setModelMatrix(createModelMatrix(position, scale, forward));
-    this.drawMesh(mesh);
+    this.setModelMatrix(createModelMatrix(position, scale, forward))
+    this.drawMesh(mesh)
   }
 }

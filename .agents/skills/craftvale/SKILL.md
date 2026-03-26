@@ -22,8 +22,10 @@ task touches a feature area with an existing implementation plan.
    from the README alone.
 3. Preserve the current workspace ownership model unless the task explicitly
    changes architecture.
-4. After edits, run `bun test` and `bun run typecheck`.
-5. If you changed native build/tooling or asset preprocessing, also run the
+4. When you touch repo tooling or broad code style, use `bun run format` and
+   `bun run lint` so edits match the repo's Prettier and ESLint setup.
+5. After edits, run `bun test` and `bun run typecheck`.
+6. If you changed native build/tooling or asset preprocessing, also run the
    relevant `apps/cli` command such as `bun run build:native`.
 
 ## Architecture Anchors
@@ -99,6 +101,8 @@ task touches a feature area with an existing implementation plan.
 
 ## Validation
 
+- Formatting: `bun run format:check`
+- Lint: `bun run lint`
 - Baseline: `bun test`
 - Static check: `bun run typecheck`
 - Native bridge or tooling touched: `bun run build:native`

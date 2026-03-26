@@ -19,12 +19,22 @@
     "generate:content": "bun run --cwd apps/cli generate-content-registry",
     "generate:atlas": "bun run --cwd apps/cli generate-voxel-atlas",
     "generate:tile-sources": "bun run --cwd apps/cli generate-voxel-tile-sources",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier . --write --ignore-unknown",
+    "format:check": "prettier . --check --ignore-unknown",
     "start": "bun run --cwd apps/client start",
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test"
   },
   "devDependencies": {
     "bun-types": "^1.3.11",
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-perfectionist": "^4.10.1",
+    "globals": "^16.0.0",
+    "prettier": "^3.5.3",
+    "typescript-eslint": "^8.29.0",
     "typescript": "^5.9.3"
   }
 }

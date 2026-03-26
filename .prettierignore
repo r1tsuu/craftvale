@@ -1,0 +1,8 @@
+.agents
+node_modules
+apps/client/dist
+apps/dedicated-server/dist
+packages/core/src/world/generated
+bun.lockb
+pnpm-lock.yaml
+native/libvoxel_bridge.dylib

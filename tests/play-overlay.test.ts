@@ -1,142 +1,142 @@
-import { expect, test } from "bun:test";
+import { expect, test } from 'bun:test'
+
 import {
   resolvePlayChatOpenDraft,
   resolvePlayChatTypedText,
   resolvePlayEscapeAction,
   shouldLockCursor,
-} from "../apps/client/src/game/play-overlay.ts";
+} from '../apps/client/src/game/play-overlay.ts'
 
-test("escape closes the most local play overlay first", () => {
+test('escape closes the most local play overlay first', () => {
   expect(
     resolvePlayEscapeAction({
       chatOpen: false,
       inventoryOpen: true,
-      pauseScreen: "closed",
+      pauseScreen: 'closed',
     }),
-  ).toBe("close-inventory");
+  ).toBe('close-inventory')
 
   expect(
     resolvePlayEscapeAction({
       chatOpen: true,
       inventoryOpen: false,
-      pauseScreen: "closed",
+      pauseScreen: 'closed',
     }),
-  ).toBe("close-chat");
+  ).toBe('close-chat')
 
   expect(
     resolvePlayEscapeAction({
       chatOpen: false,
       inventoryOpen: false,
-      pauseScreen: "settings",
+      pauseScreen: 'settings',
     }),
-  ).toBe("back-to-pause-menu");
+  ).toBe('back-to-pause-menu')
 
   expect(
     resolvePlayEscapeAction({
       chatOpen: false,
       inventoryOpen: false,
-      pauseScreen: "menu",
+      pauseScreen: 'menu',
     }),
-  ).toBe("resume-game");
+  ).toBe('resume-game')
 
   expect(
     resolvePlayEscapeAction({
       chatOpen: false,
       inventoryOpen: false,
-      pauseScreen: "closed",
+      pauseScreen: 'closed',
     }),
-  ).toBe("open-pause-menu");
-});
+  ).toBe('open-pause-menu')
+})
 
-test("cursor lock only stays active during unpaused gameplay", () => {
+test('cursor lock only stays active during unpaused gameplay', () => {
   expect(
-    shouldLockCursor("playing", {
+    shouldLockCursor('playing', {
       inventoryOpen: false,
-      pauseScreen: "closed",
+      pauseScreen: 'closed',
     }),
-  ).toBe(true);
+  ).toBe(true)
 
   expect(
-    shouldLockCursor("playing", {
+    shouldLockCursor('playing', {
       inventoryOpen: true,
-      pauseScreen: "closed",
+      pauseScreen: 'closed',
     }),
-  ).toBe(false);
+  ).toBe(false)
 
   expect(
-    shouldLockCursor("playing", {
+    shouldLockCursor('playing', {
       inventoryOpen: false,
-      pauseScreen: "menu",
+      pauseScreen: 'menu',
     }),
-  ).toBe(false);
+  ).toBe(false)
 
   expect(
-    shouldLockCursor("menu", {
+    shouldLockCursor('menu', {
       inventoryOpen: false,
-      pauseScreen: "closed",
+      pauseScreen: 'closed',
     }),
-  ).toBe(false);
-});
+  ).toBe(false)
+})
 
-test("slash opens chat prefilled even when no slash character arrives in typed text", () => {
+test('slash opens chat prefilled even when no slash character arrives in typed text', () => {
   expect(
     resolvePlayChatOpenDraft({
       enterPressed: false,
       slashPressed: true,
-      typedText: "",
+      typedText: '',
     }),
-  ).toBe("/");
+  ).toBe('/')
 
   expect(
     resolvePlayChatOpenDraft({
       enterPressed: false,
       slashPressed: true,
-      typedText: "/gamemode 1",
+      typedText: '/gamemode 1',
     }),
-  ).toBe("/gamemode 1");
+  ).toBe('/gamemode 1')
 
   expect(
     resolvePlayChatOpenDraft({
       enterPressed: true,
       slashPressed: true,
-      typedText: "",
+      typedText: '',
     }),
-  ).toBe("");
-});
+  ).toBe('')
+})
 
-test("slash can still be typed manually after chat is already open", () => {
+test('slash can still be typed manually after chat is already open', () => {
   expect(
     resolvePlayChatTypedText({
       slashPressed: true,
-      typedText: "",
+      typedText: '',
     }),
-  ).toBe("/");
+  ).toBe('/')
 
   expect(
     resolvePlayChatTypedText({
       slashPressed: true,
-      typedText: "gamemode 1",
+      typedText: 'gamemode 1',
     }),
-  ).toBe("/gamemode 1");
+  ).toBe('/gamemode 1')
 
   expect(
     resolvePlayChatTypedText({
       slashPressed: false,
-      typedText: "hello",
+      typedText: 'hello',
     }),
-  ).toBe("hello");
-});
+  ).toBe('hello')
+})
 
-test("chat preserves printable ASCII that was typed directly", () => {
-  const printableAscii = Array.from(
-    { length: 95 },
-    (_, index) => String.fromCharCode(32 + index),
-  ).join("");
+test('chat preserves printable ASCII that was typed directly', () => {
+  const printableAscii = Array.from({ length: 95 }, (_, index) =>
+    String.fromCharCode(32 + index),
+  ).join('')
 
   expect(
     resolvePlayChatTypedText({
       slashPressed: false,
       typedText: printableAscii,
     }),
-  ).toBe(printableAscii);
-});
+  ).toBe(printableAscii)
+})

@@ -1,20 +1,19 @@
-import { dlopen, FFIType, ptr } from "bun:ffi";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import type { InputState, WindowConfig } from "../types.ts";
+import { dlopen, FFIType, ptr } from 'bun:ffi'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
-const clientRoot = import.meta.dir.endsWith("/apps/client/src/platform")
-  ? import.meta.dir.slice(0, -"/src/platform".length)
-  : import.meta.dir;
-const projectRoot = clientRoot.endsWith("/apps/client")
-  ? clientRoot.slice(0, -"/apps/client".length)
-  : clientRoot;
-const libraryPath = join(projectRoot, "native", "libvoxel_bridge.dylib");
+import type { InputState, WindowConfig } from '../types.ts'
+
+const clientRoot = import.meta.dir.endsWith('/apps/client/src/platform')
+  ? import.meta.dir.slice(0, -'/src/platform'.length)
+  : import.meta.dir
+const projectRoot = clientRoot.endsWith('/apps/client')
+  ? clientRoot.slice(0, -'/apps/client'.length)
+  : clientRoot
+const libraryPath = join(projectRoot, 'native', 'libvoxel_bridge.dylib')
 
 if (!existsSync(libraryPath)) {
-  throw new Error(
-    `Missing native library at ${libraryPath}. Run "bun run build:native" first.`,
-  );
+  throw new Error(`Missing native library at ${libraryPath}. Run "bun run build:native" first.`)
 }
 
 const library = dlopen(libraryPath, {
@@ -122,14 +121,7 @@ const library = dlopen(libraryPath, {
   },
   bridge_gl_enable_vertex_attrib_array: { args: [FFIType.u32], returns: FFIType.void },
   bridge_gl_vertex_attrib_pointer: {
-    args: [
-      FFIType.u32,
-      FFIType.i32,
-      FFIType.u32,
-      FFIType.i32,
-      FFIType.i32,
-      FFIType.i32,
-    ],
+    args: [FFIType.u32, FFIType.i32, FFIType.u32, FFIType.i32, FFIType.i32, FFIType.i32],
     returns: FFIType.void,
   },
   bridge_gl_draw_elements: {
@@ -139,33 +131,33 @@ const library = dlopen(libraryPath, {
   bridge_gl_delete_vertex_array: { args: [FFIType.u32], returns: FFIType.void },
   bridge_gl_delete_buffer: { args: [FFIType.u32], returns: FFIType.void },
   bridge_gl_delete_texture: { args: [FFIType.u32], returns: FFIType.void },
-});
+})
 
-const GLFW_KEY_W = 87;
-const GLFW_KEY_E = 69;
-const GLFW_KEY_A = 65;
-const GLFW_KEY_S = 83;
-const GLFW_KEY_D = 68;
-const GLFW_KEY_SPACE = 32;
-const GLFW_KEY_LEFT_SHIFT = 340;
-const GLFW_KEY_ENTER = 257;
-const GLFW_KEY_TAB = 258;
-const GLFW_KEY_BACKSPACE = 259;
-const GLFW_KEY_ESCAPE = 256;
-const GLFW_KEY_SLASH = 47;
-const GLFW_KEY_1 = 49;
-const GLFW_KEY_2 = 50;
-const GLFW_KEY_3 = 51;
-const GLFW_KEY_4 = 52;
-const GLFW_KEY_5 = 53;
-const GLFW_KEY_6 = 54;
-const GLFW_KEY_7 = 55;
-const GLFW_KEY_8 = 56;
-const GLFW_KEY_9 = 57;
-const GLFW_MOUSE_BUTTON_LEFT = 0;
-const GLFW_MOUSE_BUTTON_RIGHT = 1;
+const GLFW_KEY_W = 87
+const GLFW_KEY_E = 69
+const GLFW_KEY_A = 65
+const GLFW_KEY_S = 83
+const GLFW_KEY_D = 68
+const GLFW_KEY_SPACE = 32
+const GLFW_KEY_LEFT_SHIFT = 340
+const GLFW_KEY_ENTER = 257
+const GLFW_KEY_TAB = 258
+const GLFW_KEY_BACKSPACE = 259
+const GLFW_KEY_ESCAPE = 256
+const GLFW_KEY_SLASH = 47
+const GLFW_KEY_1 = 49
+const GLFW_KEY_2 = 50
+const GLFW_KEY_3 = 51
+const GLFW_KEY_4 = 52
+const GLFW_KEY_5 = 53
+const GLFW_KEY_6 = 54
+const GLFW_KEY_7 = 55
+const GLFW_KEY_8 = 56
+const GLFW_KEY_9 = 57
+const GLFW_MOUSE_BUTTON_LEFT = 0
+const GLFW_MOUSE_BUTTON_RIGHT = 1
 
-const cstring = (value: string): Uint8Array => new TextEncoder().encode(`${value}\0`);
+const cstring = (value: string): Uint8Array => new TextEncoder().encode(`${value}\0`)
 
 export const GL = {
   COLOR_BUFFER_BIT: 0x00004000,
@@ -197,68 +189,68 @@ export const GL = {
   CLAMP_TO_EDGE: 0x812f,
   NEAREST: 0x2600,
   RGBA: 0x1908,
-} as const;
+} as const
 
 export class NativeBridge {
-  private lastCursorX = 0;
-  private lastCursorY = 0;
+  private lastCursorX = 0
+  private lastCursorY = 0
 
   public initWindow(config: WindowConfig): void {
     const ok = library.symbols.bridge_init_window(
       config.width,
       config.height,
       cstring(config.title),
-    );
+    )
     if (!ok) {
-      throw new Error("Failed to initialize GLFW window.");
+      throw new Error('Failed to initialize GLFW window.')
     }
 
-    this.lastCursorX = library.symbols.bridge_get_cursor_x();
-    this.lastCursorY = library.symbols.bridge_get_cursor_y();
-    library.symbols.bridge_set_cursor_disabled(1);
+    this.lastCursorX = library.symbols.bridge_get_cursor_x()
+    this.lastCursorY = library.symbols.bridge_get_cursor_y()
+    library.symbols.bridge_set_cursor_disabled(1)
   }
 
   public shutdown(): void {
-    library.symbols.bridge_shutdown();
+    library.symbols.bridge_shutdown()
   }
 
   public shouldClose(): boolean {
-    return Boolean(library.symbols.bridge_window_should_close());
+    return Boolean(library.symbols.bridge_window_should_close())
   }
 
   public requestClose(): void {
-    library.symbols.bridge_request_close();
+    library.symbols.bridge_request_close()
   }
 
   public getTime(): number {
-    return library.symbols.bridge_get_time();
+    return library.symbols.bridge_get_time()
   }
 
   public beginFrame(): void {
-    library.symbols.bridge_begin_frame();
+    library.symbols.bridge_begin_frame()
   }
 
   public endFrame(): void {
-    library.symbols.bridge_end_frame();
+    library.symbols.bridge_end_frame()
   }
 
   public setCursorDisabled(disabled: boolean): void {
-    library.symbols.bridge_set_cursor_disabled(disabled ? 1 : 0);
-    this.lastCursorX = library.symbols.bridge_get_cursor_x();
-    this.lastCursorY = library.symbols.bridge_get_cursor_y();
+    library.symbols.bridge_set_cursor_disabled(disabled ? 1 : 0)
+    this.lastCursorX = library.symbols.bridge_get_cursor_x()
+    this.lastCursorY = library.symbols.bridge_get_cursor_y()
   }
 
   public pollInput(): InputState {
-    library.symbols.bridge_poll_events();
+    library.symbols.bridge_poll_events()
 
-    const cursorX = library.symbols.bridge_get_cursor_x();
-    const cursorY = library.symbols.bridge_get_cursor_y();
-    const typedText = library.symbols.bridge_get_typed_text().toString();
-    const windowWidth = library.symbols.bridge_get_window_width();
-    const windowHeight = library.symbols.bridge_get_window_height();
-    const framebufferWidth = library.symbols.bridge_get_framebuffer_width();
-    const framebufferHeight = library.symbols.bridge_get_framebuffer_height();
-    const resized = Boolean(library.symbols.bridge_was_resized());
+    const cursorX = library.symbols.bridge_get_cursor_x()
+    const cursorY = library.symbols.bridge_get_cursor_y()
+    const typedText = library.symbols.bridge_get_typed_text().toString()
+    const windowWidth = library.symbols.bridge_get_window_width()
+    const windowHeight = library.symbols.bridge_get_window_height()
+    const framebufferWidth = library.symbols.bridge_get_framebuffer_width()
+    const framebufferHeight = library.symbols.bridge_get_framebuffer_height()
+    const resized = Boolean(library.symbols.bridge_was_resized())
     const hotbarSelection = Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_1))
       ? 0
       : Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_2))
@@ -277,7 +269,7 @@ export class NativeBridge {
                     ? 7
                     : Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_9))
                       ? 8
-              : null;
+                      : null
 
     const input: InputState = {
       moveForward: Boolean(library.symbols.bridge_is_key_down(GLFW_KEY_W)),
@@ -286,57 +278,41 @@ export class NativeBridge {
       moveRight: Boolean(library.symbols.bridge_is_key_down(GLFW_KEY_D)),
       moveUp: Boolean(library.symbols.bridge_is_key_down(GLFW_KEY_SPACE)),
       moveDown: Boolean(library.symbols.bridge_is_key_down(GLFW_KEY_LEFT_SHIFT)),
-      breakBlock: Boolean(
-        library.symbols.bridge_is_mouse_button_down(GLFW_MOUSE_BUTTON_LEFT),
-      ),
+      breakBlock: Boolean(library.symbols.bridge_is_mouse_button_down(GLFW_MOUSE_BUTTON_LEFT)),
       breakBlockPressed: Boolean(
         library.symbols.bridge_consume_mouse_button_press(GLFW_MOUSE_BUTTON_LEFT),
       ),
-      placeBlock: Boolean(
-        library.symbols.bridge_is_mouse_button_down(GLFW_MOUSE_BUTTON_RIGHT),
-      ),
+      placeBlock: Boolean(library.symbols.bridge_is_mouse_button_down(GLFW_MOUSE_BUTTON_RIGHT)),
       placeBlockPressed: Boolean(
         library.symbols.bridge_consume_mouse_button_press(GLFW_MOUSE_BUTTON_RIGHT),
       ),
-      exitPressed: Boolean(
-        library.symbols.bridge_consume_key_press(GLFW_KEY_ESCAPE),
-      ),
+      exitPressed: Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_ESCAPE)),
       mouseDeltaX: cursorX - this.lastCursorX,
       mouseDeltaY: cursorY - this.lastCursorY,
       cursorX,
       cursorY,
       typedText,
-      slashPressed: Boolean(
-        library.symbols.bridge_consume_key_press(GLFW_KEY_SLASH),
-      ),
-      backspacePressed: Boolean(
-        library.symbols.bridge_consume_key_press(GLFW_KEY_BACKSPACE),
-      ),
-      enterPressed: Boolean(
-        library.symbols.bridge_consume_key_press(GLFW_KEY_ENTER),
-      ),
-      tabPressed: Boolean(
-        library.symbols.bridge_consume_key_press(GLFW_KEY_TAB),
-      ),
-      inventoryToggle: Boolean(
-        library.symbols.bridge_consume_key_press(GLFW_KEY_E),
-      ),
+      slashPressed: Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_SLASH)),
+      backspacePressed: Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_BACKSPACE)),
+      enterPressed: Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_ENTER)),
+      tabPressed: Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_TAB)),
+      inventoryToggle: Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_E)),
       hotbarSelection,
       windowWidth,
       windowHeight,
       framebufferWidth,
       framebufferHeight,
       resized,
-    };
-
-    this.lastCursorX = cursorX;
-    this.lastCursorY = cursorY;
-    library.symbols.bridge_consume_typed_text();
-    if (resized) {
-      library.symbols.bridge_consume_resize();
     }
 
-    return input;
+    this.lastCursorX = cursorX
+    this.lastCursorY = cursorY
+    library.symbols.bridge_consume_typed_text()
+    if (resized) {
+      library.symbols.bridge_consume_resize()
+    }
+
+    return input
   }
 
   public gl = {
@@ -385,11 +361,7 @@ export class NativeBridge {
     activeTexture: (texture: number): void => library.symbols.bridge_gl_active_texture(texture),
     bindTexture: (target: number, texture: number): void =>
       library.symbols.bridge_gl_bind_texture(target, texture),
-    bufferData: (
-      target: number,
-      value: Float32Array | Uint32Array,
-      usage: number,
-    ): void =>
+    bufferData: (target: number, value: Float32Array | Uint32Array, usage: number): void =>
       library.symbols.bridge_gl_buffer_data(target, ptr(value), value.byteLength, usage),
     texImage2D: (
       target: number,
@@ -435,16 +407,14 @@ export class NativeBridge {
       ),
     drawElements: (mode: number, count: number, type: number, offset: number): void =>
       library.symbols.bridge_gl_draw_elements(mode, count, type, offset),
-    deleteVertexArray: (vao: number): void =>
-      library.symbols.bridge_gl_delete_vertex_array(vao),
+    deleteVertexArray: (vao: number): void => library.symbols.bridge_gl_delete_vertex_array(vao),
     deleteBuffer: (buffer: number): void => library.symbols.bridge_gl_delete_buffer(buffer),
-    deleteTexture: (texture: number): void =>
-      library.symbols.bridge_gl_delete_texture(texture),
-  };
+    deleteTexture: (texture: number): void => library.symbols.bridge_gl_delete_texture(texture),
+  }
 }
 
 export const loadTextAsset = (relativePath: string): string =>
-  readFileSync(join(clientRoot, relativePath), "utf8");
+  readFileSync(join(clientRoot, relativePath), 'utf8')
 
 export const loadBinaryAsset = (relativePath: string): Uint8Array =>
-  new Uint8Array(readFileSync(join(clientRoot, relativePath)));
+  new Uint8Array(readFileSync(join(clientRoot, relativePath)))
