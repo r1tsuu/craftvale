@@ -30,6 +30,17 @@ export interface UiLabel extends UiBaseComponent {
   centered?: boolean;
 }
 
+export interface UiImage extends UiBaseComponent {
+  kind: "image";
+  uvRect: {
+    uMin: number;
+    uMax: number;
+    vMin: number;
+    vMax: number;
+  };
+  color?: readonly [number, number, number, number?];
+}
+
 export interface UiHotspot extends UiBaseComponent {
   kind: "hotspot";
   action: string;
@@ -57,7 +68,7 @@ export interface UiButton extends UiBaseComponent {
   disabled?: boolean;
 }
 
-export type UiComponent = UiPanel | UiLabel | UiButton | UiHotspot | UiSlider;
+export type UiComponent = UiPanel | UiLabel | UiImage | UiButton | UiHotspot | UiSlider;
 
 export interface UiResolvedButton extends UiButton {
   hovered: boolean;
@@ -81,6 +92,7 @@ export interface UiSliderChange {
 export type UiResolvedComponent =
   | UiPanel
   | UiLabel
+  | UiImage
   | UiResolvedButton
   | UiResolvedHotspot
   | UiResolvedSlider;
@@ -93,6 +105,7 @@ export interface UiEvaluationResult {
 
 export const createPanel = (panel: UiPanel): UiPanel => panel;
 export const createLabel = (label: UiLabel): UiLabel => label;
+export const createImage = (image: UiImage): UiImage => image;
 export const createButton = (button: UiButton): UiButton => button;
 export const createHotspot = (hotspot: UiHotspot): UiHotspot => hotspot;
 export const createSlider = (slider: UiSlider): UiSlider => slider;
@@ -112,7 +125,7 @@ export const evaluateUi = (
   const sliderChanges: UiSliderChange[] = [];
 
   for (const component of components) {
-    if (component.kind === "panel" || component.kind === "label") {
+    if (component.kind === "panel" || component.kind === "label" || component.kind === "image") {
       resolved.push(component);
       continue;
     }

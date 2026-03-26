@@ -163,7 +163,7 @@ This local world is used for:
 - local first-person arm and held-item rendering inputs
 - player collision
 - voxel raycast/highlight
-- HUD/hotbar display
+- HUD/hotbar display with baked item-icon atlas visuals derived from shared item render metadata
 
 ### Server side
 

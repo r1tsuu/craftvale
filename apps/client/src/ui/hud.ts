@@ -16,14 +16,15 @@ import {
 import {
   formatWorldClock,
   getHotbarInventorySlots,
-  getItemColor,
   getItemDisplayName,
   getMainInventorySlots,
   getSelectedInventorySlot,
 } from "@craftvale/core/shared";
+import { getItemIconUvRect } from "../world/item-icons.ts";
 import {
   createButton,
   createHotspot,
+  createImage,
   createLabel,
   createPanel,
   type UiComponent,
@@ -173,16 +174,16 @@ const buildInventorySlotVisual = (
 
   if (!isEmptyInventorySlot(slot)) {
     components.push(
-      createPanel({
-        id: `${idPrefix}-swatch`,
-        kind: "panel",
+      createImage({
+        id: `${idPrefix}-icon`,
+        kind: "image",
         rect: {
-          x: rect.x + 14,
-          y: rect.y + 18,
-          width: rect.width - 28,
-          height: rect.height - 28,
+          x: rect.x + 10,
+          y: rect.y + 12,
+          width: rect.width - 20,
+          height: rect.height - 20,
         },
-        color: getItemColor(slot.itemId),
+        uvRect: getItemIconUvRect(slot.itemId),
       }),
       createLabel({
         id: `${idPrefix}-count`,

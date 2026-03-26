@@ -51,6 +51,14 @@ test("play HUD still renders the hotbar and selected slot label", () => {
   expect(hud.some((component) => component.id === "hotbar-backdrop")).toBe(
     true,
   );
+  expect(hud).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "hotbar-slot-0-icon",
+        kind: "image",
+      }),
+    ]),
+  );
   expect(labels).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
@@ -271,6 +279,10 @@ test("play HUD renders the full inventory overlay when inventory is open", () =>
       expect.objectContaining({
         id: "inventory-main-slot-0-count",
         text: "12",
+      }),
+      expect.objectContaining({
+        id: "inventory-main-slot-0-icon",
+        kind: "image",
       }),
       expect.objectContaining({
         id: "inventory-hotbar-slot-0-key",

@@ -17,6 +17,7 @@ export * from "../world/chunk-coords.ts";
 export * from "../world/chunk.ts";
 export * from "../world/constants.ts";
 export * from "../world/inventory.ts";
+export * from "../world/item-icons.ts";
 export * from "../world/items.ts";
 export * from "../world/mesher.ts";
 export * from "../world/noise.ts";

@@ -1,3 +1,4 @@
+import { ImageOverlayRenderer, type ImageDrawCommand } from "../render/image.ts";
 import { RectOverlayRenderer, type RectDrawCommand } from "../render/rect.ts";
 import { TextOverlayRenderer, type TextDrawCommand } from "../render/text.ts";
 import { measureTextHeight, measureTextWidth } from "../render/text-mesh.ts";
@@ -112,15 +113,18 @@ const getSliderPalette = (hovered: boolean, dragging: boolean, disabled: boolean
 
 export class UiRenderer {
   private readonly rectRenderer: RectOverlayRenderer;
+  private readonly imageRenderer: ImageOverlayRenderer;
   private readonly textRenderer: TextOverlayRenderer;
 
   public constructor(nativeBridge: NativeBridge) {
     this.rectRenderer = new RectOverlayRenderer(nativeBridge);
+    this.imageRenderer = new ImageOverlayRenderer(nativeBridge);
     this.textRenderer = new TextOverlayRenderer(nativeBridge);
   }
 
   public render(components: readonly UiResolvedComponent[], width: number, height: number): void {
     const rects: RectDrawCommand[] = [];
+    const images: ImageDrawCommand[] = [];
     const text: TextDrawCommand[] = [];
 
     for (const component of components) {
@@ -134,6 +138,15 @@ export class UiRenderer {
 
       if (component.kind === "label") {
         text.push(this.toTextCommand(component.text, component.rect, component.scale, component.color, component.centered));
+        continue;
+      }
+
+      if (component.kind === "image") {
+        images.push({
+          ...component.rect,
+          uvRect: component.uvRect,
+          color: component.color,
+        });
         continue;
       }
 
@@ -211,6 +224,7 @@ export class UiRenderer {
     }
 
     this.rectRenderer.render(rects, width, height);
+    this.imageRenderer.render(images, width, height);
     this.textRenderer.render(text, width, height);
   }
 
