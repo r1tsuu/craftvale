@@ -197,7 +197,7 @@ plans/                Implementation plans for major feature work
 tests/                Coverage for client/server flow, storage, terrain, meshing, and UI
 ```
 
-Content authoring and the asset pipeline are documented in [`architecture.md`](./architecture.md).
+Content authoring and the asset pipeline are documented in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Commit Messages
 
