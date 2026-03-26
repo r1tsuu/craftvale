@@ -66,6 +66,7 @@ import {
 } from './menu-state.ts'
 import { isValidSavedServerAddress, isValidSavedServerName } from './saved-servers.ts'
 import { WebSocketClientAdapter } from './websocket-client-adapter.ts'
+import { getBaseWindowTitle, getSessionWindowTitle } from './window-title.ts'
 import { WorkerClientAdapter } from './worker-client-adapter.ts'
 import { ClientWorldRuntime } from './world-runtime.ts'
 
@@ -409,6 +410,7 @@ export class GameApp {
     this.connectionMode = null
     this.connectedServerAddress = null
     this.state.serverTps = null
+    this.syncWindowTitle()
   }
 
   private async connectLocalClient(worldName: string): Promise<void> {
@@ -846,6 +848,7 @@ export class GameApp {
     this.state.appMode = 'loading'
     this.state.lastServerMessage = ''
     this.state.accumulator = 0
+    this.syncWindowTitle()
     this.syncCursorMode()
     return token
   }
@@ -932,6 +935,7 @@ export class GameApp {
 
     this.state.loadingState = null
     this.state.appMode = 'playing'
+    this.syncWindowTitle()
     this.syncCursorMode()
     this.state.accumulator = 0
     this.state.lastServerMessage = options.connectedMessage
@@ -961,6 +965,7 @@ export class GameApp {
     this.state.pauseScreen = 'closed'
     this.state.lastServerMessage = statusText
     this.state.menuState = setMenuBusy(setMenuStatus(this.state.menuState, statusText), false)
+    this.syncWindowTitle()
     this.syncCursorMode()
   }
 
@@ -1345,6 +1350,7 @@ export class GameApp {
       busy: false,
       statusText,
     }
+    this.syncWindowTitle()
     this.syncCursorMode()
   }
 
@@ -1353,6 +1359,18 @@ export class GameApp {
       shouldLockCursor(this.state.appMode, {
         inventoryOpen: this.state.inventoryOpen,
         pauseScreen: this.state.pauseScreen,
+      }),
+    )
+  }
+
+  private syncWindowTitle(): void {
+    this.deps.nativeBridge.setWindowTitle(
+      getSessionWindowTitle({
+        playerName: this.deps.playerName,
+        appMode: this.state.appMode,
+        connectionMode: this.connectionMode,
+        currentWorldName: this.state.currentWorldName,
+        connectedServerAddress: this.connectedServerAddress,
       }),
     )
   }
@@ -1493,7 +1511,7 @@ export const createDefaultGameApp = (options: {
   nativeBridge.initWindow({
     width: 1440,
     height: 900,
-    title: `Craftvale - ${options.playerName}`,
+    title: getBaseWindowTitle(options.playerName),
   })
   nativeBridge.setCursorDisabled(false)
 

@@ -28,6 +28,7 @@ const library = dlopen(libraryPath, {
   bridge_begin_frame: { args: [], returns: FFIType.void },
   bridge_end_frame: { args: [], returns: FFIType.void },
   bridge_get_time: { args: [], returns: FFIType.f64 },
+  bridge_set_window_title: { args: [FFIType.cstring], returns: FFIType.void },
   bridge_set_cursor_disabled: { args: [FFIType.i32], returns: FFIType.void },
   bridge_is_key_down: { args: [FFIType.i32], returns: FFIType.i32 },
   bridge_is_mouse_button_down: { args: [FFIType.i32], returns: FFIType.i32 },
@@ -224,6 +225,10 @@ export class NativeBridge {
 
   public getTime(): number {
     return library.symbols.bridge_get_time()
+  }
+
+  public setWindowTitle(title: string): void {
+    library.symbols.bridge_set_window_title(cstring(title))
   }
 
   public beginFrame(): void {

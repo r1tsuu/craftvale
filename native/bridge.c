@@ -167,6 +167,14 @@ double bridge_get_time(void) {
   return glfwGetTime();
 }
 
+void bridge_set_window_title(const char *title) {
+  if (!g_window) {
+    return;
+  }
+
+  glfwSetWindowTitle(g_window, title);
+}
+
 void bridge_set_cursor_disabled(int disabled) {
   if (!g_window) {
     return;
