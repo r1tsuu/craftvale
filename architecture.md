@@ -11,8 +11,10 @@ At a high level:
 - `apps/client/src/client/*`, `render/*`, `ui/*`, `game/*`, and `platform/*` implement client runtime behavior, rendering, input, menus, HUD, and native integration.
 - `apps/client/src/worker/*` owns singleplayer worker bootstrap and worker-only transport glue.
 - `apps/client/assets/*` contains runtime-loaded client shaders and textures.
+- `apps/client/assets/textures/tiles-src/*` contains authored per-tile PNG source textures that are packed into the runtime atlas by `apps/cli`.
 - `apps/cli/src/*` owns repo-level developer tooling such as native builds, combined dev startup, cleanup, and asset generation.
 - `apps/cli/src/generate-content-registry.ts` generates stable block/item ids and registries from the authored content spec.
+- `apps/cli/src/generate-voxel-tile-sources.ts` and `apps/cli/src/generate-voxel-atlas.ts` own the tile-source and atlas build pipeline.
 - `apps/dedicated-server/src/index.ts` is the dedicated WebSocket server bootstrap.
 - `packages/core/src/server/*` implements authoritative world/session behavior and storage.
 - `packages/core/src/shared/*` defines typed messaging, transport, and event-bus plumbing.

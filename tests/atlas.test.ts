@@ -1,6 +1,15 @@
 import { expect, test } from "bun:test";
+import { readFile } from "node:fs/promises";
+import {
+  VOXEL_ATLAS_OUTPUT_PATH,
+  VOXEL_TILE_SOURCE_ROOT,
+  buildVoxelAtlasPngFromSourceTiles,
+  getVoxelTileSourcePath,
+  loadVoxelTileSourcePixels,
+} from "../apps/cli/src/voxel-atlas-pipeline.ts";
 import {
   ATLAS_HEIGHT,
+  ATLAS_TILE_IDS,
   ATLAS_TILE_SIZE,
   ATLAS_WIDTH,
   AtlasTiles,
@@ -16,6 +25,23 @@ test("atlas PNG image data has the expected dimensions and byte size", () => {
   expect(atlas.height).toBe(ATLAS_HEIGHT);
   expect(atlas.pixels).toHaveLength(ATLAS_WIDTH * ATLAS_HEIGHT * 4);
   expect(VOXEL_ATLAS_ASSET_PATH.endsWith(".png")).toBe(true);
+});
+
+test("source tile PNGs exist for every atlas tile and stay at tile resolution", async () => {
+  const tilePixelsById = await loadVoxelTileSourcePixels();
+
+  expect(VOXEL_TILE_SOURCE_ROOT.endsWith("tiles-src")).toBe(true);
+  expect(Object.keys(tilePixelsById)).toHaveLength(ATLAS_TILE_IDS.length);
+  for (const tileId of ATLAS_TILE_IDS) {
+    const tilePixels = tilePixelsById[tileId];
+    expect(getVoxelTileSourcePath(tileId).endsWith(`${tileId}.png`)).toBe(true);
+    expect(tilePixels).toHaveLength(ATLAS_TILE_SIZE * ATLAS_TILE_SIZE * 4);
+  }
+});
+
+test("atlas PNG stays in sync with the per-tile source PNGs", async () => {
+  const atlasBytes = new Uint8Array(await readFile(VOXEL_ATLAS_OUTPUT_PATH));
+  expect([...atlasBytes]).toEqual([...await buildVoxelAtlasPngFromSourceTiles()]);
 });
 
 test("atlas tile layout is fixed and UVs are inset within tile bounds", () => {

@@ -57,6 +57,8 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `bun run dev:full` starts the dedicated server and the desktop client together
 - `bun run dev:full:clean` wipes `apps/client/dist` and `apps/dedicated-server/dist` and then starts the full client-plus-server dev flow
 - `bun run generate:content` regenerates block/item ids and registries from the authored content spec
+- `bun run generate:tile-sources` writes one PNG per voxel tile into `apps/client/assets/textures/tiles-src`
+- `bun run generate:atlas` rebuilds `apps/client/assets/textures/voxel-atlas.png` from those source tile PNGs
 - `bun run typecheck` runs TypeScript checks
 - `bun test` runs the automated tests
 - Launch options: `--player-name=<name>` or `--player-name <name>` overrides the local player name for that run
@@ -98,9 +100,12 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 ## Project Layout
 
 - `apps/client` desktop app package with the app bootstrap, `GameApp`, client runtime, rendering, UI, input, singleplayer worker startup, and runtime assets under `apps/client/assets`
+- `apps/client/assets/textures/tiles-src` editable per-tile PNG source textures
 - `apps/dedicated-server` dedicated WebSocket server package with process startup and server lifecycle wiring
 - `apps/cli` developer CLI workspace with native build, combined dev flow, data cleanup, and asset-generation scripts
+- `apps/cli/src/generate-voxel-tile-sources.ts` writes default per-tile source PNGs
 - `apps/cli/src/generate-content-registry.ts` deterministic content-registry generation for block/item ids and registries
+- `apps/cli/src/generate-voxel-atlas.ts` packs source tile PNGs into the runtime atlas
 - `packages/core` shared package published internally as `@craftvale/core`, with stable export surfaces at `@craftvale/core/shared` and `@craftvale/core/server`
 - `packages/core/src/shared` typed message schemas, transport, event-bus plumbing, shared CLI parsing, and shared logging helpers
 - `packages/core/src/server` authoritative world runtime, world-level entity state, player system, dropped item system, world-session control, and binary world storage
@@ -134,7 +139,9 @@ Craftvale no longer hand-authors numeric block and item ids. New content starts 
    `DEFAULT_HOTBAR_ITEM_KEYS` for a starter hotbar slot.
    `DEFAULT_MAIN_INVENTORY_STACK_SPECS` for starter main inventory stacks.
 5. Run `bun run generate:content`.
-6. Run `bun run typecheck` and `bun test`.
+6. If the block needs new art, add or edit the matching tile PNGs in `apps/client/assets/textures/tiles-src/`.
+7. Run `bun run generate:atlas`.
+8. Run `bun run typecheck` and `bun test`.
 
 ### Add A Block Without A Player Item
 
@@ -163,6 +170,15 @@ This is the path for future tools, consumables, and ingredients.
 - `renderPass`: Use `"opaque"` for solid terrain, `"cutout"` for alpha-discard blocks like leaves, or `null` for non-rendered blocks such as air.
 - `occlusion`: Use `"full"` for normal solid cubes, `"self"` for leaf-style self-culling, or `"none"` for non-occluding blocks.
 - `emittedLightLevel`: Block light emitted by the block, from `0` to `15`.
+
+### Adding Or Editing Tile Textures
+
+- Edit per-tile source PNGs in `apps/client/assets/textures/tiles-src/`.
+- Use one `16x16` RGBA PNG per tile id, for example `dirt.png` or `grass-top.png`.
+- Keep tile ids aligned with `AtlasTiles` and the tile names referenced from `content-spec.ts`.
+- After changing any source tile PNG, run `bun run generate:atlas`.
+- Do not hand-edit `apps/client/assets/textures/voxel-atlas.png`; it is generated output.
+- `bun run generate:tile-sources` exists to regenerate the current default source tile PNG set from code, but normal art iteration should happen by editing the PNGs in `tiles-src` directly.
 
 ### Id Stability Rules
 

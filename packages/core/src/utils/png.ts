@@ -1,4 +1,4 @@
-import { inflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 
 const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
@@ -37,6 +37,77 @@ const ensureSignature = (bytes: Uint8Array): void => {
   }
 };
 
+const crcTable = new Uint32Array(256).map((_, index) => {
+  let crc = index;
+  for (let bit = 0; bit < 8; bit += 1) {
+    crc = (crc & 1) !== 0 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+  }
+  return crc >>> 0;
+});
+
+const crc32 = (bytes: Uint8Array): number => {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc = crcTable[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+};
+
+const makeChunk = (type: string, data: Uint8Array): Uint8Array => {
+  const typeBytes = new TextEncoder().encode(type);
+  const chunk = new Uint8Array(12 + data.byteLength);
+  const view = new DataView(chunk.buffer);
+  view.setUint32(0, data.byteLength, false);
+  chunk.set(typeBytes, 4);
+  chunk.set(data, 8);
+  const crcInput = new Uint8Array(typeBytes.byteLength + data.byteLength);
+  crcInput.set(typeBytes, 0);
+  crcInput.set(data, typeBytes.byteLength);
+  view.setUint32(8 + data.byteLength, crc32(crcInput), false);
+  return chunk;
+};
+
+export const encodePng = (width: number, height: number, pixels: Uint8Array): Uint8Array => {
+  const signature = PNG_SIGNATURE;
+  const ihdr = new Uint8Array(13);
+  const ihdrView = new DataView(ihdr.buffer);
+  ihdrView.setUint32(0, width, false);
+  ihdrView.setUint32(4, height, false);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
+
+  const stride = width * 4;
+  const filtered = new Uint8Array(height * (stride + 1));
+  for (let row = 0; row < height; row += 1) {
+    const rowStart = row * (stride + 1);
+    filtered[rowStart] = 0;
+    filtered.set(pixels.subarray(row * stride, (row + 1) * stride), rowStart + 1);
+  }
+
+  const idat = new Uint8Array(deflateSync(filtered));
+  const iend = new Uint8Array();
+  const chunks = [
+    makeChunk("IHDR", ihdr),
+    makeChunk("IDAT", idat),
+    makeChunk("IEND", iend),
+  ];
+  const totalLength = signature.byteLength + chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const png = new Uint8Array(totalLength);
+
+  let offset = 0;
+  png.set(signature, offset);
+  offset += signature.byteLength;
+  for (const chunk of chunks) {
+    png.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return png;
+};
+
 export const decodePng = (bytes: Uint8Array): DecodedPng => {
   ensureSignature(bytes);
 
@@ -65,11 +136,10 @@ export const decodePng = (bytes: Uint8Array): DecodedPng => {
         0,
         false,
       );
-      height = new DataView(
-        chunkData.buffer,
-        chunkData.byteOffset,
-        chunkData.byteLength,
-      ).getUint32(4, false);
+      height = new DataView(chunkData.buffer, chunkData.byteOffset, chunkData.byteLength).getUint32(
+        4,
+        false,
+      );
       const bitDepth = chunkData[8];
       const colorType = chunkData[9];
       const compression = chunkData[10];

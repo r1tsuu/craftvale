@@ -8,6 +8,7 @@ export * from "../shared/messages.ts";
 export * from "../shared/transport.ts";
 export * from "../utils/cli.ts";
 export * from "../utils/logger.ts";
+export * from "../utils/png.ts";
 export * from "../utils/port-availability.ts";
 export * from "../world/atlas.ts";
 export * from "../world/biomes.ts";

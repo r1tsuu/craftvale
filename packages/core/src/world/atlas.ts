@@ -47,6 +47,8 @@ export const AtlasTiles: Record<AtlasTileId, AtlasTileCoord> = {
   glowstone: { x: 0, y: 3 },
 };
 
+export const ATLAS_TILE_IDS = Object.keys(AtlasTiles) as AtlasTileId[];
+
 const UV_INSET_X = 0.5 / ATLAS_WIDTH;
 const UV_INSET_Y = 0.5 / ATLAS_HEIGHT;
 

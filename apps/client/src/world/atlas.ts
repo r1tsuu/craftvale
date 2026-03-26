@@ -1,12 +1,13 @@
 import { loadBinaryAsset } from "../platform/native.ts";
-import { decodePng } from "../platform/png.ts";
 import {
   ATLAS_COLUMNS,
   ATLAS_HEIGHT,
+  ATLAS_TILE_IDS,
   ATLAS_ROWS,
   ATLAS_TILE_SIZE,
   ATLAS_WIDTH,
   AtlasTiles,
+  decodePng,
   getAtlasUvRect,
   type AtlasTileCoord,
   type AtlasTileId,
@@ -15,6 +16,7 @@ import {
 export {
   ATLAS_COLUMNS,
   ATLAS_HEIGHT,
+  ATLAS_TILE_IDS,
   ATLAS_ROWS,
   ATLAS_TILE_SIZE,
   ATLAS_WIDTH,
