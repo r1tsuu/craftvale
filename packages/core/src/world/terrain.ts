@@ -13,9 +13,13 @@ const TREE_MAX_SURFACE_HEIGHT = WORLD_MAX_BLOCK_Y - (TREE_MAX_TRUNK_HEIGHT + 2)
 export const WORLD_WATER_LEVEL = WORLD_SEA_LEVEL
 const CAVE_MIN_Y = 3
 const CAVE_REGION_SCALE = 72
+const CAVE_ENTRANCE_SCALE = 44
 const CAVE_CHAMBER_SCALE = 34
 const CAVE_TUNNEL_SCALE = 18
 const CAVE_DETAIL_SCALE = 11
+const SURFACE_ENTRANCE_CELL_SIZE = 40
+const SURFACE_ENTRANCE_RADIUS_MAX = 3
+const SURFACE_ENTRANCE_DEPTH_MAX = 12
 
 interface TreeAnchor {
   x: number
@@ -23,6 +27,14 @@ interface TreeAnchor {
   surfaceY: number
   trunkHeight: number
   canopyRadius: 1 | 2
+}
+
+interface SurfaceEntranceAnchor {
+  x: number
+  z: number
+  surfaceY: number
+  radius: 2 | 3
+  depth: number
 }
 
 const floorDiv = (value: number, size: number): number => Math.floor(value / size)
@@ -131,6 +143,9 @@ const shouldCarveCaveAt = (
   }
 
   const region = toUnit(sampleValueNoise(worldX, worldZ, seed ^ 0x51db27c1, CAVE_REGION_SCALE))
+  const entranceBias = toUnit(
+    sampleValueNoise(worldX, worldZ, seed ^ 0x4ec1fa77, CAVE_ENTRANCE_SCALE),
+  )
   const chamber = toUnit(
     sampleValueNoise3d(worldX, worldY, worldZ, seed ^ 0x7e31b4d9, CAVE_CHAMBER_SCALE),
   )
@@ -141,13 +156,13 @@ const shouldCarveCaveAt = (
   )
   const caveScore = chamber * 0.38 + tunnel * 0.44 + detail * 0.1 + region * 0.08
 
-  let threshold = 0.76
+  let threshold = 0.74
   if (depthBelowSurface <= 0) {
-    threshold += 0.13
+    threshold += 0.04 - entranceBias * 0.18
   } else if (depthBelowSurface <= 2) {
-    threshold += 0.08
+    threshold += 0.01 - entranceBias * 0.12
   } else if (depthBelowSurface <= 6) {
-    threshold += 0.06
+    threshold += 0.03
   } else if (depthBelowSurface >= 36) {
     threshold -= 0.05
   }
@@ -180,6 +195,103 @@ const carveChunkCaves = (chunk: Chunk, seed: number): void => {
         }
 
         chunk.set(localX, localY, localZ, BLOCK_IDS.air)
+      }
+    }
+  }
+}
+
+const getSurfaceEntranceAnchorForCell = (
+  seed: number,
+  cellX: number,
+  cellZ: number,
+): SurfaceEntranceAnchor | null => {
+  const cellSeed = hash2dInt(cellX, cellZ, seed ^ 0x68f53a21)
+  if (cellSeed % 100 >= 45) {
+    return null
+  }
+
+  const inset = 4
+  const span = SURFACE_ENTRANCE_CELL_SIZE - inset * 2
+  const worldX = cellX * SURFACE_ENTRANCE_CELL_SIZE + inset + (cellSeed % span)
+  const worldZ = cellZ * SURFACE_ENTRANCE_CELL_SIZE + inset + (((cellSeed >>> 7) & 0xffff) % span)
+  const surfaceY = getTerrainHeight(seed, worldX, worldZ)
+  if (surfaceY <= WORLD_WATER_LEVEL + 3 || surfaceY >= WORLD_MAX_BLOCK_Y - 16) {
+    return null
+  }
+
+  return {
+    x: worldX,
+    z: worldZ,
+    surfaceY,
+    radius: (cellSeed & 0x1) === 0 ? 2 : 3,
+    depth: 8 + ((cellSeed >>> 13) % 5),
+  }
+}
+
+const carveSurfaceEntrances = (chunk: Chunk, seed: number): void => {
+  const maxStructureRadius = SURFACE_ENTRANCE_RADIUS_MAX + 3
+  const minWorldX = chunk.coord.x * CHUNK_SIZE - maxStructureRadius
+  const maxWorldX = chunk.coord.x * CHUNK_SIZE + CHUNK_SIZE - 1 + maxStructureRadius
+  const minWorldZ = chunk.coord.z * CHUNK_SIZE - maxStructureRadius
+  const maxWorldZ = chunk.coord.z * CHUNK_SIZE + CHUNK_SIZE - 1 + maxStructureRadius
+
+  const minCellX = floorDiv(minWorldX, SURFACE_ENTRANCE_CELL_SIZE)
+  const maxCellX = floorDiv(maxWorldX, SURFACE_ENTRANCE_CELL_SIZE)
+  const minCellZ = floorDiv(minWorldZ, SURFACE_ENTRANCE_CELL_SIZE)
+  const maxCellZ = floorDiv(maxWorldZ, SURFACE_ENTRANCE_CELL_SIZE)
+
+  for (let cellZ = minCellZ; cellZ <= maxCellZ; cellZ += 1) {
+    for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
+      const entrance = getSurfaceEntranceAnchorForCell(seed, cellX, cellZ)
+      if (!entrance) {
+        continue
+      }
+
+      const shaftRadius = entrance.radius
+      for (let offsetZ = -(shaftRadius + 1); offsetZ <= shaftRadius + 1; offsetZ += 1) {
+        for (let offsetX = -(shaftRadius + 1); offsetX <= shaftRadius + 1; offsetX += 1) {
+          const horizontalDistance = Math.hypot(offsetX, offsetZ)
+          if (horizontalDistance > shaftRadius + 0.65) {
+            continue
+          }
+
+          const columnWorldX = entrance.x + offsetX
+          const columnWorldZ = entrance.z + offsetZ
+          const columnSurfaceY = getTerrainHeight(seed, columnWorldX, columnWorldZ)
+          if (columnSurfaceY <= WORLD_WATER_LEVEL + 1) {
+            continue
+          }
+
+          const columnDepth = Math.max(4, entrance.depth - Math.round(horizontalDistance * 2.1))
+          const bottomY = Math.max(CAVE_MIN_Y + 1, columnSurfaceY - columnDepth)
+
+          for (let worldY = columnSurfaceY; worldY >= bottomY; worldY -= 1) {
+            setGeneratedBlockIfInChunk(chunk, columnWorldX, worldY, columnWorldZ, BLOCK_IDS.air)
+          }
+        }
+      }
+
+      const chamberCenterY = Math.max(CAVE_MIN_Y + 2, entrance.surfaceY - entrance.depth)
+      const chamberRadius = entrance.radius + 2
+      for (let offsetY = -(entrance.radius + 1); offsetY <= entrance.radius + 1; offsetY += 1) {
+        for (let offsetZ = -chamberRadius; offsetZ <= chamberRadius; offsetZ += 1) {
+          for (let offsetX = -chamberRadius; offsetX <= chamberRadius; offsetX += 1) {
+            const normalizedDistance =
+              (offsetX * offsetX + offsetZ * offsetZ) / (chamberRadius * chamberRadius) +
+              (offsetY * offsetY) / ((entrance.radius + 1.5) * (entrance.radius + 1.5))
+            if (normalizedDistance > 1) {
+              continue
+            }
+
+            setGeneratedBlockIfInChunk(
+              chunk,
+              entrance.x + offsetX,
+              chamberCenterY + offsetY,
+              entrance.z + offsetZ,
+              BLOCK_IDS.air,
+            )
+          }
+        }
       }
     }
   }
@@ -279,6 +391,30 @@ const getTreeAnchorForCell = (seed: number, cellX: number, cellZ: number): TreeA
   const surfaceY = getTerrainHeight(seed, worldX, worldZ)
   if (surfaceY > TREE_MAX_SURFACE_HEIGHT || surfaceY < WORLD_WATER_LEVEL) {
     return null
+  }
+
+  const anchorCellX = floorDiv(worldX, SURFACE_ENTRANCE_CELL_SIZE)
+  const anchorCellZ = floorDiv(worldZ, SURFACE_ENTRANCE_CELL_SIZE)
+  for (let entranceCellZ = anchorCellZ - 1; entranceCellZ <= anchorCellZ + 1; entranceCellZ += 1) {
+    for (
+      let entranceCellX = anchorCellX - 1;
+      entranceCellX <= anchorCellX + 1;
+      entranceCellX += 1
+    ) {
+      const entrance = getSurfaceEntranceAnchorForCell(seed, entranceCellX, entranceCellZ)
+      if (!entrance) {
+        continue
+      }
+
+      const distanceSquared = (entrance.x - worldX) ** 2 + (entrance.z - worldZ) ** 2
+      const blockedRadius = entrance.radius + 2
+      if (
+        distanceSquared <= blockedRadius * blockedRadius &&
+        Math.abs(entrance.surfaceY - surfaceY) <= SURFACE_ENTRANCE_DEPTH_MAX
+      ) {
+        return null
+      }
+    }
   }
 
   if (
@@ -390,6 +526,7 @@ export const populateGeneratedChunk = (chunk: Chunk, seed: number): Chunk => {
   }
 
   carveChunkCaves(chunk, seed)
+  carveSurfaceEntrances(chunk, seed)
   generateChunkOres(chunk, seed)
   decorateChunkWithTrees(chunk, seed)
 
