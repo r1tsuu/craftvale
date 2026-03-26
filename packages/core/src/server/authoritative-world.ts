@@ -244,6 +244,7 @@ export class AuthoritativeWorld {
 
     const entry = await this.ensureChunkLoaded(coords.chunk)
     const current = entry.chunk.get(coords.local.x, coords.local.y, coords.local.z)
+    const gamemode = this.playerSystem.getPlayerSnapshot(entityId).gamemode
     let nextInventory = this.playerSystem.getInventorySnapshot(entityId)
     let inventoryChanged = false
     let droppedItems = this.createEmptyWorldSimulation()
@@ -258,10 +259,7 @@ export class AuthoritativeWorld {
         }
       }
 
-      if (
-        !isBreakableBlock(current) &&
-        this.playerSystem.getPlayerSnapshot(entityId).gamemode !== 1
-      ) {
+      if (!isBreakableBlock(current) && gamemode !== 1) {
         return {
           changedChunks: [],
           inventory: nextInventory,
@@ -271,7 +269,7 @@ export class AuthoritativeWorld {
       }
 
       const droppedItemId = getDroppedItemIdForBlock(current)
-      if (isCollectibleBlock(current) && droppedItemId !== null) {
+      if (gamemode !== 1 && isCollectibleBlock(current) && droppedItemId !== null) {
         const droppedItemSimulation = await this.droppedItemSystem.spawnBlockDrop(
           droppedItemId,
           1,
@@ -300,22 +298,24 @@ export class AuthoritativeWorld {
         }
       }
 
-      const removed = this.playerSystem.removeSelectedInventoryItem(
-        entityId,
-        selectedSlot.itemId,
-        1,
-      )
-      if (removed.removed <= 0) {
-        return {
-          changedChunks: [],
-          inventory: removed.inventory,
-          inventoryChanged: false,
-          droppedItems: this.createEmptyWorldSimulation(),
+      if (gamemode !== 1) {
+        const removed = this.playerSystem.removeSelectedInventoryItem(
+          entityId,
+          selectedSlot.itemId,
+          1,
+        )
+        if (removed.removed <= 0) {
+          return {
+            changedChunks: [],
+            inventory: removed.inventory,
+            inventoryChanged: false,
+            droppedItems: this.createEmptyWorldSimulation(),
+          }
         }
-      }
 
-      nextInventory = removed.inventory
-      inventoryChanged = removed.inventoryChanged
+        nextInventory = removed.inventory
+        inventoryChanged = removed.inventoryChanged
+      }
     }
 
     entry.chunk.set(coords.local.x, coords.local.y, coords.local.z, blockId)

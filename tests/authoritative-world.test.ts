@@ -210,6 +210,57 @@ test('survival cannot break bedrock but creative can', async () => {
   }
 })
 
+test('creative block mutations neither spawn drops nor consume held items', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-creative-items-'))
+  const storage = new BinaryWorldStorage(rootDir)
+
+  try {
+    const worldRecord = await storage.createWorld('CreativeItems', 42)
+    const world = new AuthoritativeWorld(worldRecord, storage)
+    const joined = await world.joinPlayer(PLAYER_A)
+    await world.setPlayerGamemode(joined.clientPlayer.entityId, 1)
+
+    const targetX = 1
+    const targetZ = 1
+    const targetY = getTerrainHeight(worldRecord.seed, targetX, targetZ)
+    const chunk = await world.getChunkPayload({ x: 0, y: 0, z: 0 })
+    const localIndex = targetX + targetZ * CHUNK_SIZE + targetY * CHUNK_SIZE * CHUNK_SIZE
+    const blockId = chunk.blocks[localIndex] as BlockId
+    expect(blockId).not.toBe(BLOCK_IDS.air)
+
+    const broken = await world.applyBlockMutation(
+      joined.clientPlayer.entityId,
+      targetX,
+      targetY,
+      targetZ,
+      BLOCK_IDS.air,
+    )
+    expect(broken.changedChunks).toHaveLength(1)
+    expect(broken.droppedItems.spawnedDroppedItems).toEqual([])
+    expect(broken.inventoryChanged).toBe(false)
+
+    const afterBreakChunk = await world.getChunkPayload({ x: 0, y: 0, z: 0 })
+    expect(afterBreakChunk.blocks[localIndex]).toBe(BLOCK_IDS.air)
+
+    const selectedBeforePlace = joined.inventory.slots[0]
+    const placed = await world.applyBlockMutation(
+      joined.clientPlayer.entityId,
+      targetX,
+      targetY,
+      targetZ,
+      BLOCK_IDS.grass,
+    )
+    expect(placed.changedChunks).toHaveLength(1)
+    expect(placed.inventoryChanged).toBe(false)
+    expect(placed.inventory.slots[0]).toEqual(selectedBeforePlace)
+
+    const afterPlaceChunk = await world.getChunkPayload({ x: 0, y: 0, z: 0 })
+    expect(afterPlaceChunk.blocks[localIndex]).toBe(BLOCK_IDS.grass)
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('block mutations relight only the nearby loaded chunk neighborhood', async () => {
   const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-local-relight-'))
   const storage = new BinaryWorldStorage(rootDir)
