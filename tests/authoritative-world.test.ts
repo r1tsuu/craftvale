@@ -8,16 +8,23 @@ import type { BlockId } from '../packages/core/src/types.ts'
 import { AuthoritativeWorld } from '../packages/core/src/server/authoritative-world.ts'
 import { BinaryWorldStorage } from '../packages/core/src/server/world-storage.ts'
 import { BLOCK_IDS, getDroppedItemIdForBlock } from '../packages/core/src/world/blocks.ts'
-import { CHUNK_SIZE } from '../packages/core/src/world/constants.ts'
+import { Chunk } from '../packages/core/src/world/chunk.ts'
+import { CHUNK_SIZE, WORLD_SEA_LEVEL } from '../packages/core/src/world/constants.ts'
 import {
   getMainInventorySlotIndex,
   getMainInventorySlots,
 } from '../packages/core/src/world/inventory.ts'
 import { ITEM_IDS } from '../packages/core/src/world/items.ts'
 import { getTerrainHeight } from '../packages/core/src/world/terrain.ts'
+import { worldToChunkCoord } from '../packages/core/src/world/world.ts'
 
 const PLAYER_A = 'Alice'
 const PLAYER_B = 'Bob'
+
+const getChunkLocalIndex = (worldX: number, worldY: number, worldZ: number): number => {
+  const coords = worldToChunkCoord(worldX, worldY, worldZ)
+  return coords.local.x + coords.local.z * CHUNK_SIZE + coords.local.y * CHUNK_SIZE * CHUNK_SIZE
+}
 
 test('authoritative world keeps per-player state separate and persists it by player name', async () => {
   const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-'))
@@ -106,8 +113,9 @@ test('authoritative world spawns and persists dropped items until players pick t
     const targetX = 1
     const targetZ = 1
     const targetY = getTerrainHeight(worldRecord.seed, targetX, targetZ)
-    const chunk = await world.getChunkPayload({ x: 0, y: 0, z: 0 })
-    const localIndex = targetX + targetZ * CHUNK_SIZE + targetY * CHUNK_SIZE * CHUNK_SIZE
+    const targetCoords = worldToChunkCoord(targetX, targetY, targetZ)
+    const chunk = await world.getChunkPayload(targetCoords.chunk)
+    const localIndex = getChunkLocalIndex(targetX, targetY, targetZ)
     const blockId = chunk.blocks[localIndex] as BlockId
     expect(blockId).not.toBe(BLOCK_IDS.air)
     const droppedItemId = getDroppedItemIdForBlock(blockId)
@@ -223,8 +231,9 @@ test('creative block mutations neither spawn drops nor consume held items', asyn
     const targetX = 1
     const targetZ = 1
     const targetY = getTerrainHeight(worldRecord.seed, targetX, targetZ)
-    const chunk = await world.getChunkPayload({ x: 0, y: 0, z: 0 })
-    const localIndex = targetX + targetZ * CHUNK_SIZE + targetY * CHUNK_SIZE * CHUNK_SIZE
+    const targetCoords = worldToChunkCoord(targetX, targetY, targetZ)
+    const chunk = await world.getChunkPayload(targetCoords.chunk)
+    const localIndex = getChunkLocalIndex(targetX, targetY, targetZ)
     const blockId = chunk.blocks[localIndex] as BlockId
     expect(blockId).not.toBe(BLOCK_IDS.air)
 
@@ -239,7 +248,7 @@ test('creative block mutations neither spawn drops nor consume held items', asyn
     expect(broken.droppedItems.spawnedDroppedItems).toEqual([])
     expect(broken.inventoryChanged).toBe(false)
 
-    const afterBreakChunk = await world.getChunkPayload({ x: 0, y: 0, z: 0 })
+    const afterBreakChunk = await world.getChunkPayload(targetCoords.chunk)
     expect(afterBreakChunk.blocks[localIndex]).toBe(BLOCK_IDS.air)
 
     const selectedBeforePlace = joined.inventory.slots[0]
@@ -254,7 +263,7 @@ test('creative block mutations neither spawn drops nor consume held items', asyn
     expect(placed.inventoryChanged).toBe(false)
     expect(placed.inventory.slots[0]).toEqual(selectedBeforePlace)
 
-    const afterPlaceChunk = await world.getChunkPayload({ x: 0, y: 0, z: 0 })
+    const afterPlaceChunk = await world.getChunkPayload(targetCoords.chunk)
     expect(afterPlaceChunk.blocks[localIndex]).toBe(BLOCK_IDS.grass)
   } finally {
     await rm(rootDir, { recursive: true, force: true })
@@ -277,23 +286,15 @@ test('placing a solid block into water replaces the water cell', async () => {
     for (let worldZ = -32; worldZ <= 32 && !found; worldZ += 1) {
       for (let worldX = -32; worldX <= 32; worldX += 1) {
         const height = getTerrainHeight(worldRecord.seed, worldX, worldZ)
-        if (height >= 6) {
+        if (height >= WORLD_SEA_LEVEL) {
           continue
         }
 
-        const block = world
-          .getChunkPayload({
-            x: Math.floor(worldX / CHUNK_SIZE),
-            y: 0,
-            z: Math.floor(worldZ / CHUNK_SIZE),
-          })
-          .then((chunk) => {
-            const localX = ((worldX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-            const localZ = ((worldZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-            return chunk.blocks[
-              localX + localZ * CHUNK_SIZE + (height + 1) * CHUNK_SIZE * CHUNK_SIZE
-            ]
-          })
+        const targetCoords = worldToChunkCoord(worldX, height + 1, worldZ)
+        const block = world.getChunkPayload(targetCoords.chunk).then((chunk) => {
+          const localIndex = getChunkLocalIndex(worldX, height + 1, worldZ)
+          return chunk.blocks[localIndex]
+        })
         if ((await block) !== BLOCK_IDS.water) {
           continue
         }
@@ -324,14 +325,10 @@ test('placing a solid block into water replaces the water cell', async () => {
       count: before.slots[0]!.count - 1,
     })
 
-    const changedChunk = await world.getChunkPayload({
-      x: Math.floor(targetX / CHUNK_SIZE),
-      y: 0,
-      z: Math.floor(targetZ / CHUNK_SIZE),
-    })
-    const localX = ((targetX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-    const localZ = ((targetZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-    const localIndex = localX + localZ * CHUNK_SIZE + targetY * CHUNK_SIZE * CHUNK_SIZE
+    const changedChunk = await world.getChunkPayload(
+      worldToChunkCoord(targetX, targetY, targetZ).chunk,
+    )
+    const localIndex = getChunkLocalIndex(targetX, targetY, targetZ)
     expect(changedChunk.blocks[localIndex]).toBe(BLOCK_IDS.grass)
   } finally {
     await rm(rootDir, { recursive: true, force: true })
@@ -346,12 +343,43 @@ test('block mutations relight only the nearby loaded chunk neighborhood', async 
     const worldRecord = await storage.createWorld('LocalRelight', 42)
     const world = new AuthoritativeWorld(worldRecord, storage)
     const joined = await world.joinPlayer(PLAYER_A)
-
-    for (let chunkZ = 0; chunkZ < 4; chunkZ += 1) {
-      for (let chunkX = 0; chunkX < 4; chunkX += 1) {
-        await world.getChunkPayload({ x: chunkX, y: 0, z: chunkZ })
+    const targetY = WORLD_SEA_LEVEL + 8
+    const targetChunk = worldToChunkCoord(1, targetY, 1).chunk
+    const chunkEntries = (
+      world as unknown as {
+        chunks: Map<
+          string,
+          {
+            chunk: Chunk
+            hasPersistedRecord: boolean
+            hasLightData: boolean
+            saveDirty: boolean
+          }
+        >
+      }
+    ).chunks
+    for (let chunkZ = targetChunk.z - 1; chunkZ <= targetChunk.z + 1; chunkZ += 1) {
+      for (let chunkY = Math.max(0, targetChunk.y - 1); chunkY <= targetChunk.y + 1; chunkY += 1) {
+        for (let chunkX = targetChunk.x - 1; chunkX <= targetChunk.x + 1; chunkX += 1) {
+          const coord = { x: chunkX, y: chunkY, z: chunkZ }
+          chunkEntries.set(`${coord.x},${coord.y},${coord.z}`, {
+            chunk: new Chunk(coord),
+            hasPersistedRecord: false,
+            hasLightData: false,
+            saveDirty: false,
+          })
+        }
       }
     }
+    chunkEntries.set(`${targetChunk.x + 4},${targetChunk.y},${targetChunk.z + 4}`, {
+      chunk: new Chunk({ x: targetChunk.x + 4, y: targetChunk.y, z: targetChunk.z + 4 }),
+      hasPersistedRecord: false,
+      hasLightData: false,
+      saveDirty: false,
+    })
+    chunkEntries
+      .get(`${targetChunk.x},${targetChunk.y},${targetChunk.z}`)!
+      .chunk.set(1, targetY % CHUNK_SIZE, 1, BLOCK_IDS.grass)
 
     const lightingSystem = (
       world as unknown as {
@@ -371,20 +399,13 @@ test('block mutations relight only the nearby loaded chunk neighborhood', async 
       return originalRelightLoadedChunks(chunks, getBlockAt)
     }
 
-    const targetX = 1
-    const targetZ = 1
-    const targetY = getTerrainHeight(worldRecord.seed, targetX, targetZ)
-    await world.applyBlockMutation(
-      joined.clientPlayer.entityId,
-      targetX,
-      targetY,
-      targetZ,
-      BLOCK_IDS.air,
-    )
+    await world.applyBlockMutation(joined.clientPlayer.entityId, 1, targetY, 1, BLOCK_IDS.air)
 
-    expect(relitChunkCoords.length).toBeLessThanOrEqual(9)
-    expect(relitChunkCoords).toEqual(expect.arrayContaining([{ x: 0, y: 0, z: 0 }]))
-    expect(relitChunkCoords).not.toEqual(expect.arrayContaining([{ x: 3, y: 0, z: 3 }]))
+    expect(relitChunkCoords.length).toBeLessThanOrEqual(27)
+    expect(relitChunkCoords).toEqual(expect.arrayContaining([targetChunk]))
+    expect(relitChunkCoords).not.toEqual(
+      expect.arrayContaining([{ x: targetChunk.x + 4, y: targetChunk.y, z: targetChunk.z + 4 }]),
+    )
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

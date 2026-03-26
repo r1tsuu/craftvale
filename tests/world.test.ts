@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { CHUNK_SIZE } from '../packages/core/src/world/constants.ts'
+import { CHUNK_SIZE, WORLD_CHUNK_LAYERS } from '../packages/core/src/world/constants.ts'
 import { VoxelWorld, worldToChunkCoord } from '../packages/core/src/world/world.ts'
 
 test('worldToChunkCoord handles negative coordinates', () => {
@@ -24,6 +24,13 @@ test('setBlock marks neighboring chunks dirty at boundaries', () => {
   expect(left.dirty).toBe(true)
 })
 
+test('worldToChunkCoord handles tall positive world heights', () => {
+  const coords = worldToChunkCoord(2, 255, 3)
+
+  expect(coords.chunk).toEqual({ x: 0, y: 15, z: 0 })
+  expect(coords.local).toEqual({ x: 2, y: 15, z: 3 })
+})
+
 test('can read blocks across chunk boundaries', () => {
   const world = new VoxelWorld()
   world.setBlock(CHUNK_SIZE, 2, 0, 3)
@@ -43,4 +50,11 @@ test('replacing a chunk marks loaded neighbors dirty for mesh rebuilds', () => {
 
   expect(center.dirty).toBe(true)
   expect(left.dirty).toBe(true)
+})
+
+test('ensureActiveArea creates a full vertical chunk stack for each column', () => {
+  const world = new VoxelWorld()
+  world.ensureActiveArea(0, 0, 0)
+
+  expect(world.getLoadedChunkCoords()).toHaveLength(WORLD_CHUNK_LAYERS)
 })

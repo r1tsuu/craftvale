@@ -14,8 +14,8 @@ import type { ChunkPayload, JoinedWorldPayload } from '@craftvale/core/shared'
 
 import {
   ACTIVE_CHUNK_RADIUS,
+  ACTIVE_CHUNK_VERTICAL_RADIUS,
   BLOCK_IDS,
-  CHUNK_SIZE,
   createDefaultWorldTimeState,
   createEmptyInventory,
   getBlockEmittedLightLevel,
@@ -24,7 +24,9 @@ import {
   LIGHT_LEVEL_MAX,
   normalizeInventorySnapshot,
   STARTUP_CHUNK_RADIUS,
+  STARTUP_CHUNK_VERTICAL_RADIUS,
   VoxelWorld,
+  WORLD_MAX_BLOCK_Y,
 } from '@craftvale/core/shared'
 
 import type { IClientAdapter } from './client-adapter.ts'
@@ -217,7 +219,9 @@ export class ClientWorldRuntime {
     position: readonly [number, number, number],
     radius = ACTIVE_CHUNK_RADIUS,
   ): ChunkCoord[] {
-    return getChunkCoordsAroundPosition(position, radius)
+    return getChunkCoordsAroundPosition(position, radius, {
+      verticalRadius: ACTIVE_CHUNK_VERTICAL_RADIUS,
+    })
   }
 
   public getStartupChunkCoordsAroundPosition(
@@ -226,6 +230,7 @@ export class ClientWorldRuntime {
   ): ChunkCoord[] {
     return getChunkCoordsAroundPosition(position, radius, {
       nearestFirst: true,
+      verticalRadius: STARTUP_CHUNK_VERTICAL_RADIUS,
     })
   }
 
@@ -312,7 +317,7 @@ export class ClientWorldRuntime {
   }
 
   private hasClearSkyPath(worldX: number, worldY: number, worldZ: number): boolean {
-    for (let y = worldY + 1; y < CHUNK_SIZE; y += 1) {
+    for (let y = worldY + 1; y <= WORLD_MAX_BLOCK_Y; y += 1) {
       if (this.world.getBlock(worldX, y, worldZ) !== BLOCK_IDS.air) {
         return false
       }

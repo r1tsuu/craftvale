@@ -3,12 +3,29 @@ import { expect, test } from 'bun:test'
 import { getBiomeAt } from '../packages/core/src/world/biomes.ts'
 import { BLOCK_IDS } from '../packages/core/src/world/blocks.ts'
 import {
-  createGeneratedChunk,
-  getTerrainHeight,
-  WORLD_WATER_LEVEL,
-} from '../packages/core/src/world/terrain.ts'
+  CHUNK_SIZE,
+  WORLD_LAYER_CHUNKS_Y,
+  WORLD_MAX_BLOCK_Y,
+  WORLD_SEA_LEVEL,
+} from '../packages/core/src/world/constants.ts'
+import { createGeneratedChunk, getTerrainHeight } from '../packages/core/src/world/terrain.ts'
+import { worldToChunkCoord } from '../packages/core/src/world/world.ts'
 
-const getLocalCoord = (world: number): number => ((world % 16) + 16) % 16
+const getGeneratedBlock = (
+  seed: number,
+  worldX: number,
+  worldY: number,
+  worldZ: number,
+): number => {
+  const coords = worldToChunkCoord(worldX, worldY, worldZ)
+  const chunk = createGeneratedChunk(coords.chunk, seed)
+  return chunk.get(coords.local.x, coords.local.y, coords.local.z)
+}
+
+const createGeneratedChunkColumn = (seed: number, chunkX: number, chunkZ: number) =>
+  WORLD_LAYER_CHUNKS_Y.map((chunkY) =>
+    createGeneratedChunk({ x: chunkX, y: chunkY, z: chunkZ }, seed),
+  )
 
 const findLowElevationColumn = (
   seed: number,
@@ -20,7 +37,7 @@ const findLowElevationColumn = (
   for (let worldZ = -96; worldZ <= 96; worldZ += 1) {
     for (let worldX = -96; worldX <= 96; worldX += 1) {
       const height = getTerrainHeight(seed, worldX, worldZ)
-      if (height < WORLD_WATER_LEVEL) {
+      if (height < WORLD_SEA_LEVEL) {
         return { worldX, worldZ, height }
       }
     }
@@ -69,41 +86,23 @@ test('generated chunks always place bedrock at the bottom layer', () => {
 test('generated chunks fill low terrain up to the water level with water', () => {
   const seed = 42
   const lowColumn = findLowElevationColumn(seed)
-  const chunk = createGeneratedChunk(
-    {
-      x: Math.floor(lowColumn.worldX / 16),
-      y: 0,
-      z: Math.floor(lowColumn.worldZ / 16),
-    },
-    seed,
+  expect(getGeneratedBlock(seed, lowColumn.worldX, lowColumn.height + 1, lowColumn.worldZ)).toBe(
+    BLOCK_IDS.water,
   )
-
-  expect(
-    chunk.get(
-      getLocalCoord(lowColumn.worldX),
-      lowColumn.height + 1,
-      getLocalCoord(lowColumn.worldZ),
-    ),
-  ).toBe(BLOCK_IDS.water)
 })
 
 test('water generation remains consistent across chunk borders', () => {
   const seed = 42
-  const leftChunk = createGeneratedChunk({ x: 0, y: 0, z: 0 }, seed)
-  const rightChunk = createGeneratedChunk({ x: 1, y: 0, z: 0 }, seed)
 
   for (let z = 0; z < 16; z += 1) {
     const leftHeight = getTerrainHeight(seed, 15, z)
     const rightHeight = getTerrainHeight(seed, 16, z)
 
-    const leftAboveSurface = Math.min(leftHeight + 1, 15)
-    const rightAboveSurface = Math.min(rightHeight + 1, 15)
-
-    expect(leftChunk.get(15, leftAboveSurface, z) === BLOCK_IDS.water).toBe(
-      leftHeight < WORLD_WATER_LEVEL,
+    expect(getGeneratedBlock(seed, 15, leftHeight + 1, z) === BLOCK_IDS.water).toBe(
+      leftHeight < WORLD_SEA_LEVEL,
     )
-    expect(rightChunk.get(0, rightAboveSurface, z) === BLOCK_IDS.water).toBe(
-      rightHeight < WORLD_WATER_LEVEL,
+    expect(getGeneratedBlock(seed, 16, rightHeight + 1, z) === BLOCK_IDS.water).toBe(
+      rightHeight < WORLD_SEA_LEVEL,
     )
   }
 })
@@ -137,16 +136,18 @@ test('different seeds produce different biome layouts', () => {
 })
 
 test('generated trees are deterministic for a fixed seed and chunk', () => {
-  const chunkA = createGeneratedChunk({ x: 0, y: 0, z: 0 }, 42)
-  const chunkB = createGeneratedChunk({ x: 0, y: 0, z: 0 }, 42)
+  const columnA = createGeneratedChunkColumn(42, 0, 0)
+  const columnB = createGeneratedChunkColumn(42, 0, 0)
 
-  expect(chunkA.blocks).toEqual(chunkB.blocks)
+  expect(columnA.map((chunk) => chunk.blocks)).toEqual(columnB.map((chunk) => chunk.blocks))
 
   let logs = 0
   let leaves = 0
-  for (const blockId of chunkA.blocks) {
-    if (blockId === 4) logs += 1
-    if (blockId === 5) leaves += 1
+  for (const chunk of columnA) {
+    for (const blockId of chunk.blocks) {
+      if (blockId === 4) logs += 1
+      if (blockId === 5) leaves += 1
+    }
   }
 
   expect(logs).toBeGreaterThan(0)
@@ -154,13 +155,32 @@ test('generated trees are deterministic for a fixed seed and chunk', () => {
 })
 
 test('forest chunks still generate trunks above grass surface blocks', () => {
-  const chunk = createGeneratedChunk({ x: 0, y: 0, z: 0 }, 42)
+  const column = createGeneratedChunkColumn(42, 0, 0)
   let trunkBases = 0
 
-  for (let y = 1; y < 16; y += 1) {
-    for (let z = 0; z < 16; z += 1) {
-      for (let x = 0; x < 16; x += 1) {
-        if (chunk.get(x, y, z) === 4 && chunk.get(x, y - 1, z) === 1) {
+  for (const chunk of column) {
+    for (let y = 1; y < CHUNK_SIZE; y += 1) {
+      for (let z = 0; z < CHUNK_SIZE; z += 1) {
+        for (let x = 0; x < CHUNK_SIZE; x += 1) {
+          if (chunk.get(x, y, z) === 4 && chunk.get(x, y - 1, z) === 1) {
+            trunkBases += 1
+          }
+        }
+      }
+    }
+
+    if (chunk.coord.y === WORLD_LAYER_CHUNKS_Y[0]) {
+      continue
+    }
+
+    const belowChunk = column[chunk.coord.y - WORLD_LAYER_CHUNKS_Y[0] - 1]
+    if (!belowChunk) {
+      continue
+    }
+
+    for (let z = 0; z < CHUNK_SIZE; z += 1) {
+      for (let x = 0; x < CHUNK_SIZE; x += 1) {
+        if (chunk.get(x, 0, z) === 4 && belowChunk.get(x, CHUNK_SIZE - 1, z) === 1) {
           trunkBases += 1
         }
       }
@@ -171,14 +191,18 @@ test('forest chunks still generate trunks above grass surface blocks', () => {
 })
 
 test('forest tree canopies remain consistent across chunk borders', () => {
-  const left = createGeneratedChunk({ x: 0, y: 0, z: 0 }, 42)
-  const right = createGeneratedChunk({ x: 1, y: 0, z: 0 }, 42)
+  const leftColumn = createGeneratedChunkColumn(42, 0, 0)
+  const rightColumn = createGeneratedChunkColumn(42, 1, 0)
   let sharedCanopyBlocks = 0
 
-  for (let y = 0; y < 16; y += 1) {
-    for (let z = 0; z < 16; z += 1) {
-      if (left.get(15, y, z) === 5 && right.get(0, y, z) === 5) {
-        sharedCanopyBlocks += 1
+  for (let index = 0; index < leftColumn.length; index += 1) {
+    const left = leftColumn[index]!
+    const right = rightColumn[index]!
+    for (let y = 0; y < CHUNK_SIZE; y += 1) {
+      for (let z = 0; z < CHUNK_SIZE; z += 1) {
+        if (left.get(CHUNK_SIZE - 1, y, z) === 5 && right.get(0, y, z) === 5) {
+          sharedCanopyBlocks += 1
+        }
       }
     }
   }
@@ -187,19 +211,23 @@ test('forest tree canopies remain consistent across chunk borders', () => {
 })
 
 test('different seeds produce different tree layouts', () => {
-  const chunkA = createGeneratedChunk({ x: 0, y: 0, z: 0 }, 42)
-  const chunkB = createGeneratedChunk({ x: 0, y: 0, z: 0 }, 43)
+  const columnA = createGeneratedChunkColumn(42, 0, 0)
+  const columnB = createGeneratedChunkColumn(43, 0, 0)
   const treeBlocksA: number[] = []
   const treeBlocksB: number[] = []
 
-  for (let index = 0; index < chunkA.blocks.length; index += 1) {
-    const blockA = chunkA.blocks[index]
-    const blockB = chunkB.blocks[index]
-    if (blockA === 4 || blockA === 5) {
-      treeBlocksA.push(index, blockA)
-    }
-    if (blockB === 4 || blockB === 5) {
-      treeBlocksB.push(index, blockB)
+  for (let chunkIndex = 0; chunkIndex < columnA.length; chunkIndex += 1) {
+    const chunkA = columnA[chunkIndex]!
+    const chunkB = columnB[chunkIndex]!
+    for (let index = 0; index < chunkA.blocks.length; index += 1) {
+      const blockA = chunkA.blocks[index]
+      const blockB = chunkB.blocks[index]
+      if (blockA === 4 || blockA === 5) {
+        treeBlocksA.push(chunkIndex, index, blockA)
+      }
+      if (blockB === 4 || blockB === 5) {
+        treeBlocksB.push(chunkIndex, index, blockB)
+      }
     }
   }
 
@@ -207,37 +235,43 @@ test('different seeds produce different tree layouts', () => {
 })
 
 test('forest chunks generate denser tree coverage than scrub chunks', () => {
-  const forestChunk = createGeneratedChunk({ x: 0, y: 0, z: 0 }, 42)
-  const scrubChunk = createGeneratedChunk({ x: -5, y: 0, z: 0 }, 42)
+  const forestColumn = createGeneratedChunkColumn(42, 0, 0)
+  const scrubColumn = createGeneratedChunkColumn(42, -5, 0)
   let forestLeaves = 0
   let scrubLeaves = 0
 
-  for (const blockId of forestChunk.blocks) {
-    if (blockId === 5) forestLeaves += 1
+  for (const chunk of forestColumn) {
+    for (const blockId of chunk.blocks) {
+      if (blockId === 5) forestLeaves += 1
+    }
   }
-  for (const blockId of scrubChunk.blocks) {
-    if (blockId === 5) scrubLeaves += 1
+  for (const chunk of scrubColumn) {
+    for (const blockId of chunk.blocks) {
+      if (blockId === 5) scrubLeaves += 1
+    }
   }
 
   expect(forestLeaves).toBeGreaterThan(scrubLeaves)
 })
 
 test('representative scrub and highlands chunks change surface materials', () => {
-  const scrubChunk = createGeneratedChunk({ x: -5, y: 0, z: 0 }, 42)
-  const highlandsChunk = createGeneratedChunk({ x: 1, y: 0, z: 5 }, 42)
   let scrubSurfaceDirt = 0
   let scrubSurfaceStone = 0
   let highlandsSurfaceStone = 0
 
-  for (let z = 0; z < 16; z += 1) {
-    for (let x = 0; x < 16; x += 1) {
-      const scrubHeight = getTerrainHeight(42, -5 * 16 + x, z)
-      const scrubTop = scrubChunk.get(x, scrubHeight, z)
+  for (let z = 0; z < CHUNK_SIZE; z += 1) {
+    for (let x = 0; x < CHUNK_SIZE; x += 1) {
+      const scrubWorldX = -5 * CHUNK_SIZE + x
+      const scrubWorldZ = z
+      const scrubHeight = getTerrainHeight(42, scrubWorldX, scrubWorldZ)
+      const scrubTop = getGeneratedBlock(42, scrubWorldX, scrubHeight, scrubWorldZ)
       if (scrubTop === 2) scrubSurfaceDirt += 1
       if (scrubTop === 3) scrubSurfaceStone += 1
 
-      const highlandsHeight = getTerrainHeight(42, 1 * 16 + x, 5 * 16 + z)
-      const highlandsTop = highlandsChunk.get(x, highlandsHeight, z)
+      const highlandsWorldX = CHUNK_SIZE + x
+      const highlandsWorldZ = 5 * CHUNK_SIZE + z
+      const highlandsHeight = getTerrainHeight(42, highlandsWorldX, highlandsWorldZ)
+      const highlandsTop = getGeneratedBlock(42, highlandsWorldX, highlandsHeight, highlandsWorldZ)
       if (highlandsTop === 3) highlandsSurfaceStone += 1
     }
   }
@@ -245,4 +279,16 @@ test('representative scrub and highlands chunks change surface materials', () =>
   expect(scrubSurfaceDirt).toBeGreaterThan(0)
   expect(scrubSurfaceStone).toBeGreaterThan(0)
   expect(highlandsSurfaceStone).toBeGreaterThan(200)
+})
+
+test('terrain heights stay within the 256-block world bounds', () => {
+  const seed = 42
+
+  for (let z = -128; z <= 128; z += 8) {
+    for (let x = -128; x <= 128; x += 8) {
+      const height = getTerrainHeight(seed, x, z)
+      expect(height).toBeGreaterThanOrEqual(1)
+      expect(height).toBeLessThan(WORLD_MAX_BLOCK_Y)
+    }
+  }
 })

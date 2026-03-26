@@ -3,13 +3,13 @@ import type { BlockId, ChunkCoord } from '../types.ts'
 import { type BiomeDefinition, Biomes, getBiomeAt, sampleBiome } from './biomes.ts'
 import { BLOCK_IDS } from './blocks.ts'
 import { Chunk } from './chunk.ts'
-import { CHUNK_SIZE } from './constants.ts'
+import { CHUNK_SIZE, WORLD_MAX_BLOCK_Y, WORLD_SEA_LEVEL } from './constants.ts'
 import { clamp, hash2dInt, sampleValueNoise } from './noise.ts'
 
 const TREE_CELL_SIZE = 7
 const TREE_MAX_TRUNK_HEIGHT = 5
-const TREE_MAX_SURFACE_HEIGHT = CHUNK_SIZE - (TREE_MAX_TRUNK_HEIGHT + 2)
-export const WORLD_WATER_LEVEL = 6
+const TREE_MAX_SURFACE_HEIGHT = WORLD_MAX_BLOCK_Y - (TREE_MAX_TRUNK_HEIGHT + 2)
+export const WORLD_WATER_LEVEL = WORLD_SEA_LEVEL
 
 interface TreeAnchor {
   x: number
@@ -69,7 +69,7 @@ export const getTerrainHeight = (seed: number, worldX: number, worldZ: number): 
     sampleValueNoise(worldX, worldZ, seed ^ 0x85ebca6b, 6) * params.detailNoiseAmplitude
   const height = params.baseHeight + rollingWaves + largeNoise + detailNoise
 
-  return clamp(Math.round(height), 1, CHUNK_SIZE - 2)
+  return clamp(Math.round(height), 1, WORLD_MAX_BLOCK_Y - 1)
 }
 
 const getColumnBlocksForBiome = (
@@ -162,10 +162,6 @@ const getTreeAnchorForCell = (seed: number, cellX: number, cellZ: number): TreeA
 }
 
 const decorateChunkWithTrees = (chunk: Chunk, seed: number): void => {
-  if (chunk.coord.y !== 0) {
-    return
-  }
-
   const structureRadius = 2
   const minWorldX = chunk.coord.x * CHUNK_SIZE - structureRadius
   const maxWorldX = chunk.coord.x * CHUNK_SIZE + CHUNK_SIZE - 1 + structureRadius

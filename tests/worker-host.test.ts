@@ -76,7 +76,7 @@ test('worker host initializes once and dispatches requests through owned instanc
       type: 'joinWorld',
       payload: { playerName: 'Alice' },
     })
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    for (let attempt = 0; attempt < 600; attempt += 1) {
       const sawReadyEvent = messages.some(
         (message) => isLoadingProgressEvent(message) && message.payload.stage === 'ready',
       )

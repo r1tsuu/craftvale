@@ -231,6 +231,12 @@ The server is responsible for:
 
 World generation is deterministic and seed-driven.
 
+The current world-height model is a positive-Y `256` block world split into
+`16` chunk layers, with a canonical sea level at Y `64`. Runtime chunk
+streaming is vertically aware but player-centric: the client and server load a
+bounded vertical neighborhood around the player's current chunk Y instead of
+always requesting every chunk layer in a column.
+
 The worldgen pipeline currently lives under `packages/core/src/world/*`:
 
 - `noise.ts`: shared deterministic noise helpers
@@ -242,7 +248,8 @@ The generation flow for a chunk is:
 1. Sample biome-influenced terrain parameters per world column.
 2. Compute the terrain height for each `(x, z)` column.
 3. Fill top/filler/deep blocks according to the local biome.
-4. Run a deterministic decoration pass for trees.
+4. Fill low terrain up to sea level with static generated water.
+5. Run a deterministic decoration pass for trees.
 
 Important property: generation is chunk-order safe.
 
@@ -287,9 +294,8 @@ The content pipeline currently works like this:
 3. If the block uses textures, set `tiles.top`, `tiles.bottom`, and `tiles.side`.
    These tile names must already exist in `AtlasTiles`; if they do not, add the
    atlas tile first.
-4. If you want the item in the default inventory, update:
-   `DEFAULT_HOTBAR_ITEM_KEYS` for a starter hotbar slot.
-   `DEFAULT_MAIN_INVENTORY_STACK_SPECS` for starter main inventory stacks.
+4. If you want the item in the starter inventory, add an absolute-slot entry to
+   `DEFAULT_STARTER_INVENTORY_STACK_SPECS`.
 5. Run `bun run generate:content`.
 6. Add or edit the matching tile PNGs in
    `apps/client/assets/textures/tiles-src/`.
@@ -360,7 +366,8 @@ To add a new glowing placeable block:
    `dropItemKey: "blue_lantern"`.
 2. Add a matching item spec with `placesBlockKey: "blue_lantern"` and
    `renderBlockKey: "blue_lantern"`.
-3. Optionally add `"blue_lantern"` to `DEFAULT_HOTBAR_ITEM_KEYS`.
+3. Optionally add `"blue_lantern"` to `DEFAULT_STARTER_INVENTORY_STACK_SPECS`
+   at the absolute slot you want.
 4. Run `bun run generate:content`.
 5. Review the generated diff in `content-id-lock.json` and `generated/*`.
 
