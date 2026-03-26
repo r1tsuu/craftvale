@@ -132,46 +132,7 @@ export class LightingSystem {
     const volume = width * depth * height
     const skyLight = new Uint8Array(volume)
     const blockLight = new Uint8Array(volume)
-    const skyQueue: number[] = []
     const blockQueue: number[] = []
-
-    for (let localZ = 0; localZ < depth; localZ += 1) {
-      for (let localX = 0; localX < width; localX += 1) {
-        const worldX = minChunkX * CHUNK_SIZE + localX
-        const worldZ = minChunkZ * CHUNK_SIZE + localZ
-        let blocked = false
-
-        for (let worldY = WORLD_MAX_BLOCK_Y; worldY >= WORLD_MIN_BLOCK_Y; worldY -= 1) {
-          const blockId = getBlockAt(worldX, worldY, worldZ)
-          if (!isLightPassable(blockId)) {
-            blocked = true
-            const emittedLight = getBlockEmittedLightLevel(blockId)
-            if (emittedLight > 0) {
-              const index = this.getRegionIndex(
-                { minChunkX, minChunkZ, width, depth, height, skyLight, blockLight },
-                worldX,
-                worldY,
-                worldZ,
-              )
-              blockLight[index] = emittedLight
-              blockQueue.push(index)
-            }
-            continue
-          }
-
-          const index = this.getRegionIndex(
-            { minChunkX, minChunkZ, width, depth, height, skyLight, blockLight },
-            worldX,
-            worldY,
-            worldZ,
-          )
-          if (!blocked) {
-            skyLight[index] = LIGHT_LEVEL_MAX
-            skyQueue.push(index)
-          }
-        }
-      }
-    }
 
     const region: LightRegion = {
       minChunkX,
@@ -183,13 +144,37 @@ export class LightingSystem {
       blockLight,
     }
 
-    this.propagateLight(skyLight, skyQueue, region, getBlockAt)
-    this.propagateLight(blockLight, blockQueue, region, getBlockAt)
+    for (let localZ = 0; localZ < depth; localZ += 1) {
+      for (let localX = 0; localX < width; localX += 1) {
+        const worldX = minChunkX * CHUNK_SIZE + localX
+        const worldZ = minChunkZ * CHUNK_SIZE + localZ
+        let skylightBlocked = false
+
+        for (let worldY = WORLD_MAX_BLOCK_Y; worldY >= WORLD_MIN_BLOCK_Y; worldY -= 1) {
+          const blockId = getBlockAt(worldX, worldY, worldZ)
+          const index = this.getRegionIndex(region, worldX, worldY, worldZ)
+          const emittedLight = getBlockEmittedLightLevel(blockId)
+          if (emittedLight > 0) {
+            blockLight[index] = emittedLight
+            blockQueue.push(index)
+          }
+
+          if (skylightBlocked || !isLightPassable(blockId)) {
+            skylightBlocked = true
+            continue
+          }
+
+          skyLight[index] = LIGHT_LEVEL_MAX
+        }
+      }
+    }
+
+    this.propagateBlockLight(blockLight, blockQueue, region, getBlockAt)
 
     return region
   }
 
-  private propagateLight(
+  private propagateBlockLight(
     channel: Uint8Array,
     queue: number[],
     region: LightRegion,

@@ -197,7 +197,7 @@ export class AuthoritativeWorld {
     })
 
     for (const coord of coords) {
-      const entry = await this.ensureChunkLoaded(coord, { relight: false })
+      const entry = await this.ensureChunkLoaded(coord)
       if (!entry.hasPersistedRecord) {
         entry.saveDirty = true
       }
@@ -207,16 +207,6 @@ export class AuthoritativeWorld {
         completedChunks,
         totalChunks: coords.length,
       })
-    }
-
-    for (const coord of this.relightLoadedChunks(true)) {
-      const entry = this.chunks.get(chunkKey(coord))
-      if (!entry) {
-        continue
-      }
-
-      entry.saveDirty = true
-      this.chunks.set(chunkKey(coord), entry)
     }
 
     return {
@@ -373,7 +363,12 @@ export class AuthoritativeWorld {
     entry.chunk.revision += 1
     entry.saveDirty = true
 
-    const lightingChanged = this.relightChunkNeighborhood(coords.chunk, true)
+    const lightingChanged = this.relightMutationAffectedChunks(
+      coords.chunk,
+      coords.local.x,
+      coords.local.z,
+      true,
+    )
     const changedChunks = this.getAffectedChunkPayloads(
       coords.chunk,
       coords.local.x,
@@ -497,7 +492,7 @@ export class AuthoritativeWorld {
     }
 
     if (!persisted || !persisted.hasLightData) {
-      const relit = this.relightChunkNeighborhood(coord, true)
+      const relit = this.relightLoadAffectedChunks(coord, true)
       if (relit.some((value) => chunkKey(value) === key)) {
         entry.saveDirty = true
         this.chunks.set(key, entry)
@@ -728,24 +723,66 @@ export class AuthoritativeWorld {
     await this.initialization
   }
 
-  private relightChunkNeighborhood(center: ChunkCoord, persistChanges: boolean): ChunkCoord[] {
-    const chunks: Chunk[] = []
-
-    for (let chunkZ = center.z - 1; chunkZ <= center.z + 1; chunkZ += 1) {
-      for (let chunkX = center.x - 1; chunkX <= center.x + 1; chunkX += 1) {
-        const entry = this.chunks.get(chunkKey({ x: chunkX, z: chunkZ }))
-        if (entry) {
-          chunks.push(entry.chunk)
-        }
-      }
-    }
-
-    return this.relightChunkSet(chunks, persistChanges)
-  }
-
   private relightLoadedChunks(persistChanges: boolean): ChunkCoord[] {
     const loadedChunks = [...this.chunks.values()].map((entry) => entry.chunk)
     return this.relightChunkSet(loadedChunks, persistChanges)
+  }
+
+  private relightLoadAffectedChunks(center: ChunkCoord, persistChanges: boolean): ChunkCoord[] {
+    return this.relightChunkSet(
+      this.getLoadedChunksForRelight(center, {
+        includeOrthogonalNeighbors: true,
+      }),
+      persistChanges,
+    )
+  }
+
+  private relightMutationAffectedChunks(
+    center: ChunkCoord,
+    localX: number,
+    localZ: number,
+    persistChanges: boolean,
+  ): ChunkCoord[] {
+    return this.relightChunkSet(
+      this.getLoadedChunksForRelight(center, {
+        localX,
+        localZ,
+      }),
+      persistChanges,
+    )
+  }
+
+  private getLoadedChunksForRelight(
+    center: ChunkCoord,
+    options: {
+      includeOrthogonalNeighbors?: boolean
+      localX?: number
+      localZ?: number
+    } = {},
+  ): Chunk[] {
+    const keys = new Set<string>([chunkKey(center)])
+    const maybeAdd = (coord: ChunkCoord): void => {
+      if (this.chunks.has(chunkKey(coord))) {
+        keys.add(chunkKey(coord))
+      }
+    }
+
+    if (options.includeOrthogonalNeighbors || options.localX === 0) {
+      maybeAdd({ x: center.x - 1, z: center.z })
+    }
+    if (options.includeOrthogonalNeighbors || options.localX === CHUNK_SIZE - 1) {
+      maybeAdd({ x: center.x + 1, z: center.z })
+    }
+    if (options.includeOrthogonalNeighbors || options.localZ === 0) {
+      maybeAdd({ x: center.x, z: center.z - 1 })
+    }
+    if (options.includeOrthogonalNeighbors || options.localZ === CHUNK_SIZE - 1) {
+      maybeAdd({ x: center.x, z: center.z + 1 })
+    }
+
+    return [...keys]
+      .map((key) => this.chunks.get(key)?.chunk ?? null)
+      .filter((chunk): chunk is Chunk => chunk !== null)
   }
 
   private relightChunkSet(chunks: readonly Chunk[], persistChanges: boolean): ChunkCoord[] {

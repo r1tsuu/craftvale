@@ -397,7 +397,7 @@ test('block mutations relight only the nearby loaded chunk neighborhood', async 
 
     await world.applyBlockMutation(joined.clientPlayer.entityId, 1, targetY, 1, BLOCK_IDS.air)
 
-    expect(relitChunkCoords.length).toBeLessThanOrEqual(9)
+    expect(relitChunkCoords.length).toBeLessThanOrEqual(5)
     expect(relitChunkCoords).toEqual(expect.arrayContaining([targetChunk]))
     expect(relitChunkCoords).not.toEqual(
       expect.arrayContaining([{ x: targetChunk.x + 4, z: targetChunk.z + 4 }]),
