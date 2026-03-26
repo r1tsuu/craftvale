@@ -194,7 +194,7 @@ const carveChunkCaves = (chunk: Chunk, seed: number): void => {
           continue
         }
 
-        chunk.set(localX, localY, localZ, BLOCK_IDS.air)
+        chunk.setFast(localX, localY, localZ, BLOCK_IDS.air)
       }
     }
   }
@@ -327,7 +327,7 @@ const generateChunkOres = (chunk: Chunk, seed: number): void => {
 
       for (let node = 0; node < veinSize; node += 1) {
         if (chunk.get(localX, localY, localZ) === BLOCK_IDS.stone) {
-          chunk.set(localX, localY, localZ, oreBlockId)
+          chunk.setFast(localX, localY, localZ, oreBlockId)
         }
 
         const worldX = chunk.coord.x * CHUNK_SIZE + localX
@@ -369,12 +369,12 @@ const setGeneratedBlockIfInChunk = (
   const current = chunk.get(localX, localY, localZ)
   if (blockId === BLOCK_IDS.leaves) {
     if (current === BLOCK_IDS.air) {
-      chunk.set(localX, localY, localZ, BLOCK_IDS.leaves)
+      chunk.setFast(localX, localY, localZ, BLOCK_IDS.leaves)
     }
     return
   }
 
-  chunk.set(localX, localY, localZ, blockId)
+  chunk.setFast(localX, localY, localZ, blockId)
 }
 
 const getTreeAnchorForCell = (seed: number, cellX: number, cellZ: number): TreeAnchor | null => {
@@ -520,7 +520,7 @@ export const populateGeneratedChunk = (chunk: Chunk, seed: number): Chunk => {
 
       for (let localY = 0; localY < CHUNK_HEIGHT; localY += 1) {
         const worldY = localY
-        chunk.set(localX, localY, localZ, getColumnBlocksForBiome(biome, height, worldY))
+        chunk.setFast(localX, localY, localZ, getColumnBlocksForBiome(biome, height, worldY))
       }
     }
   }
@@ -530,6 +530,7 @@ export const populateGeneratedChunk = (chunk: Chunk, seed: number): Chunk => {
   generateChunkOres(chunk, seed)
   decorateChunkWithTrees(chunk, seed)
 
+  chunk.rebuildDerivedData()
   chunk.dirty = false
   chunk.revision = 0
   return chunk
