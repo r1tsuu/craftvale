@@ -41,11 +41,11 @@ test("daylight factor is brighter at noon than midnight", () => {
   expect(midnight).toBeLessThan(0.2);
 });
 
-test("world clock formatting uses a one-based day label", () => {
+test("world clock formatting uses a one-based day label and AM/PM", () => {
   expect(
     formatWorldClock({
       dayCount: 2,
       timeOfDayTicks: 6_000,
     }),
-  ).toBe("Day 3  06:00");
+  ).toBe("Day 3  06:00 AM");
 });

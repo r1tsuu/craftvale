@@ -124,5 +124,7 @@ export const formatWorldClock = (time: WorldTimeState): string => {
   const totalMinutes = Math.floor((normalized.timeOfDayTicks / WORLD_TICKS_PER_DAY) * 24 * 60);
   const hours = Math.floor(totalMinutes / 60) % 24;
   const minutes = totalMinutes % 60;
-  return `Day ${normalized.dayCount + 1}  ${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 || 12;
+  return `Day ${normalized.dayCount + 1}  ${displayHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")} ${period}`;
 };
