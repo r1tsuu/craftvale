@@ -11,7 +11,8 @@
     "cobblestone": 8,
     "brick": 9,
     "bedrock": 10,
-    "glowstone": 11
+    "glowstone": 11,
+    "water": 12
   },
   "items": {
     "empty": 0,
