@@ -4,7 +4,6 @@ import type {
   BlockId,
   DroppedItemSnapshot,
   EntityId,
-  InventorySection,
   InventorySnapshot,
   PlayerName,
   PlayerSnapshot,
@@ -31,7 +30,6 @@ export type QueuedGameplayIntent =
       sequence: number;
       kind: "interactInventorySlot";
       playerEntityId: EntityId;
-      section: InventorySection;
       slot: number;
     }
   | {

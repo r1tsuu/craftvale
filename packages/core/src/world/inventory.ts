@@ -1,4 +1,4 @@
-import type { InventorySection, InventorySnapshot, InventorySlot, ItemId } from "../types.ts";
+import type { InventorySnapshot, InventorySlot, ItemId } from "../types.ts";
 import {
   HOTBAR_ITEM_IDS,
   ITEM_IDS,
@@ -10,6 +10,7 @@ import {
 
 export const HOTBAR_SLOT_COUNT = HOTBAR_ITEM_IDS.length;
 export const MAIN_INVENTORY_SLOT_COUNT = 27;
+export const TOTAL_INVENTORY_SLOT_COUNT = HOTBAR_SLOT_COUNT + MAIN_INVENTORY_SLOT_COUNT;
 export const DEFAULT_INVENTORY_STACK_SIZE = 64;
 
 const EMPTY_INVENTORY_SLOT: InventorySlot = {
@@ -23,11 +24,8 @@ const clampCount = (count: number, max = DEFAULT_INVENTORY_STACK_SIZE): number =
 const clampHotbarSlotIndex = (slot: number): number =>
   Math.max(0, Math.min(HOTBAR_SLOT_COUNT - 1, Math.trunc(slot)));
 
-const clampInventorySlotIndex = (slot: number, section: InventorySection): number =>
-  Math.max(
-    0,
-    Math.min((section === "hotbar" ? HOTBAR_SLOT_COUNT : MAIN_INVENTORY_SLOT_COUNT) - 1, Math.trunc(slot)),
-  );
+const clampInventorySlotIndex = (slot: number): number =>
+  Math.max(0, Math.min(TOTAL_INVENTORY_SLOT_COUNT - 1, Math.trunc(slot)));
 
 const normalizeSlot = (slot: InventorySlot | null | undefined): InventorySlot => {
   if (!slot || !isValidItemId(slot.itemId)) {
@@ -50,35 +48,25 @@ const cloneSlot = (slot: InventorySlot): InventorySlot => ({
   count: slot.count,
 });
 
-const normalizeSection = (
+const normalizeSlots = (
   slots: readonly InventorySlot[] | null | undefined,
   length: number,
 ): InventorySlot[] =>
   Array.from({ length }, (_, index) => normalizeSlot(slots?.[index]));
 
-const getSection = (
+const withInventorySlot = (
   inventory: InventorySnapshot,
-  section: InventorySection,
-): InventorySlot[] => section === "hotbar" ? inventory.hotbar : inventory.main;
-
-const withSectionSlot = (
-  inventory: InventorySnapshot,
-  section: InventorySection,
   slot: number,
   value: InventorySlot,
 ): InventorySnapshot => {
-  const next = getSection(inventory, section).map((entry, index) =>
-    index === slot ? cloneSlot(value) : cloneSlot(entry)
+  const clampedSlot = clampInventorySlotIndex(slot);
+  const next = inventory.slots.map((entry, index) =>
+    index === clampedSlot ? cloneSlot(value) : cloneSlot(entry)
   );
-  return section === "hotbar"
-    ? {
-        ...inventory,
-        hotbar: next,
-      }
-    : {
-        ...inventory,
-        main: next,
-      };
+  return {
+    ...inventory,
+    slots: next,
+  };
 };
 
 const isEmptySlot = (slot: InventorySlot | null | undefined): boolean =>
@@ -86,31 +74,44 @@ const isEmptySlot = (slot: InventorySlot | null | undefined): boolean =>
 
 const clearSlot = (): InventorySlot => ({ ...EMPTY_INVENTORY_SLOT });
 
+export const getHotbarSlotIndex = (slot: number): number => clampHotbarSlotIndex(slot);
+
+export const getMainInventorySlotIndex = (slot: number): number =>
+  HOTBAR_SLOT_COUNT + Math.max(0, Math.min(MAIN_INVENTORY_SLOT_COUNT - 1, Math.trunc(slot)));
+
+export const getHotbarInventorySlots = (
+  inventory: InventorySnapshot,
+): InventorySlot[] => inventory.slots.slice(0, HOTBAR_SLOT_COUNT);
+
+export const getMainInventorySlots = (
+  inventory: InventorySnapshot,
+): InventorySlot[] => inventory.slots.slice(HOTBAR_SLOT_COUNT, TOTAL_INVENTORY_SLOT_COUNT);
+
 const findPartialStackSlot = (
   inventory: InventorySnapshot,
   itemId: ItemId,
-): { section: InventorySection; slot: number } | null => {
-  for (const section of ["hotbar", "main"] as const) {
-    const slots = getSection(inventory, section);
-    for (let slot = 0; slot < slots.length; slot += 1) {
-      const entry = slots[slot]!;
-      const maxStackSize = getItemMaxStackSize(entry.itemId);
-      if (entry.itemId === itemId && entry.count > 0 && entry.count < maxStackSize) {
-        return { section, slot };
-      }
+): number | null => {
+  for (let slot = 0; slot < inventory.slots.length; slot += 1) {
+    const entry = inventory.slots[slot]!;
+    const maxStackSize = getItemMaxStackSize(entry.itemId);
+    if (entry.itemId === itemId && entry.count > 0 && entry.count < maxStackSize) {
+      return slot;
     }
   }
 
   return null;
 };
 
-const findEmptySlot = (inventory: InventorySnapshot): { section: InventorySection; slot: number } | null => {
-  for (const section of ["main", "hotbar"] as const) {
-    const slots = getSection(inventory, section);
-    for (let slot = 0; slot < slots.length; slot += 1) {
-      if (isEmptySlot(slots[slot])) {
-        return { section, slot };
-      }
+const findEmptySlot = (inventory: InventorySnapshot): number | null => {
+  for (let slot = HOTBAR_SLOT_COUNT; slot < inventory.slots.length; slot += 1) {
+    if (isEmptySlot(inventory.slots[slot])) {
+      return slot;
+    }
+  }
+
+  for (let slot = 0; slot < HOTBAR_SLOT_COUNT; slot += 1) {
+    if (isEmptySlot(inventory.slots[slot])) {
+      return slot;
     }
   }
 
@@ -123,21 +124,25 @@ export const createDefaultInventory = (): InventorySnapshot => {
   const starterMainStacks = new Map<number, (typeof STARTER_MAIN_INVENTORY_STACKS)[number]>(
     STARTER_MAIN_INVENTORY_STACKS.map((stack) => [stack.slot, stack] as const),
   );
+  const slots = Array.from({ length: TOTAL_INVENTORY_SLOT_COUNT }, (_, index): InventorySlot => {
+    if (index < HOTBAR_SLOT_COUNT) {
+      return {
+        itemId: HOTBAR_ITEM_IDS[index] ?? ITEM_IDS.empty,
+        count: DEFAULT_INVENTORY_STACK_SIZE,
+      };
+    }
+
+    const starterStack = starterMainStacks.get(index - HOTBAR_SLOT_COUNT);
+    return starterStack
+      ? {
+          itemId: starterStack.itemId ?? ITEM_IDS.empty,
+          count: starterStack.count ?? 0,
+        }
+      : createEmptyInventorySlot();
+  });
 
   return {
-    hotbar: HOTBAR_ITEM_IDS.map((itemId): InventorySlot => ({
-      itemId,
-      count: DEFAULT_INVENTORY_STACK_SIZE,
-    })),
-    main: Array.from({ length: MAIN_INVENTORY_SLOT_COUNT }, (_, index) => {
-      const starterStack = starterMainStacks.get(index);
-      return starterStack
-        ? {
-            itemId: starterStack.itemId ?? ITEM_IDS.empty,
-            count: starterStack.count ?? 0,
-          }
-        : createEmptyInventorySlot();
-    }),
+    slots,
     selectedSlot: 0,
     cursor: null,
   };
@@ -152,8 +157,7 @@ export const normalizeInventorySnapshot = (
   }
 
   return {
-    hotbar: normalizeSection(snapshot.hotbar, HOTBAR_SLOT_COUNT),
-    main: normalizeSection(snapshot.main, MAIN_INVENTORY_SLOT_COUNT),
+    slots: normalizeSlots(snapshot.slots, TOTAL_INVENTORY_SLOT_COUNT),
     selectedSlot: clampHotbarSlotIndex(snapshot.selectedSlot),
     cursor: isEmptySlot(snapshot.cursor) ? null : normalizeSlot(snapshot.cursor),
   };
@@ -161,7 +165,7 @@ export const normalizeInventorySnapshot = (
 
 export const getSelectedInventorySlot = (
   inventory: InventorySnapshot,
-): InventorySlot => inventory.hotbar[clampHotbarSlotIndex(inventory.selectedSlot)] ?? createEmptyInventorySlot();
+): InventorySlot => inventory.slots[clampHotbarSlotIndex(inventory.selectedSlot)] ?? createEmptyInventorySlot();
 
 export const getSelectedInventoryItemId = (
   inventory: InventorySnapshot,
@@ -171,7 +175,7 @@ export const getInventoryCount = (
   inventory: InventorySnapshot,
   itemId: ItemId,
 ): number =>
-  [...inventory.hotbar, ...inventory.main].reduce(
+  inventory.slots.reduce(
     (total, slot) => total + (slot.itemId === itemId ? slot.count : 0),
     0,
   );
@@ -186,18 +190,16 @@ export const setSelectedInventorySlot = (
 
 export const getInventorySlot = (
   inventory: InventorySnapshot,
-  section: InventorySection,
   slot: number,
-): InventorySlot => getSection(inventory, section)[clampInventorySlotIndex(slot, section)] ?? createEmptyInventorySlot();
+): InventorySlot => inventory.slots[clampInventorySlotIndex(slot)] ?? createEmptyInventorySlot();
 
 export const interactInventorySlot = (
   inventory: InventorySnapshot,
-  section: InventorySection,
   slot: number,
 ): InventorySnapshot => {
   const normalized = normalizeInventorySnapshot(inventory);
-  const clampedSlot = clampInventorySlotIndex(slot, section);
-  const target = getInventorySlot(normalized, section, clampedSlot);
+  const clampedSlot = clampInventorySlotIndex(slot);
+  const target = getInventorySlot(normalized, clampedSlot);
   const cursor = normalized.cursor ?? null;
 
   if (isEmptySlot(cursor) && isEmptySlot(target)) {
@@ -206,7 +208,7 @@ export const interactInventorySlot = (
 
   if (isEmptySlot(cursor)) {
     return {
-      ...withSectionSlot(normalized, section, clampedSlot, clearSlot()),
+      ...withInventorySlot(normalized, clampedSlot, clearSlot()),
       cursor: cloneSlot(target),
     };
   }
@@ -215,7 +217,7 @@ export const interactInventorySlot = (
 
   if (isEmptySlot(target)) {
     return {
-      ...withSectionSlot(normalized, section, clampedSlot, held),
+      ...withInventorySlot(normalized, clampedSlot, held),
       cursor: null,
     };
   }
@@ -229,7 +231,7 @@ export const interactInventorySlot = (
     };
     const remaining = held.count - transfer;
     return {
-      ...withSectionSlot(normalized, section, clampedSlot, nextTarget),
+      ...withInventorySlot(normalized, clampedSlot, nextTarget),
       cursor: remaining > 0
         ? {
             itemId: held.itemId,
@@ -240,7 +242,7 @@ export const interactInventorySlot = (
   }
 
   return {
-    ...withSectionSlot(normalized, section, clampedSlot, held),
+    ...withInventorySlot(normalized, clampedSlot, held),
     cursor: cloneSlot(target),
   };
 };
@@ -255,13 +257,13 @@ export const addInventoryItem = (
 
   while (remaining > 0) {
     const partial = findPartialStackSlot(next, itemId);
-    if (!partial) {
+    if (partial === null) {
       break;
     }
 
-    const target = getInventorySlot(next, partial.section, partial.slot);
+    const target = getInventorySlot(next, partial);
     const transfer = Math.min(getItemMaxStackSize(target.itemId) - target.count, remaining);
-    next = withSectionSlot(next, partial.section, partial.slot, {
+    next = withInventorySlot(next, partial, {
       itemId,
       count: target.count + transfer,
     });
@@ -270,12 +272,12 @@ export const addInventoryItem = (
 
   while (remaining > 0) {
     const empty = findEmptySlot(next);
-    if (!empty) {
+    if (empty === null) {
       break;
     }
 
     const transfer = Math.min(getItemMaxStackSize(itemId), remaining);
-    next = withSectionSlot(next, empty.section, empty.slot, {
+    next = withInventorySlot(next, empty, {
       itemId,
       count: transfer,
     });
@@ -295,15 +297,14 @@ export const removeFromSelectedInventorySlot = (
 ): InventorySnapshot => {
   const normalized = normalizeInventorySnapshot(inventory);
   const selectedSlot = clampHotbarSlotIndex(normalized.selectedSlot);
-  const target = normalized.hotbar[selectedSlot] ?? createEmptyInventorySlot();
+  const target = normalized.slots[selectedSlot] ?? createEmptyInventorySlot();
   if (isEmptySlot(target)) {
     return normalized;
   }
 
   const nextCount = Math.max(0, target.count - Math.max(0, Math.trunc(count)));
-  return withSectionSlot(
+  return withInventorySlot(
     normalized,
-    "hotbar",
     selectedSlot,
     nextCount > 0
       ? {

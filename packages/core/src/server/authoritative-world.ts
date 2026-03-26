@@ -223,11 +223,10 @@ export class AuthoritativeWorld {
 
   public async interactInventorySlot(
     entityId: EntityId,
-    section: "hotbar" | "main",
     slot: number,
   ): Promise<InventorySnapshot> {
     await this.ensureInitialized();
-    return this.playerSystem.interactInventorySlot(entityId, section, slot);
+    return this.playerSystem.interactInventorySlot(entityId, slot);
   }
 
   public getWorldTimeState(): WorldTimeState {
@@ -394,7 +393,7 @@ export class AuthoritativeWorld {
           this.mergeInventoryUpdate(
             result,
             intent.playerEntityId,
-            await this.interactInventorySlot(intent.playerEntityId, intent.section, intent.slot),
+            await this.interactInventorySlot(intent.playerEntityId, intent.slot),
           );
           break;
         }

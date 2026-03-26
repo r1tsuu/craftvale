@@ -23,7 +23,7 @@ const DROPPED_ITEMS_MAGIC = "VDRP";
 const WORLD_TIME_MAGIC = "VTIM";
 const REGISTRY_VERSION = 1;
 const CHUNK_VERSION = 2;
-const PLAYER_VERSION = 5;
+const PLAYER_VERSION = 6;
 const DROPPED_ITEMS_VERSION = 2;
 const WORLD_TIME_VERSION = 1;
 
@@ -275,9 +275,7 @@ const decodeWorldTime = (bytes: Uint8Array): WorldTimeState => {
 const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
   const inventory = normalizeInventorySnapshot(record.inventory);
   const entityIdBytes = textEncoder.encode(record.snapshot.entityId);
-  const bytes = new Uint8Array(
-    72 + (inventory.hotbar.length + inventory.main.length) * 8 + 2 + entityIdBytes.length,
-  );
+  const bytes = new Uint8Array(68 + inventory.slots.length * 8 + 2 + entityIdBytes.length);
   const view = new DataView(bytes.buffer);
   bytes.set(textEncoder.encode(PLAYER_MAGIC), 0);
   view.setUint32(4, PLAYER_VERSION, true);
@@ -288,13 +286,12 @@ const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
   view.setFloat64(40, record.snapshot.state.pitch, true);
   view.setUint32(48, record.snapshot.gamemode, true);
   view.setUint32(52, inventory.selectedSlot >>> 0, true);
-  view.setUint32(56, inventory.hotbar.length, true);
-  view.setUint32(60, inventory.main.length, true);
-  view.setUint32(64, inventory.cursor?.itemId ?? 0, true);
-  view.setUint32(68, inventory.cursor?.count ?? 0, true);
+  view.setUint32(56, inventory.slots.length, true);
+  view.setUint32(60, inventory.cursor?.itemId ?? 0, true);
+  view.setUint32(64, inventory.cursor?.count ?? 0, true);
 
-  let offset = 72;
-  for (const slot of [...inventory.hotbar, ...inventory.main]) {
+  let offset = 68;
+  for (const slot of inventory.slots) {
     view.setUint32(offset, slot.itemId >>> 0, true);
     view.setUint32(offset + 4, Math.max(0, Math.trunc(slot.count)) >>> 0, true);
     offset += 8;
@@ -306,7 +303,7 @@ const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
 };
 
 const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRecord => {
-  if (bytes.byteLength < 72) {
+  if (bytes.byteLength < 68) {
     throw new Error("Player file is truncated.");
   }
 
@@ -323,24 +320,14 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
 
   const gamemode: PlayerGamemode = view.getUint32(48, true) === 1 ? 1 : 0;
   const selectedSlot = view.getUint32(52, true);
-  const hotbarCount = view.getUint32(56, true);
-  const mainCount = view.getUint32(60, true);
-  const cursorItemId = view.getUint32(64, true) as ItemId;
-  const cursorCount = view.getUint32(68, true);
-  const hotbar: InventorySnapshot["hotbar"] = [];
-  const main: InventorySnapshot["main"] = [];
-  let offset = 72;
+  const slotCount = view.getUint32(56, true);
+  const cursorItemId = view.getUint32(60, true) as ItemId;
+  const cursorCount = view.getUint32(64, true);
+  const slots: InventorySnapshot["slots"] = [];
+  let offset = 68;
 
-  for (let index = 0; index < hotbarCount; index += 1) {
-    hotbar.push({
-      itemId: view.getUint32(offset, true) as ItemId,
-      count: view.getUint32(offset + 4, true),
-    });
-    offset += 8;
-  }
-
-  for (let index = 0; index < mainCount; index += 1) {
-    main.push({
+  for (let index = 0; index < slotCount; index += 1) {
+    slots.push({
       itemId: view.getUint32(offset, true) as ItemId,
       count: view.getUint32(offset + 4, true),
     });
@@ -350,8 +337,7 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
   const entityId = readString(bytes, offset).value;
 
   const inventory = normalizeInventorySnapshot({
-    hotbar,
-    main,
+    slots,
     selectedSlot,
     cursor: cursorCount > 0
       ? {

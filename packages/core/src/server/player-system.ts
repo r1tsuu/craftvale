@@ -190,12 +190,11 @@ export class PlayerSystem {
 
   public async interactInventorySlot(
     entityId: EntityId,
-    section: "hotbar" | "main",
     slot: number,
   ): Promise<InventorySnapshot> {
     const inventory = this.requireComponent(this.entities.playerInventory, entityId, "player inventory");
     const persistence = this.requireComponent(this.entities.playerPersistence, entityId, "player persistence");
-    const next = interactInventorySlot(inventory.inventory, section, slot);
+    const next = interactInventorySlot(inventory.inventory, slot);
 
     if (!inventoriesEqual(next, inventory.inventory)) {
       this.entities.playerInventory.set(entityId, { inventory: next });

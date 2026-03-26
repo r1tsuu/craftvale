@@ -312,10 +312,9 @@ Player identity is separate from world identity:
 - a launch can temporarily override that name with `--player-name`
 - the effective player name is sent explicitly when joining a world
 
-Inventory is modeled as a fuller player inventory snapshot:
+Inventory is modeled as one canonical player inventory snapshot:
 
-- hotbar slot list
-- main inventory slot list
+- one ordered slot list
 - selected hotbar index
 - optional carried cursor stack
 
@@ -324,6 +323,7 @@ The current default setup is a nine-slot hotbar with starter stacks for newly se
 The client uses this replicated inventory for:
 
 - hotbar HUD display
+- main-inventory overlay layout
 - current placement selection
 - local feedback such as out-of-stock messages
 

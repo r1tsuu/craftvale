@@ -4,7 +4,6 @@ import type {
   ChunkCoord,
   DroppedItemSnapshot,
   EntityId,
-  InventorySection,
   InventorySnapshot,
   PlayerName,
   PlayerSnapshot,
@@ -60,7 +59,6 @@ export interface InventorySelectionRequest {
 }
 
 export interface InventoryInteractionRequest {
-  section: InventorySection;
   slot: number;
 }
 

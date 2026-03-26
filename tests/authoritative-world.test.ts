@@ -6,6 +6,7 @@ import { AuthoritativeWorld } from "../packages/core/src/server/authoritative-wo
 import { BinaryWorldStorage } from "../packages/core/src/server/world-storage.ts";
 import { BLOCK_IDS, getDroppedItemIdForBlock } from "../packages/core/src/world/blocks.ts";
 import { CHUNK_SIZE } from "../packages/core/src/world/constants.ts";
+import { getMainInventorySlotIndex, getMainInventorySlots } from "../packages/core/src/world/inventory.ts";
 import { ITEM_IDS } from "../packages/core/src/world/items.ts";
 import { getTerrainHeight } from "../packages/core/src/world/terrain.ts";
 import type { BlockId } from "../packages/core/src/types.ts";
@@ -40,11 +41,14 @@ test("authoritative world keeps per-player state separate and persists it by pla
     );
     const playerAInventory = await world.selectInventorySlot(joinedA.clientPlayer.entityId, 4);
     expect(playerAInventory.selectedSlot).toBe(4);
-    const liftedStack = await world.interactInventorySlot(joinedA.clientPlayer.entityId, "hotbar", 8);
+    const liftedStack = await world.interactInventorySlot(joinedA.clientPlayer.entityId, 8);
     expect(liftedStack.cursor).toEqual({ itemId: ITEM_IDS.brick, count: 64 });
-    const placedStack = await world.interactInventorySlot(joinedA.clientPlayer.entityId, "main", 1);
+    const placedStack = await world.interactInventorySlot(
+      joinedA.clientPlayer.entityId,
+      getMainInventorySlotIndex(1),
+    );
     expect(placedStack.cursor).toBeNull();
-    expect(placedStack.main[1]).toEqual({ itemId: ITEM_IDS.brick, count: 64 });
+    expect(getMainInventorySlots(placedStack)[1]).toEqual({ itemId: ITEM_IDS.brick, count: 64 });
 
     const joinedB = await world.joinPlayer(PLAYER_B);
     expect(joinedB.clientPlayer.name).toBe(PLAYER_B);
@@ -67,7 +71,7 @@ test("authoritative world keeps per-player state separate and persists it by pla
     expect(rejoinedA.clientPlayer.gamemode).toBe(1);
     expect(rejoinedA.clientPlayer.flying).toBe(false);
     expect(rejoinedA.inventory.selectedSlot).toBe(4);
-    expect(rejoinedA.inventory.main[1]).toEqual({ itemId: ITEM_IDS.brick, count: 64 });
+    expect(getMainInventorySlots(rejoinedA.inventory)[1]).toEqual({ itemId: ITEM_IDS.brick, count: 64 });
 
     const rejoinedB = await reloadedWorld.joinPlayer(PLAYER_B);
     expect(rejoinedB.clientPlayer.entityId).toBe(joinedB.clientPlayer.entityId);

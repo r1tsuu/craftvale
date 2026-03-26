@@ -24,11 +24,8 @@ export interface InventorySlot {
   count: number;
 }
 
-export type InventorySection = "hotbar" | "main";
-
 export interface InventorySnapshot {
-  hotbar: InventorySlot[];
-  main: InventorySlot[];
+  slots: InventorySlot[];
   selectedSlot: number;
   cursor: InventorySlot | null;
 }

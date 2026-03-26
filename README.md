@@ -25,7 +25,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Server-authoritative `/gamemode 0` and `/gamemode 1` command handling
 - Creative-mode flight toggled by double-tapping `Space`
 - Per-world save/load with named worlds and binary chunk persistence
-- Server-authoritative full inventory with a 9-slot hotbar, main storage grid, stack movement, and per-player persistence
+- Server-authoritative inventory with one canonical slot list, derived hotbar/main UI layout, stack movement, and per-player persistence
 - Separate item and block registries, with explicit item-to-block placement and block-to-item drop mappings
 - Generated content registries with authored string keys, checked-in id locks, and stable numeric block/item ids
 - Nine placeable hotbar items for terrain, wood, and masonry-style blocks

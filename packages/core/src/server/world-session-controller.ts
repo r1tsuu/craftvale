@@ -258,12 +258,11 @@ export class WorldSessionController implements WorldSessionPeer {
           slot,
         });
       }),
-      this.adapter.eventBus.on("interactInventorySlot", ({ section, slot }) => {
+      this.adapter.eventBus.on("interactInventorySlot", ({ slot }) => {
         this.requireWorld("interacting with inventory");
         this.enqueueIntent({
           kind: "interactInventorySlot",
           playerEntityId: this.requireCurrentPlayerEntityId(),
-          section,
           slot,
         });
       }),

@@ -15,7 +15,12 @@ import { PortServerAdapter } from "../packages/core/src/server/server-adapter.ts
 import { ServerRuntime } from "../packages/core/src/server/runtime.ts";
 import { BinaryWorldStorage } from "../packages/core/src/server/world-storage.ts";
 import { BLOCK_IDS, getDroppedItemIdForBlock } from "../packages/core/src/world/blocks.ts";
-import { DEFAULT_INVENTORY_STACK_SIZE } from "../packages/core/src/world/inventory.ts";
+import {
+  DEFAULT_INVENTORY_STACK_SIZE,
+  getHotbarInventorySlots,
+  getMainInventorySlotIndex,
+  getMainInventorySlots,
+} from "../packages/core/src/world/inventory.ts";
 import { ITEM_IDS } from "../packages/core/src/world/items.ts";
 import { getTerrainHeight } from "../packages/core/src/world/terrain.ts";
 
@@ -174,15 +179,15 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     expect(harness.worldRuntime.droppedItems.size).toBe(0);
     expect(harness.worldRuntime.inventory.selectedSlot).toBe(0);
     expect(
-      harness.worldRuntime.inventory.hotbar.every(
+      getHotbarInventorySlots(harness.worldRuntime.inventory).every(
         (slot) => slot.count === DEFAULT_INVENTORY_STACK_SIZE,
       ),
     ).toBe(true);
     expect(
-      harness.worldRuntime.inventory.main[0],
+      getMainInventorySlots(harness.worldRuntime.inventory)[0],
     ).toEqual({ itemId: ITEM_IDS.glowstone, count: DEFAULT_INVENTORY_STACK_SIZE });
     expect(
-      harness.worldRuntime.inventory.main.slice(1).every(
+      getMainInventorySlots(harness.worldRuntime.inventory).slice(1).every(
         (slot) => slot.itemId === ITEM_IDS.empty && slot.count === 0,
       ),
     ).toBe(true);
@@ -230,10 +235,10 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     expect(changedChunkReceived).toBe(true);
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(BLOCK_IDS.air);
     expect(
-      harness.worldRuntime.inventory.main[0],
+      getMainInventorySlots(harness.worldRuntime.inventory)[0],
     ).toEqual({ itemId: ITEM_IDS.glowstone, count: DEFAULT_INVENTORY_STACK_SIZE });
     expect(
-      harness.worldRuntime.inventory.main.slice(1).every(
+      getMainInventorySlots(harness.worldRuntime.inventory).slice(1).every(
         (slot) => slot.itemId === ITEM_IDS.empty && slot.count === 0,
       ),
     ).toBe(true);
@@ -259,11 +264,13 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     });
     await Bun.sleep(SERVER_TICK_WAIT_MS);
 
-    const collectedSlot = harness.worldRuntime.inventory.main.find((slot) => slot.itemId === targetItemId);
+    const collectedSlot = getMainInventorySlots(harness.worldRuntime.inventory).find(
+      (slot) => slot.itemId === targetItemId,
+    );
     expect(collectedSlot?.count).toBe(1);
     expect(harness.worldRuntime.droppedItems.size).toBe(0);
 
-    const collectedSlotIndex = harness.worldRuntime.inventory.hotbar.findIndex(
+    const collectedSlotIndex = getHotbarInventorySlots(harness.worldRuntime.inventory).findIndex(
       (slot) => slot.itemId === targetItemId,
     );
     harness.client.eventBus.send({
@@ -278,7 +285,6 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     harness.client.eventBus.send({
       type: "interactInventorySlot",
       payload: {
-        section: "hotbar",
         slot: 8,
       },
     });
@@ -288,31 +294,34 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
     harness.client.eventBus.send({
       type: "interactInventorySlot",
       payload: {
-        section: "main",
-        slot: 2,
+        slot: getMainInventorySlotIndex(2),
       },
     });
     await Bun.sleep(SERVER_TICK_WAIT_MS);
     expect(harness.worldRuntime.inventory.cursor).toBeNull();
-    expect(harness.worldRuntime.inventory.main[2]).toEqual({ itemId: ITEM_IDS.brick, count: 64 });
+    expect(getMainInventorySlots(harness.worldRuntime.inventory)[2]).toEqual({
+      itemId: ITEM_IDS.brick,
+      count: 64,
+    });
 
     harness.client.eventBus.send({
       type: "interactInventorySlot",
       payload: {
-        section: "main",
-        slot: 2,
+        slot: getMainInventorySlotIndex(2),
       },
     });
     await Bun.sleep(SERVER_TICK_WAIT_MS);
     harness.client.eventBus.send({
       type: "interactInventorySlot",
       payload: {
-        section: "hotbar",
         slot: 8,
       },
     });
     await Bun.sleep(SERVER_TICK_WAIT_MS);
-    expect(harness.worldRuntime.inventory.hotbar[8]).toEqual({ itemId: ITEM_IDS.brick, count: 64 });
+    expect(getHotbarInventorySlots(harness.worldRuntime.inventory)[8]).toEqual({
+      itemId: ITEM_IDS.brick,
+      count: 64,
+    });
     expect(harness.worldRuntime.inventory.cursor).toBeNull();
 
     harness.client.eventBus.send({
@@ -346,10 +355,14 @@ test("authoritative chunk delivery and mutation updates the replicated client wo
 
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(targetBlockId);
     expect(
-      harness.worldRuntime.inventory.hotbar.find((slot) => slot.itemId === targetItemId)?.count,
+      getHotbarInventorySlots(harness.worldRuntime.inventory).find(
+        (slot) => slot.itemId === targetItemId,
+      )?.count,
     ).toBe(DEFAULT_INVENTORY_STACK_SIZE - 1);
     expect(
-      harness.worldRuntime.inventory.main.find((slot) => slot.itemId === targetItemId)?.count,
+      getMainInventorySlots(harness.worldRuntime.inventory).find(
+        (slot) => slot.itemId === targetItemId,
+      )?.count,
     ).toBe(1);
 
     harness.client.eventBus.send({

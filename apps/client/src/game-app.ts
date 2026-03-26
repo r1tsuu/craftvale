@@ -64,6 +64,7 @@ import {
   createLogger,
   getBiomeAt,
   getItemDisplayName,
+  getMainInventorySlotIndex,
   getPlacedBlockIdForItem,
   getSelectedInventorySlot,
   raycastVoxel,
@@ -1367,8 +1368,7 @@ export class GameApp {
     this.getClientAdapter().eventBus.send({
       type: "interactInventorySlot",
       payload: {
-        section,
-        slot,
+        slot: section === "hotbar" ? slot : getMainInventorySlotIndex(slot),
       },
     });
   }

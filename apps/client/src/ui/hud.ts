@@ -15,8 +15,10 @@ import {
 } from "./menu.ts";
 import {
   formatWorldClock,
+  getHotbarInventorySlots,
   getItemColor,
   getItemDisplayName,
+  getMainInventorySlots,
   getSelectedInventorySlot,
 } from "@craftvale/core/shared";
 import {
@@ -238,10 +240,11 @@ const buildHotbar = (
 ): UiComponent[] => {
   const selectedSlotIndex = inventory.selectedSlot;
   const selectedSlot = getSelectedInventorySlot(inventory);
+  const hotbarSlots = getHotbarInventorySlots(inventory);
   const slotWidth = 68;
   const slotHeight = 68;
   const slotGap = 8;
-  const totalWidth = inventory.hotbar.length * slotWidth + (inventory.hotbar.length - 1) * slotGap;
+  const totalWidth = hotbarSlots.length * slotWidth + (hotbarSlots.length - 1) * slotGap;
   const startX = Math.round((windowWidth - totalWidth) / 2);
   const startY = windowHeight - 96;
   const components: UiComponent[] = [];
@@ -274,7 +277,7 @@ const buildHotbar = (
     }),
   );
 
-  inventory.hotbar.forEach((slot, index) => {
+  hotbarSlots.forEach((slot, index) => {
     const slotX = startX + index * (slotWidth + slotGap);
     components.push(
       ...buildInventorySlotVisual(
@@ -502,6 +505,8 @@ const buildInventoryOverlay = (
   cursorX: number,
   cursorY: number,
 ): UiComponent[] => {
+  const mainSlots = getMainInventorySlots(inventory);
+  const hotbarSlots = getHotbarInventorySlots(inventory);
   const x = Math.round((windowWidth - INVENTORY_PANEL_WIDTH) / 2);
   const y = Math.round((windowHeight - INVENTORY_PANEL_HEIGHT) / 2);
   const components: UiComponent[] = [
@@ -538,7 +543,7 @@ const buildInventoryOverlay = (
 
   const gridStartX = x + 36;
   const mainStartY = y + 74;
-  for (let index = 0; index < inventory.main.length; index += 1) {
+  for (let index = 0; index < mainSlots.length; index += 1) {
     const col = index % 9;
     const row = Math.floor(index / 9);
     components.push(
@@ -550,7 +555,7 @@ const buildInventoryOverlay = (
           width: INVENTORY_SLOT_SIZE,
           height: INVENTORY_SLOT_SIZE,
         },
-        inventory.main[index]!,
+        mainSlots[index]!,
         {
           interactive: true,
           action: `inventory-slot:main:${index}`,
@@ -560,7 +565,7 @@ const buildInventoryOverlay = (
   }
 
   const hotbarStartY = y + INVENTORY_PANEL_HEIGHT - 86;
-  for (let index = 0; index < inventory.hotbar.length; index += 1) {
+  for (let index = 0; index < hotbarSlots.length; index += 1) {
     components.push(
       ...buildInventorySlotVisual(
         `inventory-hotbar-slot-${index}`,
@@ -570,7 +575,7 @@ const buildInventoryOverlay = (
           width: INVENTORY_SLOT_SIZE,
           height: INVENTORY_SLOT_SIZE,
         },
-        inventory.hotbar[index]!,
+        hotbarSlots[index]!,
         {
           interactive: true,
           action: `inventory-slot:hotbar:${index}`,
