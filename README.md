@@ -112,6 +112,76 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - `plans` implementation plans for major feature work
 - `tests` coverage for client/server flow, storage, terrain, meshing, raycast, player, highlight, text, and UI
 
+## Adding Content
+
+Craftvale no longer hand-authors numeric block and item ids. New content starts from one authored source and then goes through the content generator.
+
+### Source Of Truth
+
+- Author blocks and items in `packages/core/src/world/content-spec.ts`.
+- Treat `packages/core/src/world/content-id-lock.json` as the stable id snapshot that preserves save and protocol compatibility.
+- Treat `packages/core/src/world/generated/content-ids.ts` and `packages/core/src/world/generated/content-registry.ts` as generated outputs only. Do not edit them by hand.
+
+### Add A New Placeable Block-Backed Item
+
+1. Add a block entry to `AUTHORED_BLOCK_SPECS`.
+   Use a new stable `key`, set collision/render/light metadata, and set `dropItemKey` to the item key you want from breaking the block.
+2. Add an item entry to `AUTHORED_ITEM_SPECS`.
+   Point `placesBlockKey` and usually `renderBlockKey` at the block key so the item can place and visually represent that block.
+3. If the block uses textures, set `tiles.top`, `tiles.bottom`, and `tiles.side`.
+   These tile names must already exist in `AtlasTiles`; if they do not, add the atlas tile first.
+4. If you want the item in the default inventory, update:
+   `DEFAULT_HOTBAR_ITEM_KEYS` for a starter hotbar slot.
+   `DEFAULT_MAIN_INVENTORY_STACK_SPECS` for starter main inventory stacks.
+5. Run `bun run generate:content`.
+6. Run `bun run typecheck` and `bun test`.
+
+### Add A Block Without A Player Item
+
+- Add a block entry in `AUTHORED_BLOCK_SPECS`.
+- Set `dropItemKey` to `null` if breaking it should not create an item drop.
+- Omit any matching item entry unless players need to hold, place, or pick up it.
+
+`bedrock` is the current example of a block-only entry.
+
+### Add An Item Without A Placeable Block
+
+- Add an item entry in `AUTHORED_ITEM_SPECS`.
+- Set `placesBlockKey` to `null`.
+- Set `renderBlockKey` to `null` unless you want the item rendered using an existing block mesh.
+
+This is the path for future tools, consumables, and ingredients.
+
+### Field Guide
+
+- `key`: Stable authoring identity. Keep it short, lowercase, and durable because saves and generated ids are tied to it.
+- `name`: Player-facing display name source.
+- `color`: Used in item UI and debug-style display paths.
+- `dropItemKey`: Item dropped when the block is broken.
+- `placesBlockKey`: Block the item places, if any.
+- `renderBlockKey`: Block mesh used to render the held item, if any.
+- `renderPass`: Use `"opaque"` for solid terrain, `"cutout"` for alpha-discard blocks like leaves, or `null` for non-rendered blocks such as air.
+- `occlusion`: Use `"full"` for normal solid cubes, `"self"` for leaf-style self-culling, or `"none"` for non-occluding blocks.
+- `emittedLightLevel`: Block light emitted by the block, from `0` to `15`.
+
+### Id Stability Rules
+
+- Do not hand-pick numeric ids for new content. The generator assigns them.
+- Do not reorder generated files by hand. The generator and lockfile own the final ids.
+- Adding a new key appends a new id automatically while preserving existing ids.
+- Renaming or removing keys is a compatibility-sensitive change because existing saves may still reference the old ids.
+- If you intentionally rename or remove content, update `content-spec.ts` and `content-id-lock.json` together in the same change and treat it as a migration or save reset decision.
+
+### Typical Example
+
+To add a new glowing placeable block:
+
+1. Add a block spec such as `blue_lantern` with tiles, light level, and `dropItemKey: "blue_lantern"`.
+2. Add a matching item spec with `placesBlockKey: "blue_lantern"` and `renderBlockKey: "blue_lantern"`.
+3. Optionally add `"blue_lantern"` to `DEFAULT_HOTBAR_ITEM_KEYS`.
+4. Run `bun run generate:content`.
+5. Review the generated diff in `content-id-lock.json` and `generated/*`.
+
 ## Commit Messages
 
 - Use commit subjects in the form `<type>: <summary>`.
