@@ -77,6 +77,8 @@ task touches a feature area with an existing implementation plan.
   commit should include a body describing what changed.
 - Commits created through Codex should include the trailer
   `Co-authored-by: Codex <codex@openai.com>`.
+- Commits created through Claude Code should include the trailer
+  `Co-authored-by: Claude Sonnet 4.6 <noreply@anthropic.com>`.
 - Prefer updating `plans/000N-*.md` when a feature meaningfully changes scope or
   architecture.
 

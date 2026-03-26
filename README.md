@@ -145,6 +145,7 @@ Content authoring and generation now live in [`architecture.md`](./architecture.
 - Keep the subject short and action-oriented, for example `feat: add player-name profiles`.
 - Every commit should include a body that explains what changed and why.
 - Commits created through Codex should include `Co-authored-by: Codex <codex@openai.com>`.
+- Commits created through Claude Code should include `Co-authored-by: Claude Sonnet 4.6 <noreply@anthropic.com>`.
 
 ## Editor Setup
 
