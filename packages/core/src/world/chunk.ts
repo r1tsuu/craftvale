@@ -19,8 +19,8 @@ const blockIndex = (localX: number, localY: number, localZ: number): number =>
 
 const subChunkIndex = (localY: number): number => Math.floor(localY / CHUNK_SUBCHUNK_HEIGHT)
 
-const subChunkBlockIndex = (localX: number, localY: number, localZ: number): number =>
-  localX + CHUNK_SIZE * (localZ + CHUNK_SIZE * (localY % CHUNK_SUBCHUNK_HEIGHT))
+const subChunkBlockIndex = (localX: number, localYWithinSubchunk: number, localZ: number): number =>
+  localX + CHUNK_SIZE * (localZ + CHUNK_SIZE * localYWithinSubchunk)
 
 export class SubChunk {
   public palette = new Uint16Array([AIR_BLOCK_ID])
@@ -232,7 +232,7 @@ export class Chunk {
             paletteIndexes.set(blockId, paletteIndex)
           }
 
-          subchunk.blocks[subChunkBlockIndex(localX, baseY + localY, localZ)] = paletteIndex
+          subchunk.blocks[subChunkBlockIndex(localX, localY, localZ)] = paletteIndex
           if (blockId !== AIR_BLOCK_ID) {
             isAllAir = false
           }

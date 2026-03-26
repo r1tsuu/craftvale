@@ -815,27 +815,34 @@ export class AuthoritativeWorld {
 
   private relightChunkSet(chunks: readonly Chunk[], persistChanges: boolean): ChunkCoord[] {
     const generatedChunkCache = new Map<string, Chunk>()
-    const changed = this.lightingSystem.relightLoadedChunks(chunks, (worldX, worldY, worldZ) => {
-      if (!isWithinWorldBlockY(worldY)) {
-        return BLOCK_IDS.air
-      }
-
-      const coords = worldToChunkCoord(worldX, worldY, worldZ)
-
-      const loaded = this.chunks.get(chunkKey(coords.chunk))
+    const resolveChunk = (coord: ChunkCoord): Chunk => {
+      const loaded = this.chunks.get(chunkKey(coord))
       if (loaded) {
-        return loaded.chunk.get(coords.local.x, coords.local.y, coords.local.z)
+        return loaded.chunk
       }
 
-      const key = chunkKey(coords.chunk)
+      const key = chunkKey(coord)
       let generated = generatedChunkCache.get(key)
       if (!generated) {
-        generated = createGeneratedChunk(coords.chunk, this.world.seed)
+        generated = createGeneratedChunk(coord, this.world.seed)
         generatedChunkCache.set(key, generated)
       }
 
-      return generated.get(coords.local.x, coords.local.y, coords.local.z)
-    })
+      return generated
+    }
+
+    const changed = this.lightingSystem.relightLoadedChunks(
+      chunks,
+      (worldX, worldY, worldZ) => {
+        if (!isWithinWorldBlockY(worldY)) {
+          return BLOCK_IDS.air
+        }
+
+        const coords = worldToChunkCoord(worldX, worldY, worldZ)
+        return resolveChunk(coords.chunk).get(coords.local.x, coords.local.y, coords.local.z)
+      },
+      (coord) => resolveChunk(coord),
+    )
     if (!persistChanges) {
       return changed
     }
