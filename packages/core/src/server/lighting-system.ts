@@ -27,6 +27,12 @@ const LIGHT_DIRECTIONS = [
   [0, 0, 1],
   [0, 0, -1],
 ] as const
+const HORIZONTAL_LIGHT_DIRECTIONS = [
+  [1, 0, 0],
+  [-1, 0, 0],
+  [0, 0, 1],
+  [0, 0, -1],
+] as const
 
 interface LightRegion {
   minChunkX: number
@@ -132,6 +138,8 @@ export class LightingSystem {
     const volume = width * depth * height
     const skyLight = new Uint8Array(volume)
     const blockLight = new Uint8Array(volume)
+    const directSkyIndices: number[] = []
+    const skyQueue: number[] = []
     const blockQueue: number[] = []
 
     const region: LightRegion = {
@@ -165,13 +173,97 @@ export class LightingSystem {
           }
 
           skyLight[index] = LIGHT_LEVEL_MAX
+          directSkyIndices.push(index)
         }
       }
     }
 
+    this.seedSkyLightQueue(region, skyLight, directSkyIndices, skyQueue, getBlockAt)
+    this.propagateSkyLight(skyLight, skyQueue, region, getBlockAt)
     this.propagateBlockLight(blockLight, blockQueue, region, getBlockAt)
 
     return region
+  }
+
+  private seedSkyLightQueue(
+    region: LightRegion,
+    channel: Uint8Array,
+    directSkyIndices: readonly number[],
+    queue: number[],
+    getBlockAt: (worldX: number, worldY: number, worldZ: number) => BlockId,
+  ): void {
+    for (const index of directSkyIndices) {
+      const { x, y, z } = this.getRegionPosition(region, index)
+      for (const [dx, , dz] of HORIZONTAL_LIGHT_DIRECTIONS) {
+        const nextX = x + dx
+        const nextZ = z + dz
+        if (
+          nextX < region.minChunkX * CHUNK_SIZE ||
+          nextX >= region.minChunkX * CHUNK_SIZE + region.width ||
+          nextZ < region.minChunkZ * CHUNK_SIZE ||
+          nextZ >= region.minChunkZ * CHUNK_SIZE + region.depth
+        ) {
+          continue
+        }
+
+        if (!isLightPassable(getBlockAt(nextX, y, nextZ))) {
+          continue
+        }
+
+        const nextIndex = this.getRegionIndex(region, nextX, y, nextZ)
+        if ((channel[nextIndex] ?? 0) >= LIGHT_LEVEL_MAX - 1) {
+          continue
+        }
+
+        channel[nextIndex] = LIGHT_LEVEL_MAX - 1
+        queue.push(nextIndex)
+      }
+    }
+  }
+
+  private propagateSkyLight(
+    channel: Uint8Array,
+    queue: number[],
+    region: LightRegion,
+    getBlockAt: (worldX: number, worldY: number, worldZ: number) => BlockId,
+  ): void {
+    for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
+      const index = queue[queueIndex]!
+      const lightLevel = channel[index] ?? 0
+      if (lightLevel <= 1) {
+        continue
+      }
+
+      const { x, y, z } = this.getRegionPosition(region, index)
+      for (const [dx, dy, dz] of LIGHT_DIRECTIONS) {
+        const nextX = x + dx
+        const nextY = y + dy
+        const nextZ = z + dz
+        if (
+          nextY < WORLD_MIN_BLOCK_Y ||
+          nextY > WORLD_MAX_BLOCK_Y ||
+          nextX < region.minChunkX * CHUNK_SIZE ||
+          nextX >= region.minChunkX * CHUNK_SIZE + region.width ||
+          nextZ < region.minChunkZ * CHUNK_SIZE ||
+          nextZ >= region.minChunkZ * CHUNK_SIZE + region.depth
+        ) {
+          continue
+        }
+
+        if (!isLightPassable(getBlockAt(nextX, nextY, nextZ))) {
+          continue
+        }
+
+        const nextIndex = this.getRegionIndex(region, nextX, nextY, nextZ)
+        const nextLight = lightLevel - 1
+        if (nextLight <= (channel[nextIndex] ?? 0)) {
+          continue
+        }
+
+        channel[nextIndex] = nextLight
+        queue.push(nextIndex)
+      }
+    }
   }
 
   private propagateBlockLight(

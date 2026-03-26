@@ -196,10 +196,17 @@ export class AuthoritativeWorld {
       totalChunks: coords.length,
     })
 
+    let needsRelight = false
+
     for (const coord of coords) {
-      const entry = await this.ensureChunkLoaded(coord)
+      const entry = await this.ensureChunkLoaded(coord, {
+        relight: false,
+      })
       if (!entry.hasPersistedRecord) {
         entry.saveDirty = true
+        needsRelight = true
+      } else if (!entry.hasLightData) {
+        needsRelight = true
       }
 
       completedChunks += 1
@@ -207,6 +214,10 @@ export class AuthoritativeWorld {
         completedChunks,
         totalChunks: coords.length,
       })
+    }
+
+    if (needsRelight) {
+      this.relightLoadedChunks(true)
     }
 
     return {
