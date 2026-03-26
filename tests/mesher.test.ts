@@ -44,7 +44,7 @@ const expectFaceUsesTile = (
 
 test('single block emits six faces', () => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
   chunk.set(1, 1, 1, 3)
@@ -56,7 +56,7 @@ test('single block emits six faces', () => {
 
 test('fully enclosed block emits no faces', () => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
 
@@ -74,8 +74,8 @@ test('fully enclosed block emits no faces', () => {
 
 test('chunk boundary checks neighbor chunk solidity', () => {
   const world = new VoxelWorld()
-  const chunkA = world.ensureChunk({ x: 0, y: 0, z: 0 })
-  const chunkB = world.ensureChunk({ x: 1, y: 0, z: 0 })
+  const chunkA = world.ensureChunk({ x: 0, z: 0 })
+  const chunkB = world.ensureChunk({ x: 1, z: 0 })
 
   chunkA.blocks.fill(0)
   chunkB.blocks.fill(0)
@@ -88,7 +88,7 @@ test('chunk boundary checks neighbor chunk solidity', () => {
 
 test('grass uses distinct top, bottom, and side atlas tiles', () => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
   chunk.set(1, 1, 1, 1)
@@ -102,7 +102,7 @@ test('grass uses distinct top, bottom, and side atlas tiles', () => {
 
 test('dirt and stone reuse the same tile on every face', () => {
   const world = new VoxelWorld()
-  const dirtChunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const dirtChunk = world.ensureChunk({ x: 0, z: 0 })
   dirtChunk.blocks.fill(0)
   dirtChunk.dirty = true
   dirtChunk.set(1, 1, 1, 2)
@@ -111,7 +111,7 @@ test('dirt and stone reuse the same tile on every face', () => {
   expectFaceUsesTile(dirtMesh.opaque, 0, 'dirt')
   expectFaceUsesTile(dirtMesh.opaque, 2, 'dirt')
 
-  const stoneChunk = world.ensureChunk({ x: 1, y: 0, z: 0 })
+  const stoneChunk = world.ensureChunk({ x: 1, z: 0 })
   stoneChunk.blocks.fill(0)
   stoneChunk.dirty = true
   stoneChunk.set(1, 1, 1, 3)
@@ -123,7 +123,7 @@ test('dirt and stone reuse the same tile on every face', () => {
 
 test('bedrock reuses the bedrock tile on every face', () => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
   chunk.set(1, 1, 1, 10)
@@ -136,7 +136,7 @@ test('bedrock reuses the bedrock tile on every face', () => {
 
 test('logs use distinct top and side atlas tiles', () => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
   chunk.set(1, 1, 1, 4)
@@ -150,7 +150,7 @@ test('logs use distinct top and side atlas tiles', () => {
 
 test('leaves emit cutout faces and use the leaves atlas tile', () => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
   chunk.set(1, 1, 1, 5)
@@ -165,7 +165,7 @@ test('leaves emit cutout faces and use the leaves atlas tile', () => {
 
 test('water emits translucent faces and uses the water atlas tile', () => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
   chunk.set(1, 1, 1, BLOCK_IDS.water)
@@ -197,7 +197,7 @@ test('expanded hotbar blocks use their atlas tile on every face', () => {
   ]
 
   for (const check of blockChecks) {
-    const chunk = world.ensureChunk({ x: check.x, y: 0, z: 0 })
+    const chunk = world.ensureChunk({ x: check.x, z: 0 })
     chunk.blocks.fill(0)
     chunk.dirty = true
     chunk.set(1, 1, 1, check.blockId)
@@ -211,7 +211,7 @@ test('expanded hotbar blocks use their atlas tile on every face', () => {
 
 test('opaque faces next to leaves are not culled', () => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
   chunk.set(1, 1, 1, 1)
@@ -225,7 +225,7 @@ test('opaque faces next to leaves are not culled', () => {
 
 test('adjacent leaves cull shared internal faces', () => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
   chunk.set(1, 1, 1, 5)
@@ -237,7 +237,7 @@ test('adjacent leaves cull shared internal faces', () => {
 
 test('adjacent water culls shared internal faces in the translucent pass', () => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
   chunk.set(1, 1, 1, BLOCK_IDS.water)
@@ -249,7 +249,7 @@ test('adjacent water culls shared internal faces in the translucent pass', () =>
 
 test('opaque faces next to water are not culled', () => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
   chunk.set(1, 1, 1, BLOCK_IDS.grass)

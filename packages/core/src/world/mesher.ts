@@ -8,7 +8,7 @@ import {
   getBlockFaceTile,
   getBlockRenderPass,
 } from './blocks.ts'
-import { CHUNK_SIZE } from './constants.ts'
+import { CHUNK_HEIGHT, CHUNK_SIZE } from './constants.ts'
 
 const FACE_DEFINITIONS = [
   {
@@ -208,7 +208,7 @@ export const buildChunkMesh = (world: VoxelWorld, coord: ChunkCoord): TerrainMes
   const cutoutMesh = createMeshAccumulator()
   const translucentMesh = createMeshAccumulator()
 
-  for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
+  for (let localY = 0; localY < CHUNK_HEIGHT; localY += 1) {
     for (let localZ = 0; localZ < CHUNK_SIZE; localZ += 1) {
       for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
         const blockId = chunk.get(localX, localY, localZ)
@@ -218,7 +218,7 @@ export const buildChunkMesh = (world: VoxelWorld, coord: ChunkCoord): TerrainMes
         }
 
         const worldX = coord.x * CHUNK_SIZE + localX
-        const worldY = coord.y * CHUNK_SIZE + localY
+        const worldY = localY
         const worldZ = coord.z * CHUNK_SIZE + localZ
         const targetMesh =
           renderPass === 'opaque'

@@ -11,6 +11,7 @@ import {
 } from '../shared/lighting.ts'
 import { BLOCK_IDS, getBlockEmittedLightLevel } from '../world/blocks.ts'
 import {
+  CHUNK_HEIGHT,
   CHUNK_SIZE,
   WORLD_HEIGHT_BLOCKS,
   WORLD_MAX_BLOCK_Y,
@@ -72,11 +73,11 @@ export class LightingSystem {
       const nextBlockLight = new Uint8Array(chunk.blockLight.length)
       let changed = false
 
-      for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
+      for (let localY = 0; localY < CHUNK_HEIGHT; localY += 1) {
         for (let localZ = 0; localZ < CHUNK_SIZE; localZ += 1) {
           for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
             const worldX = chunk.coord.x * CHUNK_SIZE + localX
-            const worldY = chunk.coord.y * CHUNK_SIZE + localY
+            const worldY = localY
             const worldZ = chunk.coord.z * CHUNK_SIZE + localZ
             const regionIndex = this.getRegionIndex(region, worldX, worldY, worldZ)
             const chunkIndex = localX + CHUNK_SIZE * (localZ + CHUNK_SIZE * localY)

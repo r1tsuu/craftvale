@@ -17,7 +17,7 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - GLFW window creation and OpenGL 3.3 core rendering through the Bun FFI bridge
 - Textured voxel terrain with a generated atlas, directional face shading, and separate opaque/cutout passes
 - Deterministic biome-aware terrain generation across a 256-block-tall world with sea level at Y 64
-- Vertical chunk stacks with player-centric chunk loading instead of the old single-layer world
+- Full-height `16x256x16` chunk columns keyed by `(x, z)` with horizontal area-based loading
 - Deterministic tree placement that stays chunk-order safe across borders
 - Dynamic focused-block highlight, first-person arm rendering, and block-backed held-item rendering
 - Dropped items rendered as cube-based world actors and HUD inventory items rendered from the same shared block-item visual source

@@ -231,11 +231,12 @@ The server is responsible for:
 
 World generation is deterministic and seed-driven.
 
-The current world-height model is a positive-Y `256` block world split into
-`16` chunk layers, with a canonical sea level at Y `64`. Runtime chunk
-streaming is vertically aware but player-centric: the client and server load a
-bounded vertical neighborhood around the player's current chunk Y instead of
-always requesting every chunk layer in a column.
+The current world-height model is a positive-Y `256` block world with a
+canonical sea level at Y `64`. Chunks are full-height horizontal columns:
+`16` blocks wide in `x`, `16` blocks long in `z`, and spanning the whole world
+height in `y`. Runtime chunk streaming therefore works in horizontal areas only,
+because each loaded chunk already contains the full vertical slice for that
+column.
 
 The worldgen pipeline currently lives under `packages/core/src/world/*`:
 

@@ -3,7 +3,7 @@ import type { BlockId, ChunkCoord } from '../types.ts'
 import { type BiomeDefinition, Biomes, getBiomeAt, sampleBiome } from './biomes.ts'
 import { BLOCK_IDS } from './blocks.ts'
 import { Chunk } from './chunk.ts'
-import { CHUNK_SIZE, WORLD_MAX_BLOCK_Y, WORLD_SEA_LEVEL } from './constants.ts'
+import { CHUNK_HEIGHT, CHUNK_SIZE, WORLD_MAX_BLOCK_Y, WORLD_SEA_LEVEL } from './constants.ts'
 import { clamp, hash2dInt, sampleValueNoise } from './noise.ts'
 
 const TREE_CELL_SIZE = 7
@@ -107,17 +107,16 @@ const setGeneratedBlockIfInChunk = (
   blockId: BlockId,
 ): void => {
   const minX = chunk.coord.x * CHUNK_SIZE
-  const minY = chunk.coord.y * CHUNK_SIZE
   const minZ = chunk.coord.z * CHUNK_SIZE
   const localX = worldX - minX
-  const localY = worldY - minY
+  const localY = worldY
   const localZ = worldZ - minZ
 
   if (
     localX < 0 ||
     localX >= CHUNK_SIZE ||
     localY < 0 ||
-    localY >= CHUNK_SIZE ||
+    localY >= CHUNK_HEIGHT ||
     localZ < 0 ||
     localZ >= CHUNK_SIZE
   ) {
@@ -236,7 +235,7 @@ const decorateChunkWithTrees = (chunk: Chunk, seed: number): void => {
 }
 
 export const populateGeneratedChunk = (chunk: Chunk, seed: number): Chunk => {
-  const { x: chunkX, y: chunkY, z: chunkZ } = chunk.coord
+  const { x: chunkX, z: chunkZ } = chunk.coord
 
   for (let localZ = 0; localZ < CHUNK_SIZE; localZ += 1) {
     for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
@@ -245,8 +244,8 @@ export const populateGeneratedChunk = (chunk: Chunk, seed: number): Chunk => {
       const height = getTerrainHeight(seed, worldX, worldZ)
       const biome = Biomes[getBiomeAt(seed, worldX, worldZ)]
 
-      for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
-        const worldY = chunkY * CHUNK_SIZE + localY
+      for (let localY = 0; localY < CHUNK_HEIGHT; localY += 1) {
+        const worldY = localY
         chunk.set(localX, localY, localZ, getColumnBlocksForBiome(biome, height, worldY))
       }
     }

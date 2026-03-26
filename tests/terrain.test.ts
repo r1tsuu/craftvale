@@ -4,7 +4,6 @@ import { getBiomeAt } from '../packages/core/src/world/biomes.ts'
 import { BLOCK_IDS } from '../packages/core/src/world/blocks.ts'
 import {
   CHUNK_SIZE,
-  WORLD_LAYER_CHUNKS_Y,
   WORLD_MAX_BLOCK_Y,
   WORLD_SEA_LEVEL,
 } from '../packages/core/src/world/constants.ts'
@@ -23,9 +22,7 @@ const getGeneratedBlock = (
 }
 
 const createGeneratedChunkColumn = (seed: number, chunkX: number, chunkZ: number) =>
-  WORLD_LAYER_CHUNKS_Y.map((chunkY) =>
-    createGeneratedChunk({ x: chunkX, y: chunkY, z: chunkZ }, seed),
-  )
+  createGeneratedChunk({ x: chunkX, z: chunkZ }, seed)
 
 const findLowElevationColumn = (
   seed: number,
@@ -74,7 +71,7 @@ test('different seeds still produce different terrain samples', () => {
 })
 
 test('generated chunks always place bedrock at the bottom layer', () => {
-  const chunk = createGeneratedChunk({ x: 0, y: 0, z: 0 }, 42)
+  const chunk = createGeneratedChunk({ x: 0, z: 0 }, 42)
 
   for (let z = 0; z < 16; z += 1) {
     for (let x = 0; x < 16; x += 1) {
@@ -139,15 +136,13 @@ test('generated trees are deterministic for a fixed seed and chunk', () => {
   const columnA = createGeneratedChunkColumn(42, 0, 0)
   const columnB = createGeneratedChunkColumn(42, 0, 0)
 
-  expect(columnA.map((chunk) => chunk.blocks)).toEqual(columnB.map((chunk) => chunk.blocks))
+  expect(columnA.blocks).toEqual(columnB.blocks)
 
   let logs = 0
   let leaves = 0
-  for (const chunk of columnA) {
-    for (const blockId of chunk.blocks) {
-      if (blockId === 4) logs += 1
-      if (blockId === 5) leaves += 1
-    }
+  for (const blockId of columnA.blocks) {
+    if (blockId === 4) logs += 1
+    if (blockId === 5) leaves += 1
   }
 
   expect(logs).toBeGreaterThan(0)
@@ -158,29 +153,10 @@ test('forest chunks still generate trunks above grass surface blocks', () => {
   const column = createGeneratedChunkColumn(42, 0, 0)
   let trunkBases = 0
 
-  for (const chunk of column) {
-    for (let y = 1; y < CHUNK_SIZE; y += 1) {
-      for (let z = 0; z < CHUNK_SIZE; z += 1) {
-        for (let x = 0; x < CHUNK_SIZE; x += 1) {
-          if (chunk.get(x, y, z) === 4 && chunk.get(x, y - 1, z) === 1) {
-            trunkBases += 1
-          }
-        }
-      }
-    }
-
-    if (chunk.coord.y === WORLD_LAYER_CHUNKS_Y[0]) {
-      continue
-    }
-
-    const belowChunk = column[chunk.coord.y - WORLD_LAYER_CHUNKS_Y[0] - 1]
-    if (!belowChunk) {
-      continue
-    }
-
+  for (let y = 1; y < WORLD_MAX_BLOCK_Y; y += 1) {
     for (let z = 0; z < CHUNK_SIZE; z += 1) {
       for (let x = 0; x < CHUNK_SIZE; x += 1) {
-        if (chunk.get(x, 0, z) === 4 && belowChunk.get(x, CHUNK_SIZE - 1, z) === 1) {
+        if (column.get(x, y, z) === 4 && column.get(x, y - 1, z) === 1) {
           trunkBases += 1
         }
       }
@@ -195,14 +171,10 @@ test('forest tree canopies remain consistent across chunk borders', () => {
   const rightColumn = createGeneratedChunkColumn(42, 1, 0)
   let sharedCanopyBlocks = 0
 
-  for (let index = 0; index < leftColumn.length; index += 1) {
-    const left = leftColumn[index]!
-    const right = rightColumn[index]!
-    for (let y = 0; y < CHUNK_SIZE; y += 1) {
-      for (let z = 0; z < CHUNK_SIZE; z += 1) {
-        if (left.get(CHUNK_SIZE - 1, y, z) === 5 && right.get(0, y, z) === 5) {
-          sharedCanopyBlocks += 1
-        }
+  for (let y = 0; y <= WORLD_MAX_BLOCK_Y; y += 1) {
+    for (let z = 0; z < CHUNK_SIZE; z += 1) {
+      if (leftColumn.get(CHUNK_SIZE - 1, y, z) === 5 && rightColumn.get(0, y, z) === 5) {
+        sharedCanopyBlocks += 1
       }
     }
   }
@@ -216,18 +188,14 @@ test('different seeds produce different tree layouts', () => {
   const treeBlocksA: number[] = []
   const treeBlocksB: number[] = []
 
-  for (let chunkIndex = 0; chunkIndex < columnA.length; chunkIndex += 1) {
-    const chunkA = columnA[chunkIndex]!
-    const chunkB = columnB[chunkIndex]!
-    for (let index = 0; index < chunkA.blocks.length; index += 1) {
-      const blockA = chunkA.blocks[index]
-      const blockB = chunkB.blocks[index]
-      if (blockA === 4 || blockA === 5) {
-        treeBlocksA.push(chunkIndex, index, blockA)
-      }
-      if (blockB === 4 || blockB === 5) {
-        treeBlocksB.push(chunkIndex, index, blockB)
-      }
+  for (let index = 0; index < columnA.blocks.length; index += 1) {
+    const blockA = columnA.blocks[index]
+    const blockB = columnB.blocks[index]
+    if (blockA === 4 || blockA === 5) {
+      treeBlocksA.push(index, blockA)
+    }
+    if (blockB === 4 || blockB === 5) {
+      treeBlocksB.push(index, blockB)
     }
   }
 
@@ -240,15 +208,11 @@ test('forest chunks generate denser tree coverage than scrub chunks', () => {
   let forestLeaves = 0
   let scrubLeaves = 0
 
-  for (const chunk of forestColumn) {
-    for (const blockId of chunk.blocks) {
-      if (blockId === 5) forestLeaves += 1
-    }
+  for (const blockId of forestColumn.blocks) {
+    if (blockId === 5) forestLeaves += 1
   }
-  for (const chunk of scrubColumn) {
-    for (const blockId of chunk.blocks) {
-      if (blockId === 5) scrubLeaves += 1
-    }
+  for (const blockId of scrubColumn.blocks) {
+    if (blockId === 5) scrubLeaves += 1
   }
 
   expect(forestLeaves).toBeGreaterThan(scrubLeaves)

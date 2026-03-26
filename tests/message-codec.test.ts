@@ -12,7 +12,7 @@ test('transport codec round-trips chunk payload bytes for server messages', () =
     type: 'chunkDelivered',
     payload: {
       chunk: {
-        coord: { x: 1, y: 0, z: -2 },
+        coord: { x: 1, z: -2 },
         blocks: new Uint8Array([1, 2, 3, 255]),
         skyLight: new Uint8Array([15, 14, 13, 12]),
         blockLight: new Uint8Array([0, 2, 4, 6]),
@@ -44,8 +44,8 @@ test('transport codec round-trips request payloads for client messages', () => {
     type: 'requestChunks',
     payload: {
       coords: [
-        { x: 0, y: 0, z: 0 },
-        { x: 1, y: 0, z: 0 },
+        { x: 0, z: 0 },
+        { x: 1, z: 0 },
       ],
     },
   })
@@ -57,8 +57,8 @@ test('transport codec round-trips request payloads for client messages', () => {
     type: 'requestChunks',
     payload: {
       coords: [
-        { x: 0, y: 0, z: 0 },
-        { x: 1, y: 0, z: 0 },
+        { x: 0, z: 0 },
+        { x: 1, z: 0 },
       ],
     },
   })

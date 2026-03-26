@@ -40,7 +40,7 @@ const emptySimulationResult = (): DroppedItemSimulationResult => ({
   inventoryUpdates: [],
 })
 
-const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`
+const chunkKey = ({ x, z }: ChunkCoord): string => `${x},${z}`
 
 const cloneVec3 = (value: readonly [number, number, number]): [number, number, number] => [
   value[0],
@@ -387,16 +387,14 @@ export class DroppedItemSystem {
     const entityIds = new Set<EntityId>()
 
     for (let chunkZ = center.z - 1; chunkZ <= center.z + 1; chunkZ += 1) {
-      for (let chunkY = center.y - 1; chunkY <= center.y + 1; chunkY += 1) {
-        for (let chunkX = center.x - 1; chunkX <= center.x + 1; chunkX += 1) {
-          const bucket = this.chunkIndex.get(chunkKey({ x: chunkX, y: chunkY, z: chunkZ }))
-          if (!bucket) {
-            continue
-          }
+      for (let chunkX = center.x - 1; chunkX <= center.x + 1; chunkX += 1) {
+        const bucket = this.chunkIndex.get(chunkKey({ x: chunkX, z: chunkZ }))
+        if (!bucket) {
+          continue
+        }
 
-          for (const entityId of bucket) {
-            entityIds.add(entityId)
-          }
+        for (const entityId of bucket) {
+          entityIds.add(entityId)
         }
       }
     }

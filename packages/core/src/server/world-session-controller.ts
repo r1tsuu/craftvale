@@ -189,7 +189,7 @@ export class WorldSessionController implements WorldSessionPeer {
         let accepted = 0
 
         for (const coord of coords) {
-          const key = `${coord.x},${coord.y},${coord.z}`
+          const key = `${coord.x},${coord.z}`
           if (seen.has(key)) {
             continue
           }

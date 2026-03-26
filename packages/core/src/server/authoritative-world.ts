@@ -23,9 +23,8 @@ import { getChunkCoordsAroundPosition } from '../world/chunk-coords.ts'
 import { Chunk } from '../world/chunk.ts'
 import {
   CHUNK_SIZE,
-  isWithinWorldChunkY,
+  isWithinWorldBlockY,
   STARTUP_CHUNK_RADIUS,
-  STARTUP_CHUNK_VERTICAL_RADIUS,
   WORLD_SEA_LEVEL,
 } from '../world/constants.ts'
 import { getPlacedBlockIdForItem } from '../world/items.ts'
@@ -68,7 +67,7 @@ export interface StartupAreaProgress {
   totalChunks: number
 }
 
-const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`
+const chunkKey = ({ x, z }: ChunkCoord): string => `${x},${z}`
 
 const findSpawnColumn = (
   seed: number,
@@ -177,7 +176,6 @@ export class AuthoritativeWorld {
   ): ChunkCoord[] {
     return getChunkCoordsAroundPosition(position, radius, {
       nearestFirst: true,
-      verticalRadius: STARTUP_CHUNK_VERTICAL_RADIUS,
     })
   }
 
@@ -285,8 +283,7 @@ export class AuthoritativeWorld {
     blockId: BlockId,
   ): Promise<BlockMutationResult> {
     await this.ensureInitialized()
-    const coords = worldToChunkCoord(worldX, worldY, worldZ)
-    if (!isWithinWorldChunkY(coords.chunk.y)) {
+    if (!isWithinWorldBlockY(worldY)) {
       return {
         changedChunks: [],
         inventory: this.playerSystem.getInventorySnapshot(entityId),
@@ -295,6 +292,7 @@ export class AuthoritativeWorld {
       }
     }
 
+    const coords = worldToChunkCoord(worldX, worldY, worldZ)
     const entry = await this.ensureChunkLoaded(coords.chunk)
     const current = entry.chunk.get(coords.local.x, coords.local.y, coords.local.z)
     const gamemode = this.playerSystem.getPlayerSnapshot(entityId).gamemode
@@ -379,7 +377,6 @@ export class AuthoritativeWorld {
     const changedChunks = this.getAffectedChunkPayloads(
       coords.chunk,
       coords.local.x,
-      coords.local.y,
       coords.local.z,
     )
     for (const coord of lightingChanged) {
@@ -522,32 +519,29 @@ export class AuthoritativeWorld {
   private getAffectedChunkPayloads(
     chunk: ChunkCoord,
     localX: number,
-    localY: number,
     localZ: number,
   ): ChunkPayload[] {
     const affected = new Set<string>([chunkKey(chunk)])
     const maybeAffect = (coord: ChunkCoord): void => {
-      if (isWithinWorldChunkY(coord.y) && this.chunks.has(chunkKey(coord))) {
+      if (this.chunks.has(chunkKey(coord))) {
         affected.add(chunkKey(coord))
       }
     }
 
-    if (localX === 0) maybeAffect({ x: chunk.x - 1, y: chunk.y, z: chunk.z })
-    if (localX === CHUNK_SIZE - 1) maybeAffect({ x: chunk.x + 1, y: chunk.y, z: chunk.z })
-    if (localY === 0) maybeAffect({ x: chunk.x, y: chunk.y - 1, z: chunk.z })
-    if (localY === CHUNK_SIZE - 1) maybeAffect({ x: chunk.x, y: chunk.y + 1, z: chunk.z })
-    if (localZ === 0) maybeAffect({ x: chunk.x, y: chunk.y, z: chunk.z - 1 })
-    if (localZ === CHUNK_SIZE - 1) maybeAffect({ x: chunk.x, y: chunk.y, z: chunk.z + 1 })
+    if (localX === 0) maybeAffect({ x: chunk.x - 1, z: chunk.z })
+    if (localX === CHUNK_SIZE - 1) maybeAffect({ x: chunk.x + 1, z: chunk.z })
+    if (localZ === 0) maybeAffect({ x: chunk.x, z: chunk.z - 1 })
+    if (localZ === CHUNK_SIZE - 1) maybeAffect({ x: chunk.x, z: chunk.z + 1 })
 
     return [...affected].map((key) => this.toChunkPayload(this.chunks.get(key)!.chunk))
   }
 
   private getBlockAt(worldX: number, worldY: number, worldZ: number): BlockId {
-    const coords = worldToChunkCoord(worldX, worldY, worldZ)
-    if (!isWithinWorldChunkY(coords.chunk.y)) {
+    if (!isWithinWorldBlockY(worldY)) {
       return BLOCK_IDS.air
     }
 
+    const coords = worldToChunkCoord(worldX, worldY, worldZ)
     const loaded = this.chunks.get(chunkKey(coords.chunk))
     if (loaded) {
       return loaded.chunk.get(coords.local.x, coords.local.y, coords.local.z)
@@ -737,17 +731,11 @@ export class AuthoritativeWorld {
   private relightChunkNeighborhood(center: ChunkCoord, persistChanges: boolean): ChunkCoord[] {
     const chunks: Chunk[] = []
 
-    for (let chunkY = center.y - 1; chunkY <= center.y + 1; chunkY += 1) {
-      if (!isWithinWorldChunkY(chunkY)) {
-        continue
-      }
-
-      for (let chunkZ = center.z - 1; chunkZ <= center.z + 1; chunkZ += 1) {
-        for (let chunkX = center.x - 1; chunkX <= center.x + 1; chunkX += 1) {
-          const entry = this.chunks.get(chunkKey({ x: chunkX, y: chunkY, z: chunkZ }))
-          if (entry) {
-            chunks.push(entry.chunk)
-          }
+    for (let chunkZ = center.z - 1; chunkZ <= center.z + 1; chunkZ += 1) {
+      for (let chunkX = center.x - 1; chunkX <= center.x + 1; chunkX += 1) {
+        const entry = this.chunks.get(chunkKey({ x: chunkX, z: chunkZ }))
+        if (entry) {
+          chunks.push(entry.chunk)
         }
       }
     }
@@ -763,10 +751,11 @@ export class AuthoritativeWorld {
   private relightChunkSet(chunks: readonly Chunk[], persistChanges: boolean): ChunkCoord[] {
     const generatedChunkCache = new Map<string, Chunk>()
     const changed = this.lightingSystem.relightLoadedChunks(chunks, (worldX, worldY, worldZ) => {
-      const coords = worldToChunkCoord(worldX, worldY, worldZ)
-      if (!isWithinWorldChunkY(coords.chunk.y)) {
+      if (!isWithinWorldBlockY(worldY)) {
         return BLOCK_IDS.air
       }
+
+      const coords = worldToChunkCoord(worldX, worldY, worldZ)
 
       const loaded = this.chunks.get(chunkKey(coords.chunk))
       if (loaded) {

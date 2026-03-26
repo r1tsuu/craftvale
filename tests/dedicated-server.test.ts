@@ -197,7 +197,7 @@ test('dedicated multiplayer sessions share one generated world and only support 
       expect(aliceJoined.players).toEqual([])
       expect(remoteLoadingProgressEvents).toBe(0)
 
-      const coords = [{ x: 0, y: 0, z: 0 }]
+      const coords = [{ x: 0, z: 0 }]
       await alice.runtime.requestMissingChunks(coords)
       await alice.runtime.waitForChunks(coords)
       expect(alice.runtime.world.hasChunk(coords[0]!)).toBe(true)

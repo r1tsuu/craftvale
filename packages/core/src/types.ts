@@ -4,6 +4,11 @@ export type { BlockId, ItemId } from './world/generated/content-ids.ts'
 
 export interface ChunkCoord {
   x: number
+  z: number
+}
+
+export interface LocalBlockCoord {
+  x: number
   y: number
   z: number
 }

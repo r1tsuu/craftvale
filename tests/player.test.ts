@@ -40,7 +40,7 @@ const createInput = (overrides: Partial<InputState> = {}): InputState => ({
 
 const createEmptyWorld = (): VoxelWorld => {
   const world = new VoxelWorld()
-  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
   chunk.blocks.fill(0)
   chunk.dirty = true
   return world

@@ -52,7 +52,7 @@ interface GpuChunkMesh {
 const ITEM_RENDER_SCALE = 0.35
 const IDENTITY_MODEL = createIdentityMat4()
 
-const meshKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`
+const meshKey = ({ x, z }: ChunkCoord): string => `${x},${z}`
 const PLAYER_NAMEPLATE_SCALE = 2
 const PLAYER_NAMEPLATE_MARGIN = 6
 

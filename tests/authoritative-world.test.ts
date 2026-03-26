@@ -203,7 +203,7 @@ test('survival cannot break bedrock but creative can', async () => {
     expect(survivalAttempt.changedChunks).toEqual([])
     expect(survivalAttempt.droppedItems.spawnedDroppedItems).toEqual([])
 
-    const unchangedChunk = await world.getChunkPayload({ x: 0, y: 0, z: 0 })
+    const unchangedChunk = await world.getChunkPayload({ x: 0, z: 0 })
     expect(unchangedChunk.blocks[targetIndex]).toBe(10)
 
     await world.setPlayerGamemode(joined.clientPlayer.entityId, 1)
@@ -211,7 +211,7 @@ test('survival cannot break bedrock but creative can', async () => {
     expect(creativeAttempt.changedChunks).toHaveLength(1)
     expect(creativeAttempt.droppedItems.spawnedDroppedItems).toEqual([])
 
-    const changedChunk = await world.getChunkPayload({ x: 0, y: 0, z: 0 })
+    const changedChunk = await world.getChunkPayload({ x: 0, z: 0 })
     expect(changedChunk.blocks[targetIndex]).toBe(0)
   } finally {
     await rm(rootDir, { recursive: true, force: true })
@@ -359,40 +359,36 @@ test('block mutations relight only the nearby loaded chunk neighborhood', async 
       }
     ).chunks
     for (let chunkZ = targetChunk.z - 1; chunkZ <= targetChunk.z + 1; chunkZ += 1) {
-      for (let chunkY = Math.max(0, targetChunk.y - 1); chunkY <= targetChunk.y + 1; chunkY += 1) {
-        for (let chunkX = targetChunk.x - 1; chunkX <= targetChunk.x + 1; chunkX += 1) {
-          const coord = { x: chunkX, y: chunkY, z: chunkZ }
-          chunkEntries.set(`${coord.x},${coord.y},${coord.z}`, {
-            chunk: new Chunk(coord),
-            hasPersistedRecord: false,
-            hasLightData: false,
-            saveDirty: false,
-          })
-        }
+      for (let chunkX = targetChunk.x - 1; chunkX <= targetChunk.x + 1; chunkX += 1) {
+        const coord = { x: chunkX, z: chunkZ }
+        chunkEntries.set(`${coord.x},${coord.z}`, {
+          chunk: new Chunk(coord),
+          hasPersistedRecord: false,
+          hasLightData: false,
+          saveDirty: false,
+        })
       }
     }
-    chunkEntries.set(`${targetChunk.x + 4},${targetChunk.y},${targetChunk.z + 4}`, {
-      chunk: new Chunk({ x: targetChunk.x + 4, y: targetChunk.y, z: targetChunk.z + 4 }),
+    chunkEntries.set(`${targetChunk.x + 4},${targetChunk.z + 4}`, {
+      chunk: new Chunk({ x: targetChunk.x + 4, z: targetChunk.z + 4 }),
       hasPersistedRecord: false,
       hasLightData: false,
       saveDirty: false,
     })
-    chunkEntries
-      .get(`${targetChunk.x},${targetChunk.y},${targetChunk.z}`)!
-      .chunk.set(1, targetY % CHUNK_SIZE, 1, BLOCK_IDS.grass)
+    chunkEntries.get(`${targetChunk.x},${targetChunk.z}`)!.chunk.set(1, targetY, 1, BLOCK_IDS.grass)
 
     const lightingSystem = (
       world as unknown as {
         lightingSystem: {
           relightLoadedChunks: (
-            chunks: readonly { coord: { x: number; y: number; z: number } }[],
+            chunks: readonly { coord: { x: number; z: number } }[],
             getBlockAt: (worldX: number, worldY: number, worldZ: number) => BlockId,
-          ) => { x: number; y: number; z: number }[]
+          ) => { x: number; z: number }[]
         }
       }
     ).lightingSystem
     const originalRelightLoadedChunks = lightingSystem.relightLoadedChunks.bind(lightingSystem)
-    const relitChunkCoords: Array<{ x: number; y: number; z: number }> = []
+    const relitChunkCoords: Array<{ x: number; z: number }> = []
 
     lightingSystem.relightLoadedChunks = (chunks, getBlockAt) => {
       relitChunkCoords.splice(0, relitChunkCoords.length, ...chunks.map((chunk) => chunk.coord))
@@ -401,10 +397,10 @@ test('block mutations relight only the nearby loaded chunk neighborhood', async 
 
     await world.applyBlockMutation(joined.clientPlayer.entityId, 1, targetY, 1, BLOCK_IDS.air)
 
-    expect(relitChunkCoords.length).toBeLessThanOrEqual(27)
+    expect(relitChunkCoords.length).toBeLessThanOrEqual(9)
     expect(relitChunkCoords).toEqual(expect.arrayContaining([targetChunk]))
     expect(relitChunkCoords).not.toEqual(
-      expect.arrayContaining([{ x: targetChunk.x + 4, y: targetChunk.y, z: targetChunk.z + 4 }]),
+      expect.arrayContaining([{ x: targetChunk.x + 4, z: targetChunk.z + 4 }]),
     )
   } finally {
     await rm(rootDir, { recursive: true, force: true })

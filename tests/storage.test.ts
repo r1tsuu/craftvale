@@ -47,14 +47,14 @@ test('binary world storage creates, persists, and deletes worlds', async () => {
     blocks[0] = BLOCK_IDS.stone
     blocks[17] = BLOCK_IDS.dirt
     await storage.saveChunk('Alpha', {
-      coord: { x: 0, y: 10, z: 0 },
+      coord: { x: 0, z: 0 },
       blocks,
       skyLight: new Uint8Array(CHUNK_VOLUME).fill(15),
       blockLight: new Uint8Array(CHUNK_VOLUME).fill(2),
       revision: 7,
     })
 
-    const loaded = await storage.loadChunk('Alpha', { x: 0, y: 10, z: 0 })
+    const loaded = await storage.loadChunk('Alpha', { x: 0, z: 0 })
     expect(loaded).not.toBeNull()
     expect(loaded?.revision).toBe(7)
     expect(loaded?.blocks[0]).toBe(BLOCK_IDS.stone)
@@ -178,7 +178,7 @@ test('binary world storage creates, persists, and deletes worlds', async () => {
     const deleted = await storage.deleteWorld('Alpha')
     expect(deleted).toBe(true)
     expect(await storage.listWorlds()).toEqual([])
-    expect(await storage.loadChunk('Alpha', { x: 0, y: 10, z: 0 })).toBeNull()
+    expect(await storage.loadChunk('Alpha', { x: 0, z: 0 })).toBeNull()
     expect(await storage.loadPlayer('Alpha', PLAYER_A)).toBeNull()
     expect(await storage.loadDroppedItems('Alpha')).toEqual([])
   } finally {

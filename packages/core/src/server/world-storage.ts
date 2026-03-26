@@ -21,7 +21,7 @@ const PLAYER_MAGIC = 'VPLY'
 const DROPPED_ITEMS_MAGIC = 'VDRP'
 const WORLD_TIME_MAGIC = 'VTIM'
 const REGISTRY_VERSION = 1
-const CHUNK_VERSION = 2
+const CHUNK_VERSION = 3
 const PLAYER_VERSION = 6
 const DROPPED_ITEMS_VERSION = 2
 const WORLD_TIME_VERSION = 1
@@ -70,7 +70,7 @@ export const DEDICATED_WORLD_DIRECTORY_NAME = 'world'
 const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
-const chunkFilename = (coord: ChunkCoord): string => `${coord.x}_${coord.y}_${coord.z}.bin`
+const chunkFilename = (coord: ChunkCoord): string => `${coord.x}_${coord.z}.bin`
 const playerFilename = (playerName: PlayerName): string => `${encodeURIComponent(playerName)}.bin`
 const droppedItemsFilename = (): string => 'dropped-items.bin'
 const worldTimeFilename = (): string => 'time.bin'
@@ -169,25 +169,24 @@ const decodeRegistry = (bytes: Uint8Array): StoredWorldRecord[] => {
 const encodeChunk = (chunk: StoredChunkRecord): Uint8Array => {
   const skyLight = chunk.skyLight ?? new Uint8Array(chunk.blocks.length)
   const blockLight = chunk.blockLight ?? new Uint8Array(chunk.blocks.length)
-  const bytes = new Uint8Array(36 + chunk.blocks.length + skyLight.length + blockLight.length)
+  const bytes = new Uint8Array(32 + chunk.blocks.length + skyLight.length + blockLight.length)
   const view = new DataView(bytes.buffer)
   bytes.set(textEncoder.encode(CHUNK_MAGIC), 0)
   view.setUint32(4, CHUNK_VERSION, true)
   view.setInt32(8, chunk.coord.x, true)
-  view.setInt32(12, chunk.coord.y, true)
-  view.setInt32(16, chunk.coord.z, true)
-  view.setUint32(20, chunk.revision >>> 0, true)
-  view.setUint32(24, chunk.blocks.length, true)
-  view.setUint32(28, skyLight.length, true)
-  view.setUint32(32, blockLight.length, true)
-  bytes.set(chunk.blocks, 36)
-  bytes.set(skyLight, 36 + chunk.blocks.length)
-  bytes.set(blockLight, 36 + chunk.blocks.length + skyLight.length)
+  view.setInt32(12, chunk.coord.z, true)
+  view.setUint32(16, chunk.revision >>> 0, true)
+  view.setUint32(20, chunk.blocks.length, true)
+  view.setUint32(24, skyLight.length, true)
+  view.setUint32(28, blockLight.length, true)
+  bytes.set(chunk.blocks, 32)
+  bytes.set(skyLight, 32 + chunk.blocks.length)
+  bytes.set(blockLight, 32 + chunk.blocks.length + skyLight.length)
   return bytes
 }
 
 const decodeChunk = (bytes: Uint8Array): StoredChunkRecord => {
-  if (bytes.byteLength < 28) {
+  if (bytes.byteLength < 32) {
     throw new Error('Chunk file is truncated.')
   }
 
@@ -198,39 +197,22 @@ const decodeChunk = (bytes: Uint8Array): StoredChunkRecord => {
 
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const version = view.getUint32(4, true)
-  if (version !== 1 && version !== CHUNK_VERSION) {
+  if (version !== CHUNK_VERSION) {
     throw new Error(`Unsupported chunk file version ${version}.`)
   }
 
-  const blocksLength = view.getUint32(24, true)
-  if (version === 1) {
-    const offset = 28
-    return {
-      coord: {
-        x: view.getInt32(8, true),
-        y: view.getInt32(12, true),
-        z: view.getInt32(16, true),
-      },
-      revision: view.getUint32(20, true),
-      blocks: bytes.slice(offset, offset + blocksLength),
-      skyLight: new Uint8Array(blocksLength),
-      blockLight: new Uint8Array(blocksLength),
-      hasLightData: false,
-    }
-  }
-
-  const skyLightLength = view.getUint32(28, true)
-  const blockLightLength = view.getUint32(32, true)
-  const blocksOffset = 36
+  const blocksLength = view.getUint32(20, true)
+  const skyLightLength = view.getUint32(24, true)
+  const blockLightLength = view.getUint32(28, true)
+  const blocksOffset = 32
   const skyLightOffset = blocksOffset + blocksLength
   const blockLightOffset = skyLightOffset + skyLightLength
   return {
     coord: {
       x: view.getInt32(8, true),
-      y: view.getInt32(12, true),
-      z: view.getInt32(16, true),
+      z: view.getInt32(12, true),
     },
-    revision: view.getUint32(20, true),
+    revision: view.getUint32(16, true),
     blocks: bytes.slice(blocksOffset, blocksOffset + blocksLength),
     skyLight: bytes.slice(skyLightOffset, skyLightOffset + skyLightLength),
     blockLight: bytes.slice(blockLightOffset, blockLightOffset + blockLightLength),

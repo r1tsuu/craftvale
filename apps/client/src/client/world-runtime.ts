@@ -14,7 +14,6 @@ import type { ChunkPayload, JoinedWorldPayload } from '@craftvale/core/shared'
 
 import {
   ACTIVE_CHUNK_RADIUS,
-  ACTIVE_CHUNK_VERTICAL_RADIUS,
   BLOCK_IDS,
   createDefaultWorldTimeState,
   createEmptyInventory,
@@ -24,14 +23,13 @@ import {
   LIGHT_LEVEL_MAX,
   normalizeInventorySnapshot,
   STARTUP_CHUNK_RADIUS,
-  STARTUP_CHUNK_VERTICAL_RADIUS,
   VoxelWorld,
   WORLD_MAX_BLOCK_Y,
 } from '@craftvale/core/shared'
 
 import type { IClientAdapter } from './client-adapter.ts'
 
-const chunkKey = ({ x, y, z }: ChunkCoord): string => `${x},${y},${z}`
+const chunkKey = ({ x, z }: ChunkCoord): string => `${x},${z}`
 const PREDICTED_LIGHT_DIRECTIONS = [
   [1, 0, 0],
   [-1, 0, 0],
@@ -52,10 +50,7 @@ export class ClientWorldRuntime {
   private readonly playerEntityIdsByName = new Map<PlayerName, EntityId>()
   public chatMessages: ChatEntry[] = []
   private readonly pendingChunkKeys = new Set<string>()
-  private readonly chunkWaiters = new Set<{
-    coords: ChunkCoord[]
-    resolve: () => void
-  }>()
+  private readonly chunkWaiters = new Set<{ coords: ChunkCoord[]; resolve: () => void }>()
 
   public constructor(private readonly adapter: IClientAdapter) {}
 
@@ -219,9 +214,7 @@ export class ClientWorldRuntime {
     position: readonly [number, number, number],
     radius = ACTIVE_CHUNK_RADIUS,
   ): ChunkCoord[] {
-    return getChunkCoordsAroundPosition(position, radius, {
-      verticalRadius: ACTIVE_CHUNK_VERTICAL_RADIUS,
-    })
+    return getChunkCoordsAroundPosition(position, radius)
   }
 
   public getStartupChunkCoordsAroundPosition(
@@ -230,7 +223,6 @@ export class ClientWorldRuntime {
   ): ChunkCoord[] {
     return getChunkCoordsAroundPosition(position, radius, {
       nearestFirst: true,
-      verticalRadius: STARTUP_CHUNK_VERTICAL_RADIUS,
     })
   }
 
