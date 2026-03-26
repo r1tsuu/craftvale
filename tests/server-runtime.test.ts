@@ -153,3 +153,66 @@ test('server runtime caps catch-up work when the authoritative tick loop falls b
     await rm(rootDir, { recursive: true, force: true })
   }
 })
+
+test('server runtime periodically auto-saves and broadcasts chat plus save status', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-server-runtime-autosave-'))
+  let nowMs = 0
+
+  try {
+    const transport = createInMemoryTransportPair<
+      ServerToClientMessage,
+      ClientToServerMessage,
+      ClientToServerMessage,
+      ServerToClientMessage
+    >()
+    const client = new PortClientAdapter(transport.left)
+    const server = new PortServerAdapter(transport.right)
+    const storage = new BinaryWorldStorage(rootDir)
+    const worldRecord = await storage.createWorld('Alpha', 42)
+    const runtime = new ServerRuntime(server, new AuthoritativeWorld(worldRecord, storage), {
+      autoStart: false,
+      now: () => nowMs,
+      tickIntervalMs: 50,
+      autoSaveIntervalTicks: 2,
+    })
+
+    const saveStatuses: Array<{ text: string; kind: 'manual' | 'auto' }> = []
+    client.eventBus.on('saveStatus', ({ worldName, savedChunks, success, kind, error }) => {
+      saveStatuses.push({
+        kind,
+        text: success
+          ? `${kind === 'auto' ? 'AUTO SAVED' : 'SAVED'} ${worldName} (${savedChunks} CHUNKS)`
+          : `${kind === 'auto' ? 'AUTO SAVE FAILED' : 'SAVE FAILED'}: ${error ?? 'UNKNOWN ERROR'}`,
+      })
+    })
+
+    const chatMessages: string[] = []
+    client.eventBus.on('chatMessage', ({ entry }) => {
+      chatMessages.push(entry.text)
+    })
+
+    await client.eventBus.send({
+      type: 'joinWorld',
+      payload: {
+        playerName: 'Alice',
+      },
+    })
+
+    nowMs = 100
+    await runtime.processPendingTicks(nowMs)
+    await Bun.sleep(0)
+
+    expect(saveStatuses).toEqual([
+      expect.objectContaining({
+        kind: 'auto',
+        text: expect.stringMatching(/^AUTO SAVED Alpha \(\d+ CHUNKS\)$/),
+      }),
+    ])
+    expect(chatMessages).toContainEqual(expect.stringMatching(/^AUTO SAVED Alpha \(\d+ CHUNKS\)$/))
+
+    await runtime.shutdown()
+    client.close()
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})

@@ -75,6 +75,7 @@ export interface SaveStatusPayload {
   worldName: string
   savedChunks: number
   success: boolean
+  kind: 'manual' | 'auto'
   error?: string
 }
 

@@ -29,8 +29,9 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - First-person movement with grounded collision, jump physics, and creative flight toggled by double-tapping `Space`
 - Server-authoritative block breaking, placing, inventory mutation, dropped-item spawning, and pickups
 - Authoritative fixed-step world tick loop for both local worker and dedicated server modes
+- Periodic server-side autosave on the authoritative tick loop, plus manual `/save` while in-game
 - Per-player position, rotation, gamemode, and inventory persistence inside each world
-- `/gamemode` and `/timeset` command handling through chat
+- `/gamemode`, `/timeset`, `/seed`, `/teleport`, and `/save` command handling through chat
 
 ### Multiplayer And World Flow
 
@@ -108,7 +109,11 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - Typing `/` opens command chat
 - `/gamemode 0` switches to normal mode
 - `/gamemode 1` switches to creative mode
+- `/save` triggers an immediate world save
+- `/seed` prints the current world seed into chat
+- `/teleport <x> <y> <z>` moves you to the given block coordinates
 - `/timeset day`, `/timeset night`, or `/timeset <tick>` changes world time
+- The authoritative server also autosaves periodically, and successful autosaves print into chat
 - `Esc` exits
 
 ## Project Layout

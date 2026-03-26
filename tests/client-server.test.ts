@@ -63,6 +63,7 @@ const createHarness = async (): Promise<{
   const serverRuntime = new ServerRuntime(server, new AuthoritativeWorld(worldRecord, storage), {
     tickIntervalMs: 10,
     maxCatchUpTicks: 100,
+    autoSaveIntervalTicks: 10,
     autoStart: false,
     now: () => nowMs,
   })
@@ -423,6 +424,33 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
     expect(harness.worldRuntime.getClientPlayer()?.state.position).toEqual([20, 80, -6])
     expect(harness.worldRuntime.chatMessages.at(-1)?.text).toContain('Teleported to X:20 Y:80 Z:-6')
 
+    const saveResult = await harness.client.eventBus.send({
+      type: 'saveWorld',
+      payload: {},
+    })
+    await Bun.sleep(0)
+    expect(saveResult.world.name).toBe('Alpha')
+    expect(harness.worldRuntime.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        kind: 'system',
+        text: expect.stringMatching(/^SAVED Alpha \(\d+ CHUNKS\)$/),
+      }),
+    )
+
+    harness.client.eventBus.send({
+      type: 'submitChat',
+      payload: {
+        text: '/save',
+      },
+    })
+    await Bun.sleep(0)
+    expect(harness.worldRuntime.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        kind: 'system',
+        text: expect.stringMatching(/^SAVED Alpha \(\d+ CHUNKS\)$/),
+      }),
+    )
+
     harness.client.eventBus.send({
       type: 'submitChat',
       payload: {
@@ -435,6 +463,14 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
         kind: 'player',
         senderName: PLAYER_NAME,
         text: 'hello world',
+      }),
+    )
+
+    await harness.advance(100)
+    expect(harness.worldRuntime.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        kind: 'system',
+        text: expect.stringMatching(/^AUTO SAVED Alpha \(\d+ CHUNKS\)$/),
       }),
     )
   } finally {

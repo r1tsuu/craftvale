@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 
+import { measureTextWidth } from '../apps/client/src/render/text-mesh.ts'
 import {
   buildDebugOverlayText,
   DEBUG_INDICATOR_COLORS,
@@ -30,24 +31,55 @@ test('debug overlay includes TPS and colors healthy indicators as good', () => {
   expect(overlay).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        text: 'FPS: 60.0',
+        text: 'FPS',
+        color: DEBUG_INDICATOR_COLORS.muted,
+      }),
+      expect.objectContaining({
+        text: '60.0',
         color: DEBUG_INDICATOR_COLORS.good,
       }),
       expect.objectContaining({
-        text: 'TPS WORKER: 20.0',
+        text: 'TPS WORKER',
+        color: DEBUG_INDICATOR_COLORS.muted,
+      }),
+      expect.objectContaining({
+        text: '20.0',
         color: DEBUG_INDICATOR_COLORS.good,
       }),
       expect.objectContaining({
-        text: 'MEM: 12.3MB / 48.0MB (+1.4MB)',
+        text: 'MEM',
+        color: DEBUG_INDICATOR_COLORS.muted,
       }),
       expect.objectContaining({
-        text: 'CHUNKS: 25',
+        text: '12.3MB / 48.0MB (+1.4MB)',
+        color: DEBUG_INDICATOR_COLORS.accent,
       }),
       expect.objectContaining({
-        text: 'FOCUS BLOCK: glowstone',
+        text: 'CHUNKS',
+        color: DEBUG_INDICATOR_COLORS.muted,
       }),
       expect.objectContaining({
-        text: 'LIGHT PLAYER S:15 B:0  FOCUS S:15 B:8',
+        text: '25',
+        color: DEBUG_INDICATOR_COLORS.neutral,
+      }),
+      expect.objectContaining({
+        text: 'FOCUS BLOCK',
+        color: DEBUG_INDICATOR_COLORS.muted,
+      }),
+      expect.objectContaining({
+        text: 'glowstone',
+        color: DEBUG_INDICATOR_COLORS.accent,
+      }),
+      expect.objectContaining({
+        text: 'PLAYER S:15 B:0',
+        color: DEBUG_INDICATOR_COLORS.good,
+      }),
+      expect.objectContaining({
+        text: 'FOCUS',
+        color: DEBUG_INDICATOR_COLORS.muted,
+      }),
+      expect.objectContaining({
+        text: 'S:15 B:8',
         color: DEBUG_INDICATOR_COLORS.good,
       }),
     ]),
@@ -76,19 +108,20 @@ test('debug overlay colors degraded indicators and shows missing TPS neutrally',
   expect(overlay).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        text: 'FPS: 22.0',
+        text: '22.0',
         color: DEBUG_INDICATOR_COLORS.bad,
       }),
       expect.objectContaining({
-        text: 'TPS WS: --',
+        text: '--',
         color: DEBUG_INDICATOR_COLORS.neutral,
       }),
       expect.objectContaining({
-        text: 'LIGHT PLAYER S:0 B:2',
+        text: 'PLAYER S:0 B:2',
         color: DEBUG_INDICATOR_COLORS.bad,
       }),
       expect.objectContaining({
-        text: 'FOCUS BLOCK: --',
+        text: '--',
+        color: DEBUG_INDICATOR_COLORS.subtle,
       }),
     ]),
   )
@@ -106,4 +139,53 @@ test('debug indicator helpers classify good, ok, and bad thresholds consistently
   expect(getDebugLightingColor(14, 0)).toEqual(DEBUG_INDICATOR_COLORS.good)
   expect(getDebugLightingColor(0, 7)).toEqual(DEBUG_INDICATOR_COLORS.ok)
   expect(getDebugLightingColor(0, 3)).toEqual(DEBUG_INDICATOR_COLORS.bad)
+})
+
+test('debug overlay keeps long labels and lighting segments from overlapping their values', () => {
+  const overlay = buildDebugOverlayText({
+    fps: 76.1,
+    tps: 20,
+    tpsSourceLabel: 'WORKER',
+    worldName: 'New World',
+    memoryUsageText: '80.5MB / 119.2MB (+10.3MB)',
+    loadedChunkCount: 35,
+    lastServerMessage: 'SERVER CONNECTED',
+    position: [17.16, 69, 26.01],
+    yawDegrees: 146.2,
+    pitchDegrees: -45.3,
+    playerSkyLight: 15,
+    playerBlockLight: 0,
+    focusedBlockKey: 'dirt',
+    focusedSkyLight: 0,
+    focusedBlockLight: 0,
+  })
+
+  const tpsLabel = overlay.find((command) => command.text === 'TPS WORKER')
+  const tpsValue = overlay.find((command) => command.text === '20.0')
+  const focusBlockLabel = overlay.find((command) => command.text === 'FOCUS BLOCK')
+  const focusBlockValue = overlay.find((command) => command.text === 'dirt')
+  const playerLightValue = overlay.find((command) => command.text === 'PLAYER S:15 B:0')
+  const focusLightLabel = overlay.find((command) => command.text === 'FOCUS')
+  const focusLightValue = overlay.find((command) => command.text === 'S:0 B:0')
+
+  expect(tpsLabel).toBeDefined()
+  expect(tpsValue).toBeDefined()
+  expect(focusBlockLabel).toBeDefined()
+  expect(focusBlockValue).toBeDefined()
+  expect(playerLightValue).toBeDefined()
+  expect(focusLightLabel).toBeDefined()
+  expect(focusLightValue).toBeDefined()
+
+  expect(tpsValue!.x).toBeGreaterThan(
+    tpsLabel!.x + measureTextWidth(tpsLabel!.text, tpsLabel!.scale),
+  )
+  expect(focusBlockValue!.x).toBeGreaterThan(
+    focusBlockLabel!.x + measureTextWidth(focusBlockLabel!.text, focusBlockLabel!.scale),
+  )
+  expect(focusLightLabel!.x).toBeGreaterThan(
+    playerLightValue!.x + measureTextWidth(playerLightValue!.text, playerLightValue!.scale),
+  )
+  expect(focusLightValue!.x).toBeGreaterThan(
+    focusLightLabel!.x + measureTextWidth(focusLightLabel!.text, focusLightLabel!.scale),
+  )
 })

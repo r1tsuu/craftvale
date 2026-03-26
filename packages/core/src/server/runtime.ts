@@ -1,5 +1,5 @@
 import type { ServerEventMap } from '../shared/messages.ts'
-import type { EntityId } from '../types.ts'
+import type { ChatEntry, EntityId } from '../types.ts'
 import type { AuthoritativeWorld } from './authoritative-world.ts'
 import type { IServerAdapter } from './server-adapter.ts'
 import type { WorldTickResult } from './world-tick.ts'
@@ -19,6 +19,7 @@ export interface ServerRuntimeOptions {
   logInfo?: (message: string) => void
   tickIntervalMs?: number
   maxCatchUpTicks?: number
+  autoSaveIntervalTicks?: number
   autoStart?: boolean
   now?: () => number
 }
@@ -34,10 +35,13 @@ export interface ServerTickStats {
 }
 
 export class ServerRuntime {
+  private static readonly DEFAULT_AUTO_SAVE_INTERVAL_TICKS = 200
+
   private readonly sessions = new Set<RuntimeSessionEntry>()
   private readonly now: () => number
   private readonly tickIntervalMs: number
   private readonly maxCatchUpTicks: number
+  private readonly autoSaveIntervalTicks: number
   private accumulatorMs = 0
   private lastPumpAtMs: number
   private timer: ReturnType<typeof setInterval> | null = null
@@ -47,6 +51,7 @@ export class ServerRuntime {
   private lastTickDurationMs = 0
   private smoothedTps: number | null = null
   private droppedCatchUpTicks = 0
+  private nextAutoSaveTick: number
 
   public constructor(
     private readonly adapter: Pick<IServerAdapter, 'eventBus' | 'close'> | null,
@@ -57,6 +62,9 @@ export class ServerRuntime {
     this.tickIntervalMs = options.tickIntervalMs ?? 50
     this.maxCatchUpTicks = options.maxCatchUpTicks ?? 5
     this.lastPumpAtMs = this.now()
+    this.autoSaveIntervalTicks =
+      options.autoSaveIntervalTicks ?? ServerRuntime.DEFAULT_AUTO_SAVE_INTERVAL_TICKS
+    this.nextAutoSaveTick = this.autoSaveIntervalTicks
 
     if (adapter) {
       this.createLocalSession(adapter)
@@ -137,6 +145,8 @@ export class ServerRuntime {
           `server tick backlog exceeded catch-up cap in world "${this.world.summary.name}" (${dropped} tick${dropped === 1 ? '' : 's'} dropped)`,
         )
       }
+
+      await this.maybeAutoSave()
 
       return ticksRun
     } finally {
@@ -284,6 +294,53 @@ export class ServerRuntime {
     }
 
     this.emitTickResult(result)
+  }
+
+  private async maybeAutoSave(): Promise<void> {
+    if (this.tickCount < this.nextAutoSaveTick) {
+      return
+    }
+
+    this.nextAutoSaveTick = this.tickCount + this.autoSaveIntervalTicks
+
+    try {
+      const result = await this.world.save()
+      this.broadcast({
+        type: 'saveStatus',
+        payload: {
+          worldName: result.world.name,
+          savedChunks: result.savedChunks,
+          success: true,
+          kind: 'auto',
+        },
+      })
+      this.emitSystemChatMessage(`AUTO SAVED ${result.world.name} (${result.savedChunks} CHUNKS)`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      this.broadcast({
+        type: 'saveStatus',
+        payload: {
+          worldName: this.world.summary.name,
+          savedChunks: 0,
+          success: false,
+          kind: 'auto',
+          error: message,
+        },
+      })
+      this.emitSystemChatMessage(`AUTO SAVE FAILED: ${message}`)
+    }
+  }
+
+  private emitSystemChatMessage(text: string): void {
+    const entry: ChatEntry = {
+      kind: 'system',
+      text,
+      receivedAt: this.now(),
+    }
+    this.broadcast({
+      type: 'chatMessage',
+      payload: { entry },
+    })
   }
 
   private emitTickResult(result: WorldTickResult): void {

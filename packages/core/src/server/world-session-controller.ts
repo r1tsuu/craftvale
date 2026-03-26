@@ -211,18 +211,23 @@ export class WorldSessionController implements WorldSessionPeer {
 
         try {
           const result = await world.save()
+          this.emitSystemMessage(`SAVED ${result.world.name} (${result.savedChunks} CHUNKS)`)
           this.emitSaveStatus({
             worldName: result.world.name,
             savedChunks: result.savedChunks,
             success: true,
+            kind: 'manual',
           })
           return result
         } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          this.emitSystemMessage(`SAVE FAILED: ${message}`)
           this.emitSaveStatus({
             worldName: world.summary.name,
             savedChunks: 0,
             success: false,
-            error: error instanceof Error ? error.message : String(error),
+            kind: 'manual',
+            error: message,
           })
           throw error
         }
@@ -337,6 +342,9 @@ export class WorldSessionController implements WorldSessionPeer {
       case 'gamemode':
         await this.handleGamemodeCommand(world, playerEntityId, args)
         return
+      case 'save':
+        await this.handleSaveCommand(world, args)
+        return
       case 'seed':
         this.handleSeedCommand(world)
         return
@@ -369,6 +377,22 @@ export class WorldSessionController implements WorldSessionPeer {
       payload: { player },
     })
     this.emitSystemMessage(gamemode === 1 ? 'Gamemode set to creative.' : 'Gamemode set to normal.')
+  }
+
+  private async handleSaveCommand(world: AuthoritativeWorld, args: string[]): Promise<void> {
+    if (args.length > 0) {
+      this.emitSystemMessage('Usage: /save')
+      return
+    }
+
+    try {
+      const result = await world.save()
+      this.emitSystemMessage(`SAVED ${result.world.name} (${result.savedChunks} CHUNKS)`)
+    } catch (error) {
+      this.emitSystemMessage(
+        `SAVE FAILED: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
   }
 
   private handleSeedCommand(world: AuthoritativeWorld): void {

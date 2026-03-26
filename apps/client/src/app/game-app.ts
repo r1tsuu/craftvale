@@ -71,6 +71,7 @@ import { ClientWorldRuntime } from './world-runtime.ts'
 
 const FIXED_TIMESTEP = 1 / 60
 const FIRST_PERSON_SWING_DURATION = 0.18
+const DEBUG_MEMORY_REFRESH_INTERVAL_SECONDS = 0.25
 const appLogger = createLogger('app', 'cyan')
 
 const formatMegabytes = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed(1)}MB`
@@ -134,6 +135,8 @@ export class GameApp {
   private connectionMode: 'local' | 'remote' | null = null
   private connectedServerAddress: string | null = null
   private nextLoadingToken = 0
+  private debugMemoryUsageText = getDebugMemoryUsageText()
+  private nextDebugMemoryRefreshTime = 0
 
   private readonly state: GameAppState
 
@@ -620,10 +623,10 @@ export class GameApp {
       adapter.eventBus.on('loadingProgress', (progress) => {
         this.applyLoadingProgress(progress)
       }),
-      adapter.eventBus.on('saveStatus', ({ worldName, savedChunks, success, error }) => {
+      adapter.eventBus.on('saveStatus', ({ worldName, savedChunks, success, kind, error }) => {
         this.state.lastServerMessage = success
-          ? `SAVED ${worldName} (${savedChunks} CHUNKS)`
-          : `SAVE FAILED: ${error ?? 'UNKNOWN ERROR'}`
+          ? `${kind === 'auto' ? 'AUTO SAVED' : 'SAVED'} ${worldName} (${savedChunks} CHUNKS)`
+          : `${kind === 'auto' ? 'AUTO SAVE FAILED' : 'SAVE FAILED'}: ${error ?? 'UNKNOWN ERROR'}`
         this.state.menuState = setMenuStatus(this.state.menuState, this.state.lastServerMessage)
       }),
       adapter.eventBus.on('serverError', ({ message }) => {
@@ -674,12 +677,13 @@ export class GameApp {
       : null
     const tpsSourceLabel =
       this.connectionMode === 'local' ? 'WORKER' : this.connectionMode === 'remote' ? 'WS' : null
+    const memoryUsageText = this.getDebouncedDebugMemoryUsageText()
     return buildDebugOverlayText({
       fps: this.state.smoothedFps,
       tps: this.state.serverTps,
       tpsSourceLabel,
       worldName: this.state.currentWorldName,
-      memoryUsageText: getDebugMemoryUsageText(),
+      memoryUsageText,
       loadedChunkCount: world.getLoadedChunkCount(),
       lastServerMessage: this.state.lastServerMessage,
       position: [x, y, z],
@@ -695,6 +699,16 @@ export class GameApp {
         ? world.getBlockLight(focusedBlock.x, focusedBlock.y, focusedBlock.z)
         : null,
     })
+  }
+
+  private getDebouncedDebugMemoryUsageText(): string {
+    const now = this.deps.nativeBridge.getTime()
+    if (now >= this.nextDebugMemoryRefreshTime) {
+      this.debugMemoryUsageText = getDebugMemoryUsageText()
+      this.nextDebugMemoryRefreshTime = now + DEBUG_MEMORY_REFRESH_INTERVAL_SECONDS
+    }
+
+    return this.debugMemoryUsageText
   }
 
   private getCurrentBiomeName(worldX: number, worldZ: number): string | null {
