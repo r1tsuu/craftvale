@@ -210,3 +210,61 @@ test("survival cannot break bedrock but creative can", async () => {
     await rm(rootDir, { recursive: true, force: true });
   }
 });
+
+test("block mutations relight only the nearby loaded chunk neighborhood", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "craftvale-authoritative-world-local-relight-"));
+  const storage = new BinaryWorldStorage(rootDir);
+
+  try {
+    const worldRecord = await storage.createWorld("LocalRelight", 42);
+    const world = new AuthoritativeWorld(worldRecord, storage);
+    const joined = await world.joinPlayer(PLAYER_A);
+
+    for (let chunkZ = 0; chunkZ < 4; chunkZ += 1) {
+      for (let chunkX = 0; chunkX < 4; chunkX += 1) {
+        await world.getChunkPayload({ x: chunkX, y: 0, z: chunkZ });
+      }
+    }
+
+    const lightingSystem = (world as unknown as {
+      lightingSystem: {
+        relightLoadedChunks: (
+          chunks: readonly { coord: { x: number; y: number; z: number } }[],
+          getBlockAt: (worldX: number, worldY: number, worldZ: number) => BlockId,
+        ) => { x: number; y: number; z: number }[];
+      };
+    }).lightingSystem;
+    const originalRelightLoadedChunks = lightingSystem.relightLoadedChunks.bind(lightingSystem);
+    const relitChunkCoords: Array<{ x: number; y: number; z: number }> = [];
+
+    lightingSystem.relightLoadedChunks = (chunks, getBlockAt) => {
+      relitChunkCoords.splice(0, relitChunkCoords.length, ...chunks.map((chunk) => chunk.coord));
+      return originalRelightLoadedChunks(chunks, getBlockAt);
+    };
+
+    const targetX = 1;
+    const targetZ = 1;
+    const targetY = getTerrainHeight(worldRecord.seed, targetX, targetZ);
+    await world.applyBlockMutation(
+      joined.clientPlayer.entityId,
+      targetX,
+      targetY,
+      targetZ,
+      BLOCK_IDS.air,
+    );
+
+    expect(relitChunkCoords.length).toBeLessThanOrEqual(9);
+    expect(relitChunkCoords).toEqual(
+      expect.arrayContaining([
+        { x: 0, y: 0, z: 0 },
+      ]),
+    );
+    expect(relitChunkCoords).not.toEqual(
+      expect.arrayContaining([
+        { x: 3, y: 0, z: 3 },
+      ]),
+    );
+  } finally {
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});

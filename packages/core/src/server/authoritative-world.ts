@@ -329,7 +329,7 @@ export class AuthoritativeWorld {
     entry.chunk.revision += 1;
     entry.saveDirty = true;
 
-    const lightingChanged = this.relightLoadedChunks(true);
+    const lightingChanged = this.relightChunkNeighborhood(coords.chunk, true);
     const changedChunks = this.getAffectedChunkPayloads(
       coords.chunk,
       coords.local.x,
@@ -698,11 +698,30 @@ export class AuthoritativeWorld {
     await this.initialization;
   }
 
+  private relightChunkNeighborhood(center: ChunkCoord, persistChanges: boolean): ChunkCoord[] {
+    const chunks: Chunk[] = [];
+
+    for (let chunkZ = center.z - 1; chunkZ <= center.z + 1; chunkZ += 1) {
+      for (let chunkX = center.x - 1; chunkX <= center.x + 1; chunkX += 1) {
+        const entry = this.chunks.get(chunkKey({ x: chunkX, y: center.y, z: chunkZ }));
+        if (entry) {
+          chunks.push(entry.chunk);
+        }
+      }
+    }
+
+    return this.relightChunkSet(chunks, persistChanges);
+  }
+
   private relightLoadedChunks(persistChanges: boolean): ChunkCoord[] {
     const loadedChunks = [...this.chunks.values()].map((entry) => entry.chunk);
+    return this.relightChunkSet(loadedChunks, persistChanges);
+  }
+
+  private relightChunkSet(chunks: readonly Chunk[], persistChanges: boolean): ChunkCoord[] {
     const generatedChunkCache = new Map<string, Chunk>();
     const changed = this.lightingSystem.relightLoadedChunks(
-      loadedChunks,
+      chunks,
       (worldX, worldY, worldZ) => {
         const coords = worldToChunkCoord(worldX, worldY, worldZ);
         if (!WORLD_LAYER_CHUNKS_Y.includes(coords.chunk.y)) {
