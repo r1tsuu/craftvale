@@ -63,5 +63,30 @@ test('fixed-step input edges accumulate either mouse button independently', () =
   expect(queued).toEqual({
     breakBlockPressed: true,
     placeBlockPressed: true,
+    hotbarSelection: null,
   })
+})
+
+test('hotbar selection survives until the next simulation step', () => {
+  const queued = queueFixedStepInputEdges(
+    createPendingFixedStepInputEdges(),
+    createInput({ hotbarSelection: 2 }),
+  )
+  const nextFrameInput = createInput()
+  const stepInput = applyFixedStepInputEdges(nextFrameInput, queued)
+
+  expect(queued.hotbarSelection).toBe(2)
+  expect(stepInput.hotbarSelection).toBe(2)
+})
+
+test('latest queued hotbar selection wins before the next simulation step', () => {
+  const queued = queueFixedStepInputEdges(
+    queueFixedStepInputEdges(
+      createPendingFixedStepInputEdges(),
+      createInput({ hotbarSelection: 1 }),
+    ),
+    createInput({ hotbarSelection: 4 }),
+  )
+
+  expect(queued.hotbarSelection).toBe(4)
 })
