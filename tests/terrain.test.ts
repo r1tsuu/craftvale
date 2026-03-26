@@ -7,6 +7,7 @@ import {
   WORLD_MAX_BLOCK_Y,
   WORLD_SEA_LEVEL,
 } from '../packages/core/src/world/constants.ts'
+import { ORE_GENERATION_CONFIGS } from '../packages/core/src/world/ore-config.ts'
 import { createGeneratedChunk, getTerrainHeight } from '../packages/core/src/world/terrain.ts'
 import { worldToChunkCoord } from '../packages/core/src/world/world.ts'
 
@@ -39,6 +40,67 @@ const collectSurfaceBlocksForBiome = (seed: number, biome: string, radius: numbe
   }
 
   return surfaceBlocks
+}
+
+const findGeneratedPosition = (
+  seed: number,
+  chunkRadius: number,
+  predicate: (position: {
+    worldX: number
+    worldY: number
+    worldZ: number
+    blockId: number
+    surfaceY: number
+  }) => boolean,
+): {
+  worldX: number
+  worldY: number
+  worldZ: number
+  blockId: number
+  surfaceY: number
+} | null => {
+  for (let chunkZ = -chunkRadius; chunkZ <= chunkRadius; chunkZ += 1) {
+    for (let chunkX = -chunkRadius; chunkX <= chunkRadius; chunkX += 1) {
+      const chunk = createGeneratedChunkColumn(seed, chunkX, chunkZ)
+      for (let localZ = 0; localZ < CHUNK_SIZE; localZ += 1) {
+        for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
+          const worldX = chunkX * CHUNK_SIZE + localX
+          const worldZ = chunkZ * CHUNK_SIZE + localZ
+          const surfaceY = getTerrainHeight(seed, worldX, worldZ)
+          for (let worldY = 1; worldY <= surfaceY; worldY += 1) {
+            const blockId = chunk.get(localX, worldY, localZ)
+            const position = { worldX, worldY, worldZ, blockId, surfaceY }
+            if (predicate(position)) {
+              return position
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+const collectOreHeights = (seed: number, oreBlockId: number, chunkRadius: number): number[] => {
+  const heights: number[] = []
+
+  for (let chunkZ = -chunkRadius; chunkZ <= chunkRadius; chunkZ += 1) {
+    for (let chunkX = -chunkRadius; chunkX <= chunkRadius; chunkX += 1) {
+      const chunk = createGeneratedChunkColumn(seed, chunkX, chunkZ)
+      for (let localZ = 0; localZ < CHUNK_SIZE; localZ += 1) {
+        for (let localY = 1; localY < WORLD_MAX_BLOCK_Y; localY += 1) {
+          for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
+            if (chunk.get(localX, localY, localZ) === oreBlockId) {
+              heights.push(localY)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return heights
 }
 
 const findLowElevationColumn = (
@@ -172,6 +234,55 @@ test('biomes span multiple chunks instead of changing every chunk or two', () =>
   expect(longestRun).toBeGreaterThanOrEqual(CHUNK_SIZE * 6)
 })
 
+test('caves create enclosed underground air pockets', () => {
+  const seed = 42
+  const enclosedCave = findGeneratedPosition(
+    seed,
+    5,
+    ({ blockId, surfaceY, worldX, worldY, worldZ }) => {
+      if (blockId !== BLOCK_IDS.air || worldY >= surfaceY - 4 || worldY <= 8) {
+        return false
+      }
+
+      const blockAbove = getGeneratedBlock(seed, worldX, worldY + 1, worldZ)
+      const blockBelow = getGeneratedBlock(seed, worldX, worldY - 1, worldZ)
+      return (
+        blockAbove !== BLOCK_IDS.air &&
+        blockAbove !== BLOCK_IDS.water &&
+        blockBelow !== BLOCK_IDS.air &&
+        blockBelow !== BLOCK_IDS.water
+      )
+    },
+  )
+
+  expect(enclosedCave).not.toBeNull()
+})
+
+test('caves can open to the outside through hillsides or surface breaks', () => {
+  const surfaceOpening = findGeneratedPosition(
+    42,
+    5,
+    ({ blockId, surfaceY, worldX, worldY, worldZ }) => {
+      if (blockId !== BLOCK_IDS.air || worldY < surfaceY - 6) {
+        return false
+      }
+
+      const horizontalNeighbors = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const
+
+      return horizontalNeighbors.some(([offsetX, offsetZ]) => {
+        return getTerrainHeight(42, worldX + offsetX, worldZ + offsetZ) < worldY
+      })
+    },
+  )
+
+  expect(surfaceOpening).not.toBeNull()
+})
+
 test('generated trees are deterministic for a fixed seed and chunk', () => {
   const columnA = createGeneratedChunkColumn(42, 0, 0)
   const columnB = createGeneratedChunkColumn(42, 0, 0)
@@ -261,6 +372,14 @@ test('forest chunks generate denser tree coverage than scrub chunks', () => {
 test('scrub and highlands biome columns keep their expected surface materials', () => {
   const scrubSurfaceBlocks = collectSurfaceBlocksForBiome(42, 'scrub', 256)
   const highlandsSurfaceBlocks = collectSurfaceBlocksForBiome(42, 'highlands', 256)
+  const highlandsAllowedSurfaceBlocks = new Set<number>([
+    BLOCK_IDS.stone,
+    BLOCK_IDS.coalOre,
+    BLOCK_IDS.ironOre,
+    BLOCK_IDS.goldOre,
+    BLOCK_IDS.diamondOre,
+  ])
+  let highlandsStoneSurfaceBlocks = 0
 
   expect(scrubSurfaceBlocks.length).toBeGreaterThanOrEqual(20)
   expect(highlandsSurfaceBlocks.length).toBeGreaterThanOrEqual(20)
@@ -270,7 +389,26 @@ test('scrub and highlands biome columns keep their expected surface materials', 
   }
 
   for (const blockId of highlandsSurfaceBlocks) {
-    expect(blockId).toBe(BLOCK_IDS.stone)
+    expect(highlandsAllowedSurfaceBlocks.has(blockId)).toBe(true)
+    if (blockId === BLOCK_IDS.stone) {
+      highlandsStoneSurfaceBlocks += 1
+    }
+  }
+
+  expect(highlandsStoneSurfaceBlocks).toBeGreaterThanOrEqual(
+    Math.floor(highlandsSurfaceBlocks.length * 0.75),
+  )
+})
+
+test('each ore stays within its configured height range and appears in sampled terrain', () => {
+  for (const config of ORE_GENERATION_CONFIGS) {
+    const oreHeights = collectOreHeights(42, BLOCK_IDS[config.blockKey], 5)
+
+    expect(oreHeights.length).toBeGreaterThan(0)
+    for (const height of oreHeights) {
+      expect(height).toBeGreaterThanOrEqual(config.minY)
+      expect(height).toBeLessThanOrEqual(config.maxY)
+    }
   }
 })
 

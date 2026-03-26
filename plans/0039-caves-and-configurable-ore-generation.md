@@ -4,10 +4,10 @@
 
 Add underground cave systems and ore generation to Craftvale's deterministic
 worldgen. Caves should be able to appear as fully enclosed underground systems
- or open naturally to the surface through terrain breaks, ravines, or hillside
- entrances. Ore generation should be driven by one reusable configuration model
- so each ore type can define its own preferred height range, vein frequency,
- and vein size without hard-coding bespoke logic per ore.
+or open naturally to the surface through terrain breaks, ravines, or hillside
+entrances. Ore generation should be driven by one reusable configuration model
+so each ore type can define its own preferred height range, vein frequency,
+and vein size without hard-coding bespoke logic per ore.
 
 The first pass should stay intentionally simple:
 

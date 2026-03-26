@@ -179,7 +179,7 @@ test('water emits translucent faces and uses the water atlas tile', () => {
   expectFaceUsesTile(mesh.translucent, 2, 'water')
 })
 
-test('expanded hotbar blocks use their atlas tile on every face', () => {
+test('placeable opaque blocks use their atlas tile on every face', () => {
   const world = new VoxelWorld()
   const blockChecks: Array<{
     blockId:
@@ -187,13 +187,29 @@ test('expanded hotbar blocks use their atlas tile on every face', () => {
       | typeof BLOCK_IDS.planks
       | typeof BLOCK_IDS.cobblestone
       | typeof BLOCK_IDS.brick
-    tile: 'sand' | 'planks' | 'cobblestone' | 'brick'
+      | typeof BLOCK_IDS.coalOre
+      | typeof BLOCK_IDS.ironOre
+      | typeof BLOCK_IDS.goldOre
+      | typeof BLOCK_IDS.diamondOre
+    tile:
+      | 'sand'
+      | 'planks'
+      | 'cobblestone'
+      | 'brick'
+      | 'coal-ore'
+      | 'iron-ore'
+      | 'gold-ore'
+      | 'diamond-ore'
     x: number
   }> = [
     { blockId: BLOCK_IDS.sand, tile: 'sand', x: 0 },
     { blockId: BLOCK_IDS.planks, tile: 'planks', x: 1 },
     { blockId: BLOCK_IDS.cobblestone, tile: 'cobblestone', x: 2 },
     { blockId: BLOCK_IDS.brick, tile: 'brick', x: 3 },
+    { blockId: BLOCK_IDS.coalOre, tile: 'coal-ore', x: 4 },
+    { blockId: BLOCK_IDS.ironOre, tile: 'iron-ore', x: 5 },
+    { blockId: BLOCK_IDS.goldOre, tile: 'gold-ore', x: 6 },
+    { blockId: BLOCK_IDS.diamondOre, tile: 'diamond-ore', x: 7 },
   ]
 
   for (const check of blockChecks) {

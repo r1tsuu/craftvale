@@ -17,6 +17,8 @@ A macOS-first Bun desktop voxel sandbox with a thin C bridge for GLFW windowing 
 - GLFW window creation and OpenGL 3.3 core rendering through the Bun FFI bridge
 - Textured voxel terrain with a generated atlas, directional face shading, and separate opaque/cutout passes
 - Deterministic biome-aware terrain generation across a 256-block-tall world with sea level at Y 64
+- Deterministic cave systems with enclosed underground pockets plus hillside and surface-adjacent openings
+- Config-driven ore generation for coal, iron, gold, and diamond with depth-based distribution
 - Full-height `16x256x16` chunk columns keyed by `(x, z)` with horizontal area-based loading
 - Deterministic tree placement that stays chunk-order safe across borders
 - Dynamic focused-block highlight, first-person arm rendering, and block-backed held-item rendering
@@ -178,7 +180,6 @@ Content authoring and generation now live in [`architecture.md`](./architecture.
 - Crafting flows including player crafting and a crafting table
 - Tool progression with mining tiers, faster harvesting, and block hardness
 - Furnace and smelting mechanics with fuel and ore processing
-- Cave generation plus underground resource progression such as coal, iron, gold, and diamond
 - Day/night cycle and stronger atmosphere changes across time of day
 - Hostile mobs to make nights and exploration feel more dangerous
 - Water and lava simulation for terrain interaction and building

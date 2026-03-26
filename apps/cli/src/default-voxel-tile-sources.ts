@@ -265,6 +265,51 @@ const createWaterPixel = (x: number, y: number): Rgba => {
   return color
 }
 
+const createOrePixel = (
+  x: number,
+  y: number,
+  seed: number,
+  oreBase: Rgba,
+  sparkleChanceMask: number,
+): Rgba => {
+  const stone = createStonePixel(x, y)
+  const noise = hash2d(x, y, seed)
+  const fleckBand = (noise >>> 3) & 0x1f
+
+  if (fleckBand <= sparkleChanceMask) {
+    const highlight = fleckBand === 0 ? 18 : 6
+    return [
+      clampColor(oreBase[0] + highlight),
+      clampColor(oreBase[1] + highlight),
+      clampColor(oreBase[2] + highlight),
+      255,
+    ]
+  }
+
+  if (((noise >>> 8) & 0x1f) <= sparkleChanceMask + 1) {
+    return [
+      clampColor((stone[0] + oreBase[0]) / 2 + 4),
+      clampColor((stone[1] + oreBase[1]) / 2 + 4),
+      clampColor((stone[2] + oreBase[2]) / 2 + 4),
+      255,
+    ]
+  }
+
+  return stone
+}
+
+const createCoalOrePixel = (x: number, y: number): Rgba =>
+  createOrePixel(x, y, 0xc01a4, rgba(64, 64, 70), 3)
+
+const createIronOrePixel = (x: number, y: number): Rgba =>
+  createOrePixel(x, y, 0x1f0a3e, rgba(177, 127, 93), 4)
+
+const createGoldOrePixel = (x: number, y: number): Rgba =>
+  createOrePixel(x, y, 0x6d01f2, rgba(210, 170, 54), 3)
+
+const createDiamondOrePixel = (x: number, y: number): Rgba =>
+  createOrePixel(x, y, 0x31dd9a, rgba(76, 214, 214), 2)
+
 const DEFAULT_TILE_PIXEL_FACTORIES: Record<AtlasTileId, (x: number, y: number) => Rgba> = {
   'grass-top': createGrassTopPixel,
   'grass-side': createGrassSidePixel,
@@ -280,6 +325,10 @@ const DEFAULT_TILE_PIXEL_FACTORIES: Record<AtlasTileId, (x: number, y: number) =
   brick: createBrickPixel,
   glowstone: createGlowstonePixel,
   water: createWaterPixel,
+  'coal-ore': createCoalOrePixel,
+  'iron-ore': createIronOrePixel,
+  'gold-ore': createGoldOrePixel,
+  'diamond-ore': createDiamondOrePixel,
 }
 
 export const buildDefaultVoxelTilePixels = (tileId: AtlasTileId): Uint8Array => {

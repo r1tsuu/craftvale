@@ -58,7 +58,12 @@ test('atlas tile layout is fixed and UVs are inset within tile bounds', () => {
   expect(AtlasTiles.cobblestone).toEqual({ x: 1, y: 2 })
   expect(AtlasTiles.brick).toEqual({ x: 2, y: 2 })
   expect(AtlasTiles.bedrock).toEqual({ x: 3, y: 2 })
+  expect(AtlasTiles.glowstone).toEqual({ x: 0, y: 3 })
   expect(AtlasTiles.water).toEqual({ x: 1, y: 3 })
+  expect(AtlasTiles['coal-ore']).toEqual({ x: 2, y: 3 })
+  expect(AtlasTiles['iron-ore']).toEqual({ x: 3, y: 3 })
+  expect(AtlasTiles['gold-ore']).toEqual({ x: 0, y: 4 })
+  expect(AtlasTiles['diamond-ore']).toEqual({ x: 1, y: 4 })
 
   const rect = getAtlasUvRect('grass-top')
   expect(rect.uMin).toBeGreaterThan(0)
@@ -95,6 +100,10 @@ test('opaque atlas tiles are fully opaque', () => {
     AtlasTiles.cobblestone,
     AtlasTiles.brick,
     AtlasTiles.bedrock,
+    AtlasTiles['coal-ore'],
+    AtlasTiles['iron-ore'],
+    AtlasTiles['gold-ore'],
+    AtlasTiles['diamond-ore'],
   ]) {
     for (let localY = 0; localY < ATLAS_TILE_SIZE; localY += 1) {
       for (let localX = 0; localX < ATLAS_TILE_SIZE; localX += 1) {

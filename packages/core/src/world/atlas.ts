@@ -1,6 +1,6 @@
 export const ATLAS_TILE_SIZE = 16
 export const ATLAS_COLUMNS = 4
-export const ATLAS_ROWS = 4
+export const ATLAS_ROWS = 5
 export const ATLAS_WIDTH = ATLAS_TILE_SIZE * ATLAS_COLUMNS
 export const ATLAS_HEIGHT = ATLAS_TILE_SIZE * ATLAS_ROWS
 
@@ -19,6 +19,10 @@ export type AtlasTileId =
   | 'brick'
   | 'glowstone'
   | 'water'
+  | 'coal-ore'
+  | 'iron-ore'
+  | 'gold-ore'
+  | 'diamond-ore'
 
 export interface AtlasTileCoord {
   x: number
@@ -47,6 +51,10 @@ export const AtlasTiles: Record<AtlasTileId, AtlasTileCoord> = {
   bedrock: { x: 3, y: 2 },
   glowstone: { x: 0, y: 3 },
   water: { x: 1, y: 3 },
+  'coal-ore': { x: 2, y: 3 },
+  'iron-ore': { x: 3, y: 3 },
+  'gold-ore': { x: 0, y: 4 },
+  'diamond-ore': { x: 1, y: 4 },
 }
 
 export const ATLAS_TILE_IDS = Object.keys(AtlasTiles) as AtlasTileId[]

@@ -242,7 +242,10 @@ The worldgen pipeline currently lives under `packages/core/src/world/*`:
 
 - `noise.ts`: shared deterministic noise helpers
 - `biomes.ts`: biome sampling and biome definitions
-- `terrain.ts`: biome-aware terrain heights, surface blocks, and tree decoration
+- `terrain.ts`: biome-aware terrain heights, cave carving, ore placement, water,
+  and tree decoration
+- `ore-config.ts`: shared authored ore-distribution settings such as Y range,
+  attempts per chunk, and vein size
 
 The generation flow for a chunk is:
 
@@ -250,11 +253,20 @@ The generation flow for a chunk is:
 2. Compute the terrain height for each `(x, z)` column.
 3. Fill top/filler/deep blocks according to the local biome.
 4. Fill low terrain up to sea level with static generated water.
-5. Run a deterministic decoration pass for trees.
+5. Run a deterministic cave-carving pass that can leave enclosed caves or open
+   cave mouths where terrain is breached.
+6. Run a deterministic ore-vein pass using the shared ore config and replacing
+   only eligible host stone.
+7. Run a deterministic decoration pass for trees.
 
 Important property: generation is chunk-order safe.
 
-Trees are not created by mutating neighboring chunks after the fact. Instead, decoration samples candidate structure anchors in world space and writes only the voxels that fall inside the current chunk. That keeps generation deterministic regardless of load order.
+Trees are not created by mutating neighboring chunks after the fact. Instead,
+decoration samples candidate structure anchors in world space and writes only
+the voxels that fall inside the current chunk. Cave and ore generation follow
+the same rule: they may sample world-space coordinates, but generation writes
+only inside the current chunk column. That keeps worldgen deterministic
+regardless of load order.
 
 ## Content Authoring And Generation
 
@@ -264,6 +276,7 @@ one authored source and then flows through deterministic generation steps.
 ### Source Of Truth
 
 - Author blocks and items in `packages/core/src/world/content-spec.ts`.
+- Author ore distribution defaults in `packages/core/src/world/ore-config.ts`.
 - Treat `packages/core/src/world/content-id-lock.json` as the checked-in id
   stability snapshot for saves and protocol data.
 - Treat `packages/core/src/world/generated/content-ids.ts` and

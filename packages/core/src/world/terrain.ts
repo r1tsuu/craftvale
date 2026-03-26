@@ -4,12 +4,18 @@ import { type BiomeDefinition, Biomes, getBiomeAt, sampleBiome } from './biomes.
 import { BLOCK_IDS } from './blocks.ts'
 import { Chunk } from './chunk.ts'
 import { CHUNK_HEIGHT, CHUNK_SIZE, WORLD_MAX_BLOCK_Y, WORLD_SEA_LEVEL } from './constants.ts'
-import { clamp, hash2dInt, sampleValueNoise } from './noise.ts'
+import { clamp, hash2dInt, hash3dInt, sampleValueNoise, sampleValueNoise3d } from './noise.ts'
+import { ORE_GENERATION_CONFIGS } from './ore-config.ts'
 
 const TREE_CELL_SIZE = 7
 const TREE_MAX_TRUNK_HEIGHT = 5
 const TREE_MAX_SURFACE_HEIGHT = WORLD_MAX_BLOCK_Y - (TREE_MAX_TRUNK_HEIGHT + 2)
 export const WORLD_WATER_LEVEL = WORLD_SEA_LEVEL
+const CAVE_MIN_Y = 3
+const CAVE_REGION_SCALE = 72
+const CAVE_CHAMBER_SCALE = 34
+const CAVE_TUNNEL_SCALE = 18
+const CAVE_DETAIL_SCALE = 11
 
 interface TreeAnchor {
   x: number
@@ -20,6 +26,8 @@ interface TreeAnchor {
 }
 
 const floorDiv = (value: number, size: number): number => Math.floor(value / size)
+
+const toUnit = (value: number): number => (value + 1) * 0.5
 
 const getBiomeHeightParameters = (
   seed: number,
@@ -99,6 +107,129 @@ const getColumnBlocksForBiome = (
   return biome.deepBlock
 }
 
+const isCarveableTerrainBlock = (blockId: BlockId): boolean =>
+  blockId !== BLOCK_IDS.air &&
+  blockId !== BLOCK_IDS.water &&
+  blockId !== BLOCK_IDS.bedrock &&
+  blockId !== BLOCK_IDS.log &&
+  blockId !== BLOCK_IDS.leaves
+
+const shouldCarveCaveAt = (
+  seed: number,
+  worldX: number,
+  worldY: number,
+  worldZ: number,
+  surfaceY: number,
+): boolean => {
+  if (worldY <= CAVE_MIN_Y || worldY > surfaceY) {
+    return false
+  }
+
+  const depthBelowSurface = surfaceY - worldY
+  if (depthBelowSurface < 0) {
+    return false
+  }
+
+  const region = toUnit(sampleValueNoise(worldX, worldZ, seed ^ 0x51db27c1, CAVE_REGION_SCALE))
+  const chamber = toUnit(
+    sampleValueNoise3d(worldX, worldY, worldZ, seed ^ 0x7e31b4d9, CAVE_CHAMBER_SCALE),
+  )
+  const tunnel =
+    1 - Math.abs(sampleValueNoise3d(worldX, worldY, worldZ, seed ^ 0x2c64f18b, CAVE_TUNNEL_SCALE))
+  const detail = toUnit(
+    sampleValueNoise3d(worldX, worldY, worldZ, seed ^ 0x9af17d23, CAVE_DETAIL_SCALE),
+  )
+  const caveScore = chamber * 0.38 + tunnel * 0.44 + detail * 0.1 + region * 0.08
+
+  let threshold = 0.76
+  if (depthBelowSurface <= 0) {
+    threshold += 0.13
+  } else if (depthBelowSurface <= 2) {
+    threshold += 0.08
+  } else if (depthBelowSurface <= 6) {
+    threshold += 0.06
+  } else if (depthBelowSurface >= 36) {
+    threshold -= 0.05
+  }
+
+  if (worldY <= WORLD_WATER_LEVEL - 28) {
+    threshold -= 0.03
+  }
+
+  return caveScore >= threshold
+}
+
+const carveChunkCaves = (chunk: Chunk, seed: number): void => {
+  const minWorldX = chunk.coord.x * CHUNK_SIZE
+  const minWorldZ = chunk.coord.z * CHUNK_SIZE
+
+  for (let localZ = 0; localZ < CHUNK_SIZE; localZ += 1) {
+    for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
+      const worldX = minWorldX + localX
+      const worldZ = minWorldZ + localZ
+      const surfaceY = getTerrainHeight(seed, worldX, worldZ)
+
+      for (let localY = CAVE_MIN_Y; localY < Math.min(surfaceY, CHUNK_HEIGHT); localY += 1) {
+        if (!shouldCarveCaveAt(seed, worldX, localY, worldZ, surfaceY)) {
+          continue
+        }
+
+        const currentBlock = chunk.get(localX, localY, localZ)
+        if (!isCarveableTerrainBlock(currentBlock)) {
+          continue
+        }
+
+        chunk.set(localX, localY, localZ, BLOCK_IDS.air)
+      }
+    }
+  }
+}
+
+const stepDelta = (bits: number): number => {
+  if (bits === 0) {
+    return -1
+  }
+  if (bits === 1) {
+    return 0
+  }
+  return 1
+}
+
+const generateChunkOres = (chunk: Chunk, seed: number): void => {
+  for (const [configIndex, config] of ORE_GENERATION_CONFIGS.entries()) {
+    const oreBlockId = BLOCK_IDS[config.blockKey]
+    const heightRange = config.maxY - config.minY + 1
+    const veinSizeRange = config.veinSizeMax - config.veinSizeMin + 1
+
+    for (let attempt = 0; attempt < config.attemptsPerChunk; attempt += 1) {
+      const attemptSeed = hash3dInt(
+        chunk.coord.x,
+        attempt + configIndex * 97,
+        chunk.coord.z,
+        seed ^ 0x5f1d36a7,
+      )
+      let localX = attemptSeed % CHUNK_SIZE
+      let localY = config.minY + ((attemptSeed >>> 4) % heightRange)
+      let localZ = (attemptSeed >>> 12) % CHUNK_SIZE
+      const veinSize = config.veinSizeMin + ((attemptSeed >>> 20) % veinSizeRange)
+
+      for (let node = 0; node < veinSize; node += 1) {
+        if (chunk.get(localX, localY, localZ) === BLOCK_IDS.stone) {
+          chunk.set(localX, localY, localZ, oreBlockId)
+        }
+
+        const worldX = chunk.coord.x * CHUNK_SIZE + localX
+        const worldZ = chunk.coord.z * CHUNK_SIZE + localZ
+        const stepSeed = hash3dInt(worldX, localY + node, worldZ, attemptSeed ^ 0x3b1e4f5d)
+
+        localX = clamp(localX + stepDelta(stepSeed & 0x3), 0, CHUNK_SIZE - 1)
+        localY = clamp(localY + stepDelta((stepSeed >>> 2) & 0x3), config.minY, config.maxY)
+        localZ = clamp(localZ + stepDelta((stepSeed >>> 4) & 0x3), 0, CHUNK_SIZE - 1)
+      }
+    }
+  }
+}
+
 const setGeneratedBlockIfInChunk = (
   chunk: Chunk,
   worldX: number,
@@ -147,6 +278,13 @@ const getTreeAnchorForCell = (seed: number, cellX: number, cellZ: number): TreeA
 
   const surfaceY = getTerrainHeight(seed, worldX, worldZ)
   if (surfaceY > TREE_MAX_SURFACE_HEIGHT || surfaceY < WORLD_WATER_LEVEL) {
+    return null
+  }
+
+  if (
+    shouldCarveCaveAt(seed, worldX, surfaceY, worldZ, surfaceY) ||
+    shouldCarveCaveAt(seed, worldX, surfaceY - 1, worldZ, surfaceY)
+  ) {
     return null
   }
 
@@ -251,6 +389,8 @@ export const populateGeneratedChunk = (chunk: Chunk, seed: number): Chunk => {
     }
   }
 
+  carveChunkCaves(chunk, seed)
+  generateChunkOres(chunk, seed)
   decorateChunkWithTrees(chunk, seed)
 
   chunk.dirty = false
