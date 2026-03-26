@@ -8,8 +8,8 @@ const PROFILE_VERSION = 1
 const PROFILE_FILENAME = 'player-profile.json'
 const PLAYER_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,23}$/
 
-const appRoot = import.meta.dir.endsWith('/apps/client/src/client')
-  ? import.meta.dir.slice(0, -'/src/client'.length)
+const appRoot = import.meta.dir.endsWith('/apps/client/src/app')
+  ? import.meta.dir.slice(0, -'/src/app'.length)
   : import.meta.dir
 
 export const DEFAULT_CLIENT_STORAGE_ROOT = join(appRoot, 'dist')

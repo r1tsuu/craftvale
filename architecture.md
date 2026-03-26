@@ -7,8 +7,8 @@ This project is a Bun/TypeScript voxel sandbox with a macOS-first native bridge 
 At a high level:
 
 - `apps/client/src/index.ts` is the desktop-app bootstrap.
-- `apps/client/src/game-app.ts` owns the main application state and loop.
-- `apps/client/src/client/*`, `render/*`, `ui/*`, `game/*`, and `platform/*` implement client runtime behavior, rendering, input, menus, HUD, and native integration.
+- `apps/client/src/app/game-app.ts` owns the main application state and loop.
+- `apps/client/src/app/*`, `render/*`, `ui/*`, `game/*`, and `platform/*` implement client runtime behavior, rendering, input, menus, HUD, and native integration.
 - `apps/client/src/worker/*` owns singleplayer worker bootstrap and worker-only transport glue.
 - `apps/client/assets/*` contains runtime-loaded client shaders and textures.
 - `apps/client/assets/textures/tiles-src/*` contains authored per-tile PNG source textures that are packed into the runtime atlas by `apps/cli`.
@@ -36,7 +36,7 @@ The main thread hosts the playable client app:
 
 - creates the window through `NativeBridge`
 - owns the render loop and input polling
-- runs the `GameApp` instance
+- runs the `GameApp` instance from `apps/client/src/app/game-app.ts`
 - keeps a replicated `VoxelWorld` for rendering, raycast, and collision
 - sends typed requests/events to either a worker-backed local server or a WebSocket-backed dedicated server
 
@@ -67,7 +67,7 @@ There is no remote world browser in this mode. A multiplayer client connects to 
 
 ## Main App Structure
 
-`GameApp` in `apps/client/src/game-app.ts` is the top-level state owner for the client runtime.
+`GameApp` in `apps/client/src/app/game-app.ts` is the top-level state owner for the client runtime.
 
 It owns:
 

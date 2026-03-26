@@ -8,8 +8,8 @@ import type {
   ServerToClientMessage,
 } from '../packages/core/src/shared/messages.ts'
 
-import { PortClientAdapter } from '../apps/client/src/client/client-adapter.ts'
-import { ClientWorldRuntime } from '../apps/client/src/client/world-runtime.ts'
+import { PortClientAdapter } from '../apps/client/src/app/client-adapter.ts'
+import { ClientWorldRuntime } from '../apps/client/src/app/world-runtime.ts'
 import {
   type DedicatedServerSessionHost,
   loadOrCreateDedicatedWorld,

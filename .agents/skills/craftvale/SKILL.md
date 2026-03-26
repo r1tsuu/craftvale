@@ -32,9 +32,9 @@ task touches a feature area with an existing implementation plan.
 
 - `apps/cli/src/*`: developer tooling, native builds, cleanup, combined dev
   orchestration, and preprocessing such as atlas generation.
-- `apps/client/src/game-app.ts`: main app shell and client-side state owner.
+- `apps/client/src/app/game-app.ts`: main app shell and client-side state owner.
 - `apps/client/src/index.ts`: client bootstrap only.
-- `apps/client/src/client/*`: replicated client runtime, profiles/settings,
+- `apps/client/src/app/*`: app shell, replicated client runtime, profiles/settings,
   server browser, and client transport adapters.
 - `apps/client/src/render/*`, `apps/client/src/ui/*`,
   `apps/client/src/game/*`, and `apps/client/src/platform/*`: rendering,
@@ -84,7 +84,7 @@ task touches a feature area with an existing implementation plan.
 
 - Tooling, native build flow, cleanup commands, or preprocessing: start with
   `apps/cli/src/*`.
-- Gameplay/input/UI loop changes: start with `apps/client/src/game-app.ts`.
+- Gameplay/input/UI loop changes: start with `apps/client/src/app/game-app.ts`.
 - Authoritative block/world/inventory behavior: start with
   `packages/core/src/server/runtime.ts` and
   `packages/core/src/server/authoritative-world.ts`.

@@ -1,6 +1,6 @@
 import type { WorldSummary } from '@craftvale/core/shared'
 
-import type { MenuFocusField, MenuScreen } from '../client/menu-state.ts'
+import type { MenuFocusField, MenuScreen } from '../app/menu-state.ts'
 import type { ClientSettings, SavedServerRecord } from '../types.ts'
 
 import {
@@ -8,7 +8,7 @@ import {
   formatFovSetting,
   formatRenderDistanceSetting,
   formatSensitivitySetting,
-} from '../client/client-settings.ts'
+} from '../app/client-settings.ts'
 import {
   createButton,
   createLabel,

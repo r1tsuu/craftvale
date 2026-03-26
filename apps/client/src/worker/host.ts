@@ -11,7 +11,7 @@ import {
 } from '@craftvale/core/shared'
 import { ServerEventBus } from '@craftvale/core/shared'
 
-import { DEFAULT_LOCAL_WORLD_STORAGE_ROOT } from '../client/local-world-storage.ts'
+import { DEFAULT_LOCAL_WORLD_STORAGE_ROOT } from '../app/local-world-storage.ts'
 
 const workerLogger = createLogger('worker', 'green')
 

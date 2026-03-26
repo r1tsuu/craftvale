@@ -7,7 +7,7 @@ import {
   createDefaultClientSettings,
   JsonClientSettingsStorage,
   normalizeClientSettings,
-} from '../apps/client/src/client/client-settings.ts'
+} from '../apps/client/src/app/client-settings.ts'
 
 const createStorage = async (): Promise<{
   rootDir: string

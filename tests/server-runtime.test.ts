@@ -8,7 +8,7 @@ import type {
   ServerToClientMessage,
 } from '../packages/core/src/shared/messages.ts'
 
-import { PortClientAdapter } from '../apps/client/src/client/client-adapter.ts'
+import { PortClientAdapter } from '../apps/client/src/app/client-adapter.ts'
 import { AuthoritativeWorld } from '../packages/core/src/server/authoritative-world.ts'
 import { ServerRuntime } from '../packages/core/src/server/runtime.ts'
 import { PortServerAdapter } from '../packages/core/src/server/server-adapter.ts'

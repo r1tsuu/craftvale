@@ -10,7 +10,7 @@ import {
   setMenuServers,
   setMenuWorlds,
   suggestWorldName,
-} from '../apps/client/src/client/menu-state.ts'
+} from '../apps/client/src/app/menu-state.ts'
 
 const createInput = (overrides: Partial<InputState> = {}): InputState => ({
   moveForward: false,

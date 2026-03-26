@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { createDefaultClientSettings } from '../apps/client/src/client/client-settings.ts'
+import { createDefaultClientSettings } from '../apps/client/src/app/client-settings.ts'
 import { buildMainMenu } from '../apps/client/src/ui/menu.ts'
 
 const createViewModel = (overrides: Partial<Parameters<typeof buildMainMenu>[2]> = {}) => ({

@@ -1,9 +1,9 @@
 import { LIGHT_LEVEL_MAX, raycastVoxel, vec3 } from '@craftvale/core/shared'
 import { expect, test } from 'bun:test'
 
-import type { IClientAdapter } from '../apps/client/src/client/client-adapter.ts'
+import type { IClientAdapter } from '../apps/client/src/app/client-adapter.ts'
 
-import { ClientWorldRuntime } from '../apps/client/src/client/world-runtime.ts'
+import { ClientWorldRuntime } from '../apps/client/src/app/world-runtime.ts'
 
 const createClientRuntime = (): ClientWorldRuntime =>
   new ClientWorldRuntime({

@@ -1,13 +1,10 @@
 import { parseClientDir } from '@craftvale/core/shared'
 
-import { JsonClientSettingsStorage } from './client/client-settings.ts'
-import {
-  DEFAULT_LOCAL_WORLD_STORAGE_ROOT,
-  LocalWorldStorage,
-} from './client/local-world-storage.ts'
-import { JsonPlayerProfileStorage, resolvePlayerIdentity } from './client/player-profile.ts'
-import { JsonSavedServerStorage } from './client/saved-servers.ts'
-import { createDefaultGameApp } from './game-app.ts'
+import { JsonClientSettingsStorage } from './app/client-settings.ts'
+import { createDefaultGameApp } from './app/game-app.ts'
+import { DEFAULT_LOCAL_WORLD_STORAGE_ROOT, LocalWorldStorage } from './app/local-world-storage.ts'
+import { JsonPlayerProfileStorage, resolvePlayerIdentity } from './app/player-profile.ts'
+import { JsonSavedServerStorage } from './app/saved-servers.ts'
 
 const appRoot = import.meta.dir.endsWith('/apps/client/src')
   ? import.meta.dir.slice(0, -'/src'.length)

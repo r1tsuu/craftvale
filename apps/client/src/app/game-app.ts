@@ -16,18 +16,40 @@ import {
   VoxelWorld,
 } from '@craftvale/core/shared'
 
-import type { LocalWorldStorage } from './client/local-world-storage.ts'
-import type { JsonSavedServerStorage } from './client/saved-servers.ts'
-import type { TextDrawCommand } from './render/text.ts'
-import type { ClientSettings } from './types.ts'
+import type { TextDrawCommand } from '../render/text.ts'
+import type { ClientSettings } from '../types.ts'
+import type { LocalWorldStorage } from './local-world-storage.ts'
+import type { JsonSavedServerStorage } from './saved-servers.ts'
 
-import { type IClientAdapter } from './client/client-adapter.ts'
+import {
+  applyFixedStepInputEdges,
+  createPendingFixedStepInputEdges,
+  type PendingFixedStepInputEdges,
+  queueFixedStepInputEdges,
+} from '../game/fixed-step-input.ts'
+import {
+  isGameplaySuppressed,
+  type PauseScreen,
+  resolvePlayChatOpenDraft,
+  resolvePlayChatTypedText,
+  resolvePlayEscapeAction,
+  shouldLockCursor,
+} from '../game/play-overlay.ts'
+import { PlayerController } from '../game/player.ts'
+import { NativeBridge } from '../platform/native.ts'
+import { VoxelRenderer } from '../render/renderer.ts'
+import { evaluateUi, type UiResolvedComponent } from '../ui/components.ts'
+import { buildDebugOverlayText } from '../ui/debug-overlay.ts'
+import { buildPlayHud } from '../ui/hud.ts'
+import { buildLoadingScreen } from '../ui/loading.ts'
+import { buildMainMenu } from '../ui/menu.ts'
+import { type IClientAdapter } from './client-adapter.ts'
 import {
   cloneClientSettings,
   createDefaultClientSettings,
   type JsonClientSettingsStorage,
   normalizeClientSettings,
-} from './client/client-settings.ts'
+} from './client-settings.ts'
 import {
   applyMenuAction,
   applyMenuTyping,
@@ -39,33 +61,11 @@ import {
   setMenuStatus,
   setMenuWorlds,
   suggestWorldName,
-} from './client/menu-state.ts'
-import { isValidSavedServerAddress, isValidSavedServerName } from './client/saved-servers.ts'
-import { WebSocketClientAdapter } from './client/websocket-client-adapter.ts'
-import { WorkerClientAdapter } from './client/worker-client-adapter.ts'
-import { ClientWorldRuntime } from './client/world-runtime.ts'
-import {
-  applyFixedStepInputEdges,
-  createPendingFixedStepInputEdges,
-  type PendingFixedStepInputEdges,
-  queueFixedStepInputEdges,
-} from './game/fixed-step-input.ts'
-import {
-  isGameplaySuppressed,
-  type PauseScreen,
-  resolvePlayChatOpenDraft,
-  resolvePlayChatTypedText,
-  resolvePlayEscapeAction,
-  shouldLockCursor,
-} from './game/play-overlay.ts'
-import { PlayerController } from './game/player.ts'
-import { NativeBridge } from './platform/native.ts'
-import { VoxelRenderer } from './render/renderer.ts'
-import { evaluateUi, type UiResolvedComponent } from './ui/components.ts'
-import { buildDebugOverlayText } from './ui/debug-overlay.ts'
-import { buildPlayHud } from './ui/hud.ts'
-import { buildLoadingScreen } from './ui/loading.ts'
-import { buildMainMenu } from './ui/menu.ts'
+} from './menu-state.ts'
+import { isValidSavedServerAddress, isValidSavedServerName } from './saved-servers.ts'
+import { WebSocketClientAdapter } from './websocket-client-adapter.ts'
+import { WorkerClientAdapter } from './worker-client-adapter.ts'
+import { ClientWorldRuntime } from './world-runtime.ts'
 
 const FIXED_TIMESTEP = 1 / 60
 const FIRST_PERSON_SWING_DURATION = 0.18

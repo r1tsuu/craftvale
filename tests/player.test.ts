@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test'
 import type { InputState } from '../apps/client/src/types.ts'
 import type { PlayerSnapshot } from '../packages/core/src/types.ts'
 
-import { createDefaultClientSettings } from '../apps/client/src/client/client-settings.ts'
+import { createDefaultClientSettings } from '../apps/client/src/app/client-settings.ts'
 import { PlayerController } from '../apps/client/src/game/player.ts'
 import { VoxelWorld } from '../packages/core/src/world/world.ts'
 
