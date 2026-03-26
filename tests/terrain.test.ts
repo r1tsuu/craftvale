@@ -1,7 +1,33 @@
 import { expect, test } from 'bun:test'
 
 import { getBiomeAt } from '../packages/core/src/world/biomes.ts'
-import { createGeneratedChunk, getTerrainHeight } from '../packages/core/src/world/terrain.ts'
+import { BLOCK_IDS } from '../packages/core/src/world/blocks.ts'
+import {
+  createGeneratedChunk,
+  getTerrainHeight,
+  WORLD_WATER_LEVEL,
+} from '../packages/core/src/world/terrain.ts'
+
+const getLocalCoord = (world: number): number => ((world % 16) + 16) % 16
+
+const findLowElevationColumn = (
+  seed: number,
+): {
+  worldX: number
+  worldZ: number
+  height: number
+} => {
+  for (let worldZ = -96; worldZ <= 96; worldZ += 1) {
+    for (let worldX = -96; worldX <= 96; worldX += 1) {
+      const height = getTerrainHeight(seed, worldX, worldZ)
+      if (height < WORLD_WATER_LEVEL) {
+        return { worldX, worldZ, height }
+      }
+    }
+  }
+
+  throw new Error('Expected to find at least one low-elevation column below the water level.')
+}
 
 test('terrain remains locally smooth between adjacent columns', () => {
   const seed = 123456789
@@ -37,6 +63,48 @@ test('generated chunks always place bedrock at the bottom layer', () => {
     for (let x = 0; x < 16; x += 1) {
       expect(chunk.get(x, 0, z)).toBe(10)
     }
+  }
+})
+
+test('generated chunks fill low terrain up to the water level with water', () => {
+  const seed = 42
+  const lowColumn = findLowElevationColumn(seed)
+  const chunk = createGeneratedChunk(
+    {
+      x: Math.floor(lowColumn.worldX / 16),
+      y: 0,
+      z: Math.floor(lowColumn.worldZ / 16),
+    },
+    seed,
+  )
+
+  expect(
+    chunk.get(
+      getLocalCoord(lowColumn.worldX),
+      lowColumn.height + 1,
+      getLocalCoord(lowColumn.worldZ),
+    ),
+  ).toBe(BLOCK_IDS.water)
+})
+
+test('water generation remains consistent across chunk borders', () => {
+  const seed = 42
+  const leftChunk = createGeneratedChunk({ x: 0, y: 0, z: 0 }, seed)
+  const rightChunk = createGeneratedChunk({ x: 1, y: 0, z: 0 }, seed)
+
+  for (let z = 0; z < 16; z += 1) {
+    const leftHeight = getTerrainHeight(seed, 15, z)
+    const rightHeight = getTerrainHeight(seed, 16, z)
+
+    const leftAboveSurface = Math.min(leftHeight + 1, 15)
+    const rightAboveSurface = Math.min(rightHeight + 1, 15)
+
+    expect(leftChunk.get(15, leftAboveSurface, z) === BLOCK_IDS.water).toBe(
+      leftHeight < WORLD_WATER_LEVEL,
+    )
+    expect(rightChunk.get(0, rightAboveSurface, z) === BLOCK_IDS.water).toBe(
+      rightHeight < WORLD_WATER_LEVEL,
+    )
   }
 })
 

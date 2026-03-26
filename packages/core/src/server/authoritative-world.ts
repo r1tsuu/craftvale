@@ -278,7 +278,7 @@ export class AuthoritativeWorld {
         droppedItems = this.toWorldSimulationResult(droppedItemSimulation)
       }
     } else {
-      if (current !== BLOCK_IDS.air) {
+      if (current !== BLOCK_IDS.air && current !== BLOCK_IDS.water) {
         return {
           changedChunks: [],
           inventory: nextInventory,

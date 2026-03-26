@@ -163,6 +163,22 @@ test('leaves emit cutout faces and use the leaves atlas tile', () => {
   expectFaceUsesTile(mesh.cutout, 2, 'leaves')
 })
 
+test('water emits translucent faces and uses the water atlas tile', () => {
+  const world = new VoxelWorld()
+  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  chunk.blocks.fill(0)
+  chunk.dirty = true
+  chunk.set(1, 1, 1, BLOCK_IDS.water)
+
+  const mesh = buildChunkMesh(world, chunk.coord)
+
+  expect(mesh.opaque.indexCount).toBe(0)
+  expect(mesh.cutout.indexCount).toBe(0)
+  expect(mesh.translucent.indexCount).toBe(36)
+  expectFaceUsesTile(mesh.translucent, 0, 'water')
+  expectFaceUsesTile(mesh.translucent, 2, 'water')
+})
+
 test('expanded hotbar blocks use their atlas tile on every face', () => {
   const world = new VoxelWorld()
   const blockChecks: Array<{
@@ -217,4 +233,30 @@ test('adjacent leaves cull shared internal faces', () => {
 
   const mesh = buildChunkMesh(world, chunk.coord)
   expect(mesh.cutout.indexCount).toBe(60)
+})
+
+test('adjacent water culls shared internal faces in the translucent pass', () => {
+  const world = new VoxelWorld()
+  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  chunk.blocks.fill(0)
+  chunk.dirty = true
+  chunk.set(1, 1, 1, BLOCK_IDS.water)
+  chunk.set(2, 1, 1, BLOCK_IDS.water)
+
+  const mesh = buildChunkMesh(world, chunk.coord)
+  expect(mesh.translucent.indexCount).toBe(60)
+})
+
+test('opaque faces next to water are not culled', () => {
+  const world = new VoxelWorld()
+  const chunk = world.ensureChunk({ x: 0, y: 0, z: 0 })
+  chunk.blocks.fill(0)
+  chunk.dirty = true
+  chunk.set(1, 1, 1, BLOCK_IDS.grass)
+  chunk.set(2, 1, 1, BLOCK_IDS.water)
+
+  const mesh = buildChunkMesh(world, chunk.coord)
+
+  expect(mesh.opaque.indexCount).toBe(36)
+  expect(mesh.translucent.indexCount).toBe(30)
 })

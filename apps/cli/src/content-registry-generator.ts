@@ -282,7 +282,7 @@ const buildContentRegistrySource = (
     '  collidable: boolean;\n',
     '  breakable: boolean;\n',
     '  occlusion: "none" | "full" | "self";\n',
-    '  renderPass: "opaque" | "cutout" | null;\n',
+    '  renderPass: "opaque" | "cutout" | "translucent" | null;\n',
     '  dropItemId: ItemId | null;\n',
     '  emittedLightLevel: number;\n',
     '  color: [number, number, number];\n',

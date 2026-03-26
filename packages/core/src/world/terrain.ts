@@ -9,6 +9,7 @@ import { clamp, hash2dInt, sampleValueNoise } from './noise.ts'
 const TREE_CELL_SIZE = 7
 const TREE_MAX_TRUNK_HEIGHT = 5
 const TREE_MAX_SURFACE_HEIGHT = CHUNK_SIZE - (TREE_MAX_TRUNK_HEIGHT + 2)
+export const WORLD_WATER_LEVEL = 6
 
 interface TreeAnchor {
   x: number
@@ -81,6 +82,9 @@ const getColumnBlocksForBiome = (
   }
 
   if (worldY > height) {
+    if (worldY <= WORLD_WATER_LEVEL) {
+      return BLOCK_IDS.water
+    }
     return BLOCK_IDS.air
   }
 
@@ -143,7 +147,7 @@ const getTreeAnchorForCell = (seed: number, cellX: number, cellZ: number): TreeA
   }
 
   const surfaceY = getTerrainHeight(seed, worldX, worldZ)
-  if (surfaceY > TREE_MAX_SURFACE_HEIGHT) {
+  if (surfaceY > TREE_MAX_SURFACE_HEIGHT || surfaceY < WORLD_WATER_LEVEL) {
     return null
   }
 

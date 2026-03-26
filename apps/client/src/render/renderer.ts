@@ -46,6 +46,7 @@ interface GpuMesh {
 interface GpuChunkMesh {
   opaque: GpuMesh | null
   cutout: GpuMesh | null
+  translucent: GpuMesh | null
 }
 
 const ITEM_RENDER_SCALE = 0.35
@@ -246,6 +247,27 @@ export class VoxelRenderer {
 
     this.renderDroppedItems(visibleDroppedItems, 'cutout')
 
+    this.nativeBridge.gl.enable(GL.BLEND)
+    this.nativeBridge.gl.blendFunc(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA)
+    this.nativeBridge.gl.disable(GL.CULL_FACE)
+    for (const coord of visibleCoords) {
+      const gpuMesh = this.meshes.get(meshKey(coord))
+      if (!gpuMesh?.translucent) {
+        continue
+      }
+
+      this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, IDENTITY_MODEL)
+      this.nativeBridge.gl.bindVertexArray(gpuMesh.translucent.vao)
+      this.nativeBridge.gl.drawElements(
+        GL.TRIANGLES,
+        gpuMesh.translucent.indexCount,
+        GL.UNSIGNED_INT,
+        0,
+      )
+    }
+    this.nativeBridge.gl.enable(GL.CULL_FACE)
+    this.nativeBridge.gl.disable(GL.BLEND)
+
     this.nativeBridge.gl.bindVertexArray(0)
     this.focusHighlightRenderer.render(focusedBlock, viewProjection)
     this.prepareVoxelProgram(viewProjection, daylightFactor)
@@ -360,6 +382,7 @@ export class VoxelRenderer {
     this.meshes.set(key, {
       opaque: this.createGpuMesh(mesh.opaque),
       cutout: this.createGpuMesh(mesh.cutout),
+      translucent: this.createGpuMesh(mesh.translucent),
     })
   }
 
@@ -447,6 +470,12 @@ export class VoxelRenderer {
       this.nativeBridge.gl.deleteBuffer(mesh.cutout.vbo)
       this.nativeBridge.gl.deleteBuffer(mesh.cutout.ebo)
       this.nativeBridge.gl.deleteVertexArray(mesh.cutout.vao)
+    }
+
+    if (mesh.translucent) {
+      this.nativeBridge.gl.deleteBuffer(mesh.translucent.vbo)
+      this.nativeBridge.gl.deleteBuffer(mesh.translucent.ebo)
+      this.nativeBridge.gl.deleteVertexArray(mesh.translucent.vao)
     }
   }
 

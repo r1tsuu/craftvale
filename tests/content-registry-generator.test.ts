@@ -40,6 +40,7 @@ test('generated ids preserve the current block and item assignments', () => {
   expect(BLOCK_IDS.air).toBe(0)
   expect(BLOCK_IDS.bedrock).toBe(10)
   expect(BLOCK_IDS.glowstone).toBe(11)
+  expect(BLOCK_IDS.water).toBe(12)
   expect(ITEM_IDS.empty).toBe(0)
   expect(ITEM_IDS.grass).toBe(101)
   expect(ITEM_IDS.glowstone).toBe(110)

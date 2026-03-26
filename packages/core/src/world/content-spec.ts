@@ -1,7 +1,7 @@
 import type { AtlasTileId } from './atlas.ts'
 
 export type AuthoredBlockOcclusionMode = 'none' | 'full' | 'self'
-export type AuthoredBlockRenderPass = 'opaque' | 'cutout'
+export type AuthoredBlockRenderPass = 'opaque' | 'cutout' | 'translucent'
 
 export interface AuthoredBlockTiles {
   top: AtlasTileId
@@ -223,6 +223,22 @@ export const AUTHORED_BLOCK_SPECS = [
       top: 'glowstone',
       bottom: 'glowstone',
       side: 'glowstone',
+    },
+  },
+  {
+    key: 'water',
+    name: 'water',
+    collidable: false,
+    breakable: false,
+    occlusion: 'self',
+    renderPass: 'translucent',
+    dropItemKey: null,
+    emittedLightLevel: 0,
+    color: [0.25, 0.48, 0.82],
+    tiles: {
+      top: 'water',
+      bottom: 'water',
+      side: 'water',
     },
   },
 ] as const satisfies readonly AuthoredBlockSpec[]

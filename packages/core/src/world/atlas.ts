@@ -18,6 +18,7 @@ export type AtlasTileId =
   | 'cobblestone'
   | 'brick'
   | 'glowstone'
+  | 'water'
 
 export interface AtlasTileCoord {
   x: number
@@ -45,6 +46,7 @@ export const AtlasTiles: Record<AtlasTileId, AtlasTileCoord> = {
   brick: { x: 2, y: 2 },
   bedrock: { x: 3, y: 2 },
   glowstone: { x: 0, y: 3 },
+  water: { x: 1, y: 3 },
 }
 
 export const ATLAS_TILE_IDS = Object.keys(AtlasTiles) as AtlasTileId[]

@@ -58,6 +58,7 @@ test('atlas tile layout is fixed and UVs are inset within tile bounds', () => {
   expect(AtlasTiles.cobblestone).toEqual({ x: 1, y: 2 })
   expect(AtlasTiles.brick).toEqual({ x: 2, y: 2 })
   expect(AtlasTiles.bedrock).toEqual({ x: 3, y: 2 })
+  expect(AtlasTiles.water).toEqual({ x: 1, y: 3 })
 
   const rect = getAtlasUvRect('grass-top')
   expect(rect.uMin).toBeGreaterThan(0)
@@ -104,4 +105,24 @@ test('opaque atlas tiles are fully opaque', () => {
       }
     }
   }
+})
+
+test('water tile preserves translucency for the dedicated water pass', () => {
+  const atlas = loadVoxelAtlasImageData()
+  const tile = AtlasTiles.water
+  let translucentPixels = 0
+
+  for (let localY = 0; localY < ATLAS_TILE_SIZE; localY += 1) {
+    for (let localX = 0; localX < ATLAS_TILE_SIZE; localX += 1) {
+      const worldX = tile.x * ATLAS_TILE_SIZE + localX
+      const worldY = tile.y * ATLAS_TILE_SIZE + localY
+      const alphaIndex = (worldX + worldY * atlas.width) * 4 + 3
+      const alpha = atlas.pixels[alphaIndex]!
+      if (alpha > 0 && alpha < 255) {
+        translucentPixels += 1
+      }
+    }
+  }
+
+  expect(translucentPixels).toBeGreaterThan(0)
 })

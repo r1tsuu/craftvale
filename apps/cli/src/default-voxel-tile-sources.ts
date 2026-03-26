@@ -251,6 +251,20 @@ const createGlowstonePixel = (x: number, y: number): Rgba => {
   return color
 }
 
+const createWaterPixel = (x: number, y: number): Rgba => {
+  const base = rgba(54, 108, 184, 188)
+  const noise = hash2d(x, y, 0x2b8e9f)
+  let color = tint(base, ((noise & 0x7) - 3) * 5)
+
+  if (y < 3) {
+    color = [clampColor(color[0] + 12), clampColor(color[1] + 18), clampColor(color[2] + 20), 176]
+  } else if (((noise >>> 4) & 0xf) === 0) {
+    color = [clampColor(color[0] + 8), clampColor(color[1] + 10), clampColor(color[2] + 14), 182]
+  }
+
+  return color
+}
+
 const DEFAULT_TILE_PIXEL_FACTORIES: Record<AtlasTileId, (x: number, y: number) => Rgba> = {
   'grass-top': createGrassTopPixel,
   'grass-side': createGrassSidePixel,
@@ -265,6 +279,7 @@ const DEFAULT_TILE_PIXEL_FACTORIES: Record<AtlasTileId, (x: number, y: number) =
   cobblestone: createCobblestonePixel,
   brick: createBrickPixel,
   glowstone: createGlowstonePixel,
+  water: createWaterPixel,
 }
 
 export const buildDefaultVoxelTilePixels = (tileId: AtlasTileId): Uint8Array => {

@@ -7,7 +7,6 @@ import {
   doesBlockOccludeNeighborFace,
   getBlockFaceTile,
   getBlockRenderPass,
-  isSolidBlock,
 } from './blocks.ts'
 import { CHUNK_SIZE } from './constants.ts'
 
@@ -201,20 +200,18 @@ export const buildChunkMesh = (world: VoxelWorld, coord: ChunkCoord): TerrainMes
     return {
       opaque: createEmptyMeshData(),
       cutout: createEmptyMeshData(),
+      translucent: createEmptyMeshData(),
     }
   }
 
   const opaqueMesh = createMeshAccumulator()
   const cutoutMesh = createMeshAccumulator()
+  const translucentMesh = createMeshAccumulator()
 
   for (let localY = 0; localY < CHUNK_SIZE; localY += 1) {
     for (let localZ = 0; localZ < CHUNK_SIZE; localZ += 1) {
       for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
         const blockId = chunk.get(localX, localY, localZ)
-        if (!isSolidBlock(blockId)) {
-          continue
-        }
-
         const renderPass = getBlockRenderPass(blockId)
         if (!renderPass) {
           continue
@@ -223,7 +220,12 @@ export const buildChunkMesh = (world: VoxelWorld, coord: ChunkCoord): TerrainMes
         const worldX = coord.x * CHUNK_SIZE + localX
         const worldY = coord.y * CHUNK_SIZE + localY
         const worldZ = coord.z * CHUNK_SIZE + localZ
-        const targetMesh = renderPass === 'opaque' ? opaqueMesh : cutoutMesh
+        const targetMesh =
+          renderPass === 'opaque'
+            ? opaqueMesh
+            : renderPass === 'cutout'
+              ? cutoutMesh
+              : translucentMesh
 
         for (const face of FACE_DEFINITIONS) {
           const [dx, dy, dz] = face.normal
@@ -250,5 +252,6 @@ export const buildChunkMesh = (world: VoxelWorld, coord: ChunkCoord): TerrainMes
   return {
     opaque: toMeshData(opaqueMesh),
     cutout: toMeshData(cutoutMesh),
+    translucent: toMeshData(translucentMesh),
   }
 }

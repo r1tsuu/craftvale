@@ -10,7 +10,7 @@ import { GENERATED_BLOCK_DEFINITIONS } from './generated/content-registry.ts'
 
 export type BlockFaceRole = 'top' | 'bottom' | 'side'
 export type BlockOcclusionMode = 'none' | 'full' | 'self'
-export type BlockRenderPass = 'opaque' | 'cutout'
+export type BlockRenderPass = 'opaque' | 'cutout' | 'translucent'
 
 export interface BlockTiles {
   top: AtlasTileId

@@ -261,6 +261,83 @@ test('creative block mutations neither spawn drops nor consume held items', asyn
   }
 })
 
+test('placing a solid block into water replaces the water cell', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-water-replace-'))
+  const storage = new BinaryWorldStorage(rootDir)
+
+  try {
+    const worldRecord = await storage.createWorld('WaterReplace', 42)
+    const world = new AuthoritativeWorld(worldRecord, storage)
+    const joined = await world.joinPlayer(PLAYER_A)
+
+    let targetX = 0
+    let targetZ = 0
+    let targetY = 0
+    let found = false
+    for (let worldZ = -32; worldZ <= 32 && !found; worldZ += 1) {
+      for (let worldX = -32; worldX <= 32; worldX += 1) {
+        const height = getTerrainHeight(worldRecord.seed, worldX, worldZ)
+        if (height >= 6) {
+          continue
+        }
+
+        const block = world
+          .getChunkPayload({
+            x: Math.floor(worldX / CHUNK_SIZE),
+            y: 0,
+            z: Math.floor(worldZ / CHUNK_SIZE),
+          })
+          .then((chunk) => {
+            const localX = ((worldX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+            const localZ = ((worldZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+            return chunk.blocks[
+              localX + localZ * CHUNK_SIZE + (height + 1) * CHUNK_SIZE * CHUNK_SIZE
+            ]
+          })
+        if ((await block) !== BLOCK_IDS.water) {
+          continue
+        }
+
+        targetX = worldX
+        targetZ = worldZ
+        targetY = height + 1
+        found = true
+        break
+      }
+    }
+
+    expect(found).toBe(true)
+
+    const before = world.getInventorySnapshot(joined.clientPlayer.entityId)
+    const placed = await world.applyBlockMutation(
+      joined.clientPlayer.entityId,
+      targetX,
+      targetY,
+      targetZ,
+      BLOCK_IDS.grass,
+    )
+
+    expect(placed.changedChunks).toHaveLength(1)
+    expect(placed.inventoryChanged).toBe(true)
+    expect(placed.inventory.slots[0]).toEqual({
+      itemId: before.slots[0]!.itemId,
+      count: before.slots[0]!.count - 1,
+    })
+
+    const changedChunk = await world.getChunkPayload({
+      x: Math.floor(targetX / CHUNK_SIZE),
+      y: 0,
+      z: Math.floor(targetZ / CHUNK_SIZE),
+    })
+    const localX = ((targetX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+    const localZ = ((targetZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+    const localIndex = localX + localZ * CHUNK_SIZE + targetY * CHUNK_SIZE * CHUNK_SIZE
+    expect(changedChunk.blocks[localIndex]).toBe(BLOCK_IDS.grass)
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('block mutations relight only the nearby loaded chunk neighborhood', async () => {
   const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-local-relight-'))
   const storage = new BinaryWorldStorage(rootDir)

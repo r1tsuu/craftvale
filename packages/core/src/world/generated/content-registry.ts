@@ -16,7 +16,7 @@ export interface GeneratedBlockDefinition {
   collidable: boolean;
   breakable: boolean;
   occlusion: "none" | "full" | "self";
-  renderPass: "opaque" | "cutout" | null;
+  renderPass: "opaque" | "cutout" | "translucent" | null;
   dropItemId: ItemId | null;
   emittedLightLevel: number;
   color: [number, number, number];
@@ -224,6 +224,22 @@ export const GENERATED_BLOCK_DEFINITIONS = {
       top: "glowstone",
       bottom: "glowstone",
       side: "glowstone",
+    },
+  },
+  [BLOCK_IDS.water]: {
+    id: BLOCK_IDS.water,
+    name: "water",
+    collidable: false,
+    breakable: false,
+    occlusion: "self",
+    renderPass: "translucent",
+    dropItemId: null,
+    emittedLightLevel: 0,
+    color: [0.25, 0.48, 0.82],
+    tiles: {
+      top: "water",
+      bottom: "water",
+      side: "water",
     },
   },
 } as const satisfies Record<BlockId, GeneratedBlockDefinition>;

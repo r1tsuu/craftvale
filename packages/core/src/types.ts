@@ -17,6 +17,7 @@ export interface MeshData {
 export interface TerrainMeshData {
   opaque: MeshData
   cutout: MeshData
+  translucent: MeshData
 }
 
 export interface InventorySlot {
