@@ -1,5 +1,4 @@
-import type {
-  VoxelWorld} from '@craftvale/core/shared';
+import type { VoxelWorld } from '@craftvale/core/shared'
 
 import {
   type BlockId,
@@ -20,7 +19,7 @@ import {
 } from '@craftvale/core/shared'
 
 import type { PlayerController } from '../game/player.ts'
-import type { NativeBridge } from '../platform/native.ts';
+import type { NativeBridge } from '../platform/native.ts'
 import type { UiResolvedComponent } from '../ui/components.ts'
 
 import { GL, loadTextAsset } from '../platform/native.ts'

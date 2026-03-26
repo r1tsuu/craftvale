@@ -1,5 +1,4 @@
-import type { PlayerState ,
-  VoxelWorld} from '@craftvale/core/shared'
+import type { PlayerState, VoxelWorld } from '@craftvale/core/shared'
 
 import {
   addVec3,
@@ -14,7 +13,7 @@ import {
   type PlayerSnapshot,
   scaleVec3,
   vec3,
-  type Vec3
+  type Vec3,
 } from '@craftvale/core/shared'
 
 import type { ClientSettings, InputState } from '../types.ts'

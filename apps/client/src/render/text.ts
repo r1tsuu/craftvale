@@ -1,6 +1,6 @@
 import { createOrthographicMat4 } from '@craftvale/core/shared'
 
-import type { NativeBridge } from '../platform/native.ts';
+import type { NativeBridge } from '../platform/native.ts'
 
 import { GL, loadTextAsset } from '../platform/native.ts'
 import { buildTextMesh } from './text-mesh.ts'

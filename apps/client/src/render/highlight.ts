@@ -1,6 +1,6 @@
 import type { Vec3 } from '@craftvale/core/shared'
 
-import type { NativeBridge } from '../platform/native.ts';
+import type { NativeBridge } from '../platform/native.ts'
 
 import { GL, loadTextAsset } from '../platform/native.ts'
 import { buildFocusHighlightMesh } from './highlight-mesh.ts'

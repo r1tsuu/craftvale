@@ -8,7 +8,7 @@ import {
   multiplyMat4,
 } from '@craftvale/core/shared'
 
-import type { NativeBridge } from '../platform/native.ts';
+import type { NativeBridge } from '../platform/native.ts'
 
 import { GL, loadTextAsset } from '../platform/native.ts'
 import { loadVoxelAtlasImageData } from '../world/atlas.ts'
