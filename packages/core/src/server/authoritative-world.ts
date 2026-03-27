@@ -127,12 +127,14 @@ export class AuthoritativeWorld {
   public constructor(
     private world: WorldSummary,
     private readonly storage: WorldStorage,
+    options?: { createInventory?: () => InventorySnapshot },
   ) {
     this.playerSystem = new PlayerSystem(
       this.world.name,
       this.storage,
       this.spawnPosition,
       this.entityState,
+      options?.createInventory,
     )
     this.droppedItemSystem = new DroppedItemSystem(
       this.world.name,

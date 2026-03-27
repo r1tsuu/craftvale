@@ -7,6 +7,7 @@ import type { BlockId } from '../packages/core/src/types.ts'
 
 import { AuthoritativeWorld } from '../packages/core/src/server/authoritative-world.ts'
 import { BinaryWorldStorage } from '../packages/core/src/server/world-storage.ts'
+import { createTestStarterInventory } from './helpers/test-inventory.ts'
 import { BLOCK_IDS, getDroppedItemIdForBlock } from '../packages/core/src/world/blocks.ts'
 import { Chunk } from '../packages/core/src/world/chunk.ts'
 import { CHUNK_SIZE, WORLD_SEA_LEVEL } from '../packages/core/src/world/constants.ts'
@@ -32,7 +33,7 @@ test('authoritative world keeps per-player state separate and persists it by pla
 
   try {
     const worldRecord = await storage.createWorld('Alpha', 42)
-    const world = new AuthoritativeWorld(worldRecord, storage)
+    const world = new AuthoritativeWorld(worldRecord, storage, { createInventory: createTestStarterInventory })
 
     const joinedA = await world.joinPlayer(PLAYER_A)
     expect(joinedA.clientPlayer.name).toBe(PLAYER_A)
@@ -77,7 +78,7 @@ test('authoritative world keeps per-player state separate and persists it by pla
 
     const reloadedRecord = await storage.getWorld('Alpha')
     expect(reloadedRecord).not.toBeNull()
-    const reloadedWorld = new AuthoritativeWorld(reloadedRecord!, storage)
+    const reloadedWorld = new AuthoritativeWorld(reloadedRecord!, storage, { createInventory: createTestStarterInventory })
 
     const rejoinedA = await reloadedWorld.joinPlayer(PLAYER_A)
     expect(rejoinedA.clientPlayer.entityId).toBe(joinedA.clientPlayer.entityId)
@@ -107,7 +108,7 @@ test('authoritative world spawns and persists dropped items until players pick t
 
   try {
     const worldRecord = await storage.createWorld('Drops', 42)
-    const world = new AuthoritativeWorld(worldRecord, storage)
+    const world = new AuthoritativeWorld(worldRecord, storage, { createInventory: createTestStarterInventory })
     const joined = await world.joinPlayer(PLAYER_A)
 
     const targetX = 1
@@ -136,7 +137,7 @@ test('authoritative world spawns and persists dropped items until players pick t
 
     const reloadedRecord = await storage.getWorld('Drops')
     expect(reloadedRecord).not.toBeNull()
-    const reloadedWorld = new AuthoritativeWorld(reloadedRecord!, storage)
+    const reloadedWorld = new AuthoritativeWorld(reloadedRecord!, storage, { createInventory: createTestStarterInventory })
     const rejoined = await reloadedWorld.joinPlayer(PLAYER_A)
     expect(rejoined.droppedItems).toHaveLength(1)
     expect(rejoined.droppedItems[0]?.itemId).toBe(droppedItemId!)
@@ -151,7 +152,7 @@ test('authoritative world pregenerates and persists the startup chunk set', asyn
 
   try {
     const worldRecord = await storage.createWorld('Startup', 42)
-    const world = new AuthoritativeWorld(worldRecord, storage)
+    const world = new AuthoritativeWorld(worldRecord, storage, { createInventory: createTestStarterInventory })
     const expectedCoords = world.getStartupChunkCoords()
     const progress: Array<{ completedChunks: number; totalChunks: number }> = []
 
@@ -195,7 +196,7 @@ test('survival cannot break bedrock but creative can', async () => {
 
   try {
     const worldRecord = await storage.createWorld('Bedrock', 42)
-    const world = new AuthoritativeWorld(worldRecord, storage)
+    const world = new AuthoritativeWorld(worldRecord, storage, { createInventory: createTestStarterInventory })
     const joined = await world.joinPlayer(PLAYER_A)
     const targetIndex = 1 + 1 * CHUNK_SIZE + 0 * CHUNK_SIZE * CHUNK_SIZE
 
@@ -224,7 +225,7 @@ test('creative block mutations neither spawn drops nor consume held items', asyn
 
   try {
     const worldRecord = await storage.createWorld('CreativeItems', 42)
-    const world = new AuthoritativeWorld(worldRecord, storage)
+    const world = new AuthoritativeWorld(worldRecord, storage, { createInventory: createTestStarterInventory })
     const joined = await world.joinPlayer(PLAYER_A)
     await world.setPlayerGamemode(joined.clientPlayer.entityId, 1)
 
@@ -276,7 +277,7 @@ test('placing a solid block into water replaces the water cell', async () => {
 
   try {
     const worldRecord = await storage.createWorld('WaterReplace', 42)
-    const world = new AuthoritativeWorld(worldRecord, storage)
+    const world = new AuthoritativeWorld(worldRecord, storage, { createInventory: createTestStarterInventory })
     const joined = await world.joinPlayer(PLAYER_A)
 
     let targetX = 0
@@ -341,7 +342,7 @@ test('block mutations relight only the nearby loaded chunk neighborhood', async 
 
   try {
     const worldRecord = await storage.createWorld('LocalRelight', 42)
-    const world = new AuthoritativeWorld(worldRecord, storage)
+    const world = new AuthoritativeWorld(worldRecord, storage, { createInventory: createTestStarterInventory })
     const joined = await world.joinPlayer(PLAYER_A)
     const targetY = WORLD_SEA_LEVEL + 8
     const targetChunk = worldToChunkCoord(1, targetY, 1).chunk

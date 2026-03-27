@@ -528,11 +528,6 @@ export const DEFAULT_STARTER_INVENTORY_STACK_SPECS = [
   },
   {
     slot: 8,
-    itemKey: 'cobblestone',
-    count: 64,
-  },
-  {
-    slot: 9,
     itemKey: 'glass',
     count: 64,
   },

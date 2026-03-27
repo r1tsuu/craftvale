@@ -62,6 +62,7 @@ export class PlayerSystem {
     private readonly storage: WorldStorage,
     private readonly spawnPosition: readonly [number, number, number],
     private readonly entities: WorldEntityState,
+    private readonly createInventory: () => InventorySnapshot = createStarterInventory,
   ) {}
 
   public getPlayerName(entityId: EntityId): PlayerName | null {
@@ -416,7 +417,7 @@ export class PlayerSystem {
       flying: false,
     })
     this.entities.playerInventory.set(entityId, {
-      inventory: createStarterInventory(),
+      inventory: this.createInventory(),
     })
     this.entities.playerSession.set(entityId, { active: false })
     this.entities.playerPersistence.set(entityId, {

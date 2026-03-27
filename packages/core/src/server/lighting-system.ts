@@ -9,7 +9,7 @@ import {
   normalizeWorldTimeState,
   type WorldTimeState,
 } from '../shared/lighting.ts'
-import { BLOCK_IDS, getBlockEmittedLightLevel } from '../world/blocks.ts'
+import { Blocks, BLOCK_IDS, getBlockEmittedLightLevel } from '../world/blocks.ts'
 import { CHUNK_HEIGHT, CHUNK_SIZE, WORLD_MAX_BLOCK_Y } from '../world/constants.ts'
 
 const LIGHT_DIRECTIONS = [
@@ -34,7 +34,7 @@ interface ChunkLightBuffers {
 
 const chunkKey = ({ x, z }: ChunkCoord): string => `${x},${z}`
 
-const isLightPassable = (blockId: BlockId): boolean => blockId === BLOCK_IDS.air
+const isLightPassable = (blockId: BlockId): boolean => Blocks[blockId].occlusion !== 'full'
 
 const localIndex = (localX: number, localY: number, localZ: number): number =>
   localX + CHUNK_SIZE * (localZ + CHUNK_SIZE * localY)
