@@ -30,13 +30,13 @@ test('starter inventory creates a full hotbar plus a starter brick stack', () =>
     { itemId: ITEM_IDS.stone, count: DEFAULT_INVENTORY_STACK_SIZE },
     { itemId: ITEM_IDS.log, count: DEFAULT_INVENTORY_STACK_SIZE },
     { itemId: ITEM_IDS.leaves, count: DEFAULT_INVENTORY_STACK_SIZE },
-    { itemId: ITEM_IDS.sand, count: DEFAULT_INVENTORY_STACK_SIZE },
+    { itemId: ITEM_IDS.empty, count: 0 },
     { itemId: ITEM_IDS.planks, count: DEFAULT_INVENTORY_STACK_SIZE },
     { itemId: ITEM_IDS.cobblestone, count: DEFAULT_INVENTORY_STACK_SIZE },
   ])
   expect(main).toHaveLength(MAIN_INVENTORY_SLOT_COUNT)
   expect(main[0]).toEqual({
-    itemId: ITEM_IDS.brick,
+    itemId: ITEM_IDS.glass,
     count: DEFAULT_INVENTORY_STACK_SIZE,
   })
   expect(main.slice(1).every((slot) => slot.itemId === ITEM_IDS.empty && slot.count === 0)).toBe(
@@ -102,7 +102,7 @@ test('adding items fills empty main-inventory stacks when hotbar stacks are full
 
   expect(result.added).toBe(5)
   expect(result.remaining).toBe(0)
-  expect(main[0]).toEqual({ itemId: ITEM_IDS.brick, count: 64 })
+  expect(main[0]).toEqual({ itemId: ITEM_IDS.glass, count: 64 })
   expect(main[1]).toEqual({ itemId: ITEM_IDS.grass, count: 5 })
 })
 

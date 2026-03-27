@@ -57,13 +57,13 @@ test('authoritative world keeps per-player state separate and persists it by pla
       joinedA.clientPlayer.entityId,
       getMainInventorySlotIndex(0),
     )
-    expect(liftedStack.cursor).toEqual({ itemId: ITEM_IDS.brick, count: 64 })
+    expect(liftedStack.cursor).toEqual({ itemId: ITEM_IDS.glass, count: 64 })
     const placedStack = await world.interactInventorySlot(
       joinedA.clientPlayer.entityId,
       getMainInventorySlotIndex(1),
     )
     expect(placedStack.cursor).toBeNull()
-    expect(getMainInventorySlots(placedStack)[1]).toEqual({ itemId: ITEM_IDS.brick, count: 64 })
+    expect(getMainInventorySlots(placedStack)[1]).toEqual({ itemId: ITEM_IDS.glass, count: 64 })
 
     const joinedB = await world.joinPlayer(PLAYER_B)
     expect(joinedB.clientPlayer.name).toBe(PLAYER_B)
@@ -87,7 +87,7 @@ test('authoritative world keeps per-player state separate and persists it by pla
     expect(rejoinedA.clientPlayer.flying).toBe(false)
     expect(rejoinedA.inventory.selectedSlot).toBe(4)
     expect(getMainInventorySlots(rejoinedA.inventory)[1]).toEqual({
-      itemId: ITEM_IDS.brick,
+      itemId: ITEM_IDS.glass,
       count: 64,
     })
 

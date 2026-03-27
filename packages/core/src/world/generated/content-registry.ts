@@ -324,6 +324,23 @@ export const GENERATED_BLOCK_DEFINITIONS = {
       side: "diamond-ore",
     },
   },
+  [BLOCK_IDS.glass]: {
+    id: BLOCK_IDS.glass,
+    name: "glass",
+    collidable: true,
+    breakable: true,
+    occlusion: "self",
+    renderPass: "translucent",
+    dropItemId: ITEM_IDS.glass,
+    emittedLightLevel: 0,
+    durability: 600,
+    color: [0.85, 0.93, 0.98],
+    tiles: {
+      top: "glass",
+      bottom: "glass",
+      side: "glass",
+    },
+  },
   [BLOCK_IDS.playerArm]: {
     id: BLOCK_IDS.playerArm,
     name: "player arm",
@@ -464,6 +481,14 @@ export const GENERATED_ITEM_DEFINITIONS = {
     placesBlockId: BLOCK_IDS.diamondOre,
     renderBlockId: BLOCK_IDS.diamondOre,
   },
+  [ITEM_IDS.glass]: {
+    id: ITEM_IDS.glass,
+    name: "glass",
+    color: [0.85, 0.93, 0.98],
+    maxStackSize: 64,
+    placesBlockId: BLOCK_IDS.glass,
+    renderBlockId: BLOCK_IDS.glass,
+  },
 } as const satisfies Record<ItemId, GeneratedItemDefinition>;
 
 export const STARTER_INVENTORY_STACKS = [
@@ -473,8 +498,7 @@ export const STARTER_INVENTORY_STACKS = [
   { slot: 3, itemId: ITEM_IDS.stone, count: 64 },
   { slot: 4, itemId: ITEM_IDS.log, count: 64 },
   { slot: 5, itemId: ITEM_IDS.leaves, count: 64 },
-  { slot: 6, itemId: ITEM_IDS.sand, count: 64 },
   { slot: 7, itemId: ITEM_IDS.planks, count: 64 },
   { slot: 8, itemId: ITEM_IDS.cobblestone, count: 64 },
-  { slot: 9, itemId: ITEM_IDS.brick, count: 64 },
+  { slot: 9, itemId: ITEM_IDS.glass, count: 64 },
 ] as const satisfies readonly StarterInventoryStackDefinition[];

@@ -324,6 +324,23 @@ export const AUTHORED_BLOCK_SPECS = [
     },
   },
   {
+    key: 'glass',
+    name: 'glass',
+    collidable: true,
+    breakable: true,
+    occlusion: 'self',
+    renderPass: 'translucent',
+    dropItemKey: 'glass',
+    emittedLightLevel: 0,
+    durability: 600,
+    color: [0.85, 0.93, 0.98],
+    tiles: {
+      top: 'glass',
+      bottom: 'glass',
+      side: 'glass',
+    },
+  },
+  {
     key: 'playerArm',
     name: 'player arm',
     collidable: false,
@@ -463,6 +480,14 @@ export const AUTHORED_ITEM_SPECS = [
     placesBlockKey: 'diamondOre',
     renderBlockKey: 'diamondOre',
   },
+  {
+    key: 'glass',
+    name: 'glass',
+    color: [0.85, 0.93, 0.98],
+    maxStackSize: 64,
+    placesBlockKey: 'glass',
+    renderBlockKey: 'glass',
+  },
 ] as const satisfies readonly AuthoredItemSpec[]
 
 export const DEFAULT_STARTER_INVENTORY_STACK_SPECS = [
@@ -497,11 +522,6 @@ export const DEFAULT_STARTER_INVENTORY_STACK_SPECS = [
     count: 64,
   },
   {
-    slot: 6,
-    itemKey: 'sand',
-    count: 64,
-  },
-  {
     slot: 7,
     itemKey: 'planks',
     count: 64,
@@ -513,7 +533,7 @@ export const DEFAULT_STARTER_INVENTORY_STACK_SPECS = [
   },
   {
     slot: 9,
-    itemKey: 'brick',
+    itemKey: 'glass',
     count: 64,
   },
 ] as const satisfies readonly StarterInventoryStackSpec[]

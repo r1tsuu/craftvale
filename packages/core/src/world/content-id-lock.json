@@ -17,7 +17,8 @@
     "ironOre": 14,
     "goldOre": 15,
     "diamondOre": 16,
-    "playerArm": 17
+    "playerArm": 17,
+    "glass": 18
   },
   "items": {
     "empty": 0,
@@ -34,6 +35,7 @@
     "coalOre": 111,
     "ironOre": 112,
     "goldOre": 113,
-    "diamondOre": 114
+    "diamondOre": 114,
+    "glass": 115
   }
 }

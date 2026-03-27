@@ -190,17 +190,16 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
     expect(joined.droppedItems).toEqual([])
     expect(harness.worldRuntime.droppedItems.size).toBe(0)
     expect(harness.worldRuntime.inventory.selectedSlot).toBe(0)
-    expect(
-      getHotbarInventorySlots(harness.worldRuntime.inventory).every(
-        (slot) => slot.count === DEFAULT_INVENTORY_STACK_SIZE,
-      ),
-    ).toBe(true)
     expect(getHotbarInventorySlots(harness.worldRuntime.inventory)[1]).toEqual({
       itemId: ITEM_IDS.glowstone,
       count: DEFAULT_INVENTORY_STACK_SIZE,
     })
+    expect(getHotbarInventorySlots(harness.worldRuntime.inventory)[6]).toEqual({
+      itemId: ITEM_IDS.empty,
+      count: 0,
+    })
     expect(getMainInventorySlots(harness.worldRuntime.inventory)[0]).toEqual({
-      itemId: ITEM_IDS.brick,
+      itemId: ITEM_IDS.glass,
       count: DEFAULT_INVENTORY_STACK_SIZE,
     })
     expect(
@@ -251,7 +250,7 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
     expect(changedChunkReceived).toBe(true)
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(BLOCK_IDS.air)
     expect(getMainInventorySlots(harness.worldRuntime.inventory)[0]).toEqual({
-      itemId: ITEM_IDS.brick,
+      itemId: ITEM_IDS.glass,
       count: DEFAULT_INVENTORY_STACK_SIZE,
     })
     expect(
@@ -306,7 +305,7 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
       },
     })
     await harness.advance()
-    expect(harness.worldRuntime.inventory.cursor).toEqual({ itemId: ITEM_IDS.brick, count: 64 })
+    expect(harness.worldRuntime.inventory.cursor).toEqual({ itemId: ITEM_IDS.glass, count: 64 })
 
     harness.client.eventBus.send({
       type: 'interactInventorySlot',
@@ -317,7 +316,7 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
     await harness.advance()
     expect(harness.worldRuntime.inventory.cursor).toBeNull()
     expect(getMainInventorySlots(harness.worldRuntime.inventory)[2]).toEqual({
-      itemId: ITEM_IDS.brick,
+      itemId: ITEM_IDS.glass,
       count: 64,
     })
 
@@ -336,7 +335,7 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
     })
     await harness.advance()
     expect(getHotbarInventorySlots(harness.worldRuntime.inventory)[8]).toEqual({
-      itemId: ITEM_IDS.brick,
+      itemId: ITEM_IDS.glass,
       count: 64,
     })
     expect(harness.worldRuntime.inventory.cursor).toEqual({

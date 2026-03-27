@@ -331,6 +331,21 @@ const createGoldOrePixel = (x: number, y: number): Rgba =>
 const createDiamondOrePixel = (x: number, y: number): Rgba =>
   createOrePixel(x, y, 0x31dd9a, rgba(92, 230, 230), 2)
 
+const createGlassPixel = (x: number, y: number): Rgba => {
+  const isBorder = x === 0 || y === 0 || x === 15 || y === 15
+  if (isBorder) {
+    return rgba(195, 224, 240, 230)
+  }
+  const noise = hash2d(x, y, 0x3be8f1)
+  const tintAmount = ((noise & 0x3) - 1) * 3
+  return rgba(
+    clampColor(200 + tintAmount),
+    clampColor(230 + tintAmount),
+    clampColor(245 + tintAmount),
+    28,
+  )
+}
+
 const createArmPixel = (x: number, y: number): Rgba => {
   const base = rgba(195, 155, 120)
   const noise = hash2d(x, y, 0x7a3c1e)
@@ -357,6 +372,7 @@ const DEFAULT_TILE_PIXEL_FACTORIES: Record<AtlasTileId, (x: number, y: number) =
   'gold-ore': createGoldOrePixel,
   'diamond-ore': createDiamondOrePixel,
   arm: createArmPixel,
+  glass: createGlassPixel,
 }
 
 export const buildDefaultVoxelTilePixels = (tileId: AtlasTileId): Uint8Array => {
