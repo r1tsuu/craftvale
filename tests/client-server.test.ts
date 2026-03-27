@@ -12,7 +12,6 @@ import type {
 import { PortClientAdapter } from '../apps/client/src/app/client-adapter.ts'
 import { ClientWorldRuntime } from '../apps/client/src/app/world-runtime.ts'
 import { AuthoritativeWorld } from '../packages/core/src/server/authoritative-world.ts'
-import { createTestStarterInventory } from './helpers/test-inventory.ts'
 import { ServerRuntime } from '../packages/core/src/server/runtime.ts'
 import { PortServerAdapter } from '../packages/core/src/server/server-adapter.ts'
 import { BinaryWorldStorage } from '../packages/core/src/server/world-storage.ts'
@@ -27,6 +26,7 @@ import {
 import { ITEM_IDS } from '../packages/core/src/world/items.ts'
 import { getTerrainHeight } from '../packages/core/src/world/terrain.ts'
 import { worldToChunkCoord } from '../packages/core/src/world/world.ts'
+import { createTestStarterInventory } from './helpers/test-inventory.ts'
 
 const PLAYER_NAME = 'Alice'
 const SERVER_TICK_WAIT_MS = 25
@@ -61,13 +61,17 @@ const createHarness = async (): Promise<{
   const storage = new BinaryWorldStorage(rootDir)
   const worldRecord = await storage.createWorld('Alpha', 42)
   let nowMs = 0
-  const serverRuntime = new ServerRuntime(server, new AuthoritativeWorld(worldRecord, storage, { createInventory: createTestStarterInventory }), {
-    tickIntervalMs: 10,
-    maxCatchUpTicks: 100,
-    autoSaveIntervalTicks: 10,
-    autoStart: false,
-    now: () => nowMs,
-  })
+  const serverRuntime = new ServerRuntime(
+    server,
+    new AuthoritativeWorld(worldRecord, storage, { createInventory: createTestStarterInventory }),
+    {
+      tickIntervalMs: 10,
+      maxCatchUpTicks: 100,
+      autoSaveIntervalTicks: 10,
+      autoStart: false,
+      now: () => nowMs,
+    },
+  )
 
   client.eventBus.on('chunkDelivered', ({ chunk }) => {
     worldRuntime.applyChunk(chunk)

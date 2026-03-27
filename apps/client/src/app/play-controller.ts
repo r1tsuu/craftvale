@@ -24,11 +24,7 @@ import type { UiResolvedComponent } from '../ui/components.ts'
 import type { IClientAdapter } from './client-adapter.ts'
 import type { ClientWorldRuntime } from './world-runtime.ts'
 
-import {
-  advanceBreakState,
-  type BreakState,
-  getBreakProgress,
-} from '../game/break-state.ts'
+import { advanceBreakState, type BreakState, getBreakProgress } from '../game/break-state.ts'
 import {
   applyFixedStepInputEdges,
   createPendingFixedStepInputEdges,
@@ -204,10 +200,13 @@ export class PlayController {
     const focusedBlock = focusHit?.hit ?? null
 
     let breakProgress = 0
-    if (this.breakState !== null && focusedBlock !== null &&
-        this.breakState.x === focusedBlock.x &&
-        this.breakState.y === focusedBlock.y &&
-        this.breakState.z === focusedBlock.z) {
+    if (
+      this.breakState !== null &&
+      focusedBlock !== null &&
+      this.breakState.x === focusedBlock.x &&
+      this.breakState.y === focusedBlock.y &&
+      this.breakState.z === focusedBlock.z
+    ) {
       const blockId = worldRuntime.world.getBlock(focusedBlock.x, focusedBlock.y, focusedBlock.z)
       const localGamemode = worldRuntime.getClientPlayer()?.gamemode ?? this.deps.player.gamemode
       const durability = localGamemode === 1 ? 0 : getBlockDurability(blockId)

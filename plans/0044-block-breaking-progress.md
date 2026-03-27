@@ -20,18 +20,18 @@ through the generator; no generator changes are needed beyond the new field.
 
 Representative defaults:
 
-| Block      | Durability (ms) |
-| ---------- | --------------- |
-| air        | 0               |
-| grass      | 600             |
-| dirt       | 600             |
-| sand       | 600             |
-| gravel     | 700             |
-| wood/log   | 900             |
-| stone      | 1500            |
-| cobblestone| 1500            |
-| ore blocks | 2000            |
-| bedrock    | 0 (unbreakable) |
+| Block       | Durability (ms) |
+| ----------- | --------------- |
+| air         | 0               |
+| grass       | 600             |
+| dirt        | 600             |
+| sand        | 600             |
+| gravel      | 700             |
+| wood/log    | 900             |
+| stone       | 1500            |
+| cobblestone | 1500            |
+| ore blocks  | 2000            |
+| bedrock     | 0 (unbreakable) |
 
 `durability: 0` means the block breaks on the first tick the button is held (or pressed), which
 matches the current instant-remove behavior. Bedrock already has `breakable: false` so it is
@@ -100,7 +100,7 @@ Expose the current progress (0–1) for the renderer by including it in `PlayTic
 ```ts
 export interface PlayTickResult {
   focusedBlock: Vec3 | null
-  breakProgress: number   // 0 = no progress, 1 = breaking (shown only when < 1 and > 0)
+  breakProgress: number // 0 = no progress, 1 = breaking (shown only when < 1 and > 0)
   overlayText: TextDrawCommand[]
   uiComponents: UiResolvedComponent[]
   remainingAccumulator: number
@@ -165,20 +165,20 @@ field. Representative values follow the table above. After editing content-spec,
 
 ## Important Files
 
-| File | Change |
-| ---- | ------ |
-| `packages/core/src/world/content-spec.ts` | Add `durability: number` to `AuthoredBlockSpec`; fill values for all blocks |
-| `packages/core/src/world/blocks.ts` | Add `durability` to `BlockDefinition`; export `getBlockDurability()` |
-| `packages/core/src/world/generated/content-registry.ts` | Re-generated — do not hand-edit |
-| `apps/client/src/app/play-controller.ts` | Replace press-edge break with hold-progress loop; add `breakState`; add `breakProgress` to `PlayTickResult` |
-| `apps/client/src/app/game-app.ts` | Pass `breakProgress` from tick result to renderer |
-| `apps/client/src/render/highlight.ts` | Add `breakProgress` parameter to `render()` |
-| `apps/client/src/render/highlight-mesh.ts` | Replace constant color with progress-interpolated color |
-| `apps/client/src/render/renderer.ts` | Forward `breakProgress` to `focusHighlightRenderer.render()` |
-| `apps/client/src/game/break-state.ts` | New file — pure `advanceBreakState` / `getBreakProgress` helpers |
-| `tests/highlight.test.ts` | Extend with progress color-interpolation assertions |
-| `tests/blocks.test.ts` | New file — `getBlockDurability` unit tests |
-| `tests/break-state.test.ts` | New file — pure break-state machine unit tests |
+| File                                                    | Change                                                                                                      |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/world/content-spec.ts`               | Add `durability: number` to `AuthoredBlockSpec`; fill values for all blocks                                 |
+| `packages/core/src/world/blocks.ts`                     | Add `durability` to `BlockDefinition`; export `getBlockDurability()`                                        |
+| `packages/core/src/world/generated/content-registry.ts` | Re-generated — do not hand-edit                                                                             |
+| `apps/client/src/app/play-controller.ts`                | Replace press-edge break with hold-progress loop; add `breakState`; add `breakProgress` to `PlayTickResult` |
+| `apps/client/src/app/game-app.ts`                       | Pass `breakProgress` from tick result to renderer                                                           |
+| `apps/client/src/render/highlight.ts`                   | Add `breakProgress` parameter to `render()`                                                                 |
+| `apps/client/src/render/highlight-mesh.ts`              | Replace constant color with progress-interpolated color                                                     |
+| `apps/client/src/render/renderer.ts`                    | Forward `breakProgress` to `focusHighlightRenderer.render()`                                                |
+| `apps/client/src/game/break-state.ts`                   | New file — pure `advanceBreakState` / `getBreakProgress` helpers                                            |
+| `tests/highlight.test.ts`                               | Extend with progress color-interpolation assertions                                                         |
+| `tests/blocks.test.ts`                                  | New file — `getBlockDurability` unit tests                                                                  |
+| `tests/break-state.test.ts`                             | New file — pure break-state machine unit tests                                                              |
 
 ## Tests
 

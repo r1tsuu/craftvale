@@ -60,33 +60,33 @@ Two changes to `DEFAULT_STARTER_INVENTORY_STACK_SPECS`:
 
 Before:
 
-| Slot | Item |
-| ---- | ---- |
-| 0    | grass |
-| 1    | glowstone |
-| 2    | dirt |
-| 3    | stone |
-| 4    | log |
-| 5    | leaves |
-| 6    | sand |
-| 7    | planks |
+| Slot | Item        |
+| ---- | ----------- |
+| 0    | grass       |
+| 1    | glowstone   |
+| 2    | dirt        |
+| 3    | stone       |
+| 4    | log         |
+| 5    | leaves      |
+| 6    | sand        |
+| 7    | planks      |
 | 8    | cobblestone |
-| 9    | brick |
+| 9    | brick       |
 
 After:
 
-| Slot | Item |
-| ---- | ---- |
-| 0    | grass |
-| 1    | glowstone |
-| 2    | dirt |
-| 3    | stone |
-| 4    | log |
-| 5    | leaves |
-| 6    | *(empty)* |
-| 7    | planks |
+| Slot | Item        |
+| ---- | ----------- |
+| 0    | grass       |
+| 1    | glowstone   |
+| 2    | dirt        |
+| 3    | stone       |
+| 4    | log         |
+| 5    | leaves      |
+| 6    | _(empty)_   |
+| 7    | planks      |
 | 8    | cobblestone |
-| 9    | glass |
+| 9    | glass       |
 
 ### 4. Atlas tile — `atlas.ts`
 
@@ -114,7 +114,7 @@ export type AtlasTileId =
   | 'gold-ore'
   | 'diamond-ore'
   | 'arm'
-  | 'glass'   // ← new
+  | 'glass' // ← new
 ```
 
 ### 5. Tile pixel factory — `default-voxel-tile-sources.ts`
@@ -160,13 +160,13 @@ be appended; `content-id-lock.json` should receive two new entries (`glass` bloc
 
 ## Important Files
 
-| File | Change |
-| ---- | ------ |
-| `packages/core/src/world/content-spec.ts` | Add `glass` block spec, item spec; update default starter inventory |
-| `packages/core/src/world/atlas.ts` | Add `'glass'` to `AtlasTileId` |
-| `apps/cli/src/default-voxel-tile-sources.ts` | Add `createGlassPixel` and register in factory map |
-| `packages/core/src/world/generated/content-registry.ts` | Re-generated — do not hand-edit |
-| `packages/core/src/world/generated/content-id-lock.json` | Re-generated — do not hand-edit |
+| File                                                     | Change                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------- |
+| `packages/core/src/world/content-spec.ts`                | Add `glass` block spec, item spec; update default starter inventory |
+| `packages/core/src/world/atlas.ts`                       | Add `'glass'` to `AtlasTileId`                                      |
+| `apps/cli/src/default-voxel-tile-sources.ts`             | Add `createGlassPixel` and register in factory map                  |
+| `packages/core/src/world/generated/content-registry.ts`  | Re-generated — do not hand-edit                                     |
+| `packages/core/src/world/generated/content-id-lock.json` | Re-generated — do not hand-edit                                     |
 
 ## Tests
 
@@ -174,7 +174,7 @@ be appended; `content-id-lock.json` should receive two new entries (`glass` bloc
 
 ```ts
 test('glass block spec has translucent render pass and self occlusion', () => {
-  const spec = AUTHORED_BLOCK_SPECS.find(b => b.key === 'glass')
+  const spec = AUTHORED_BLOCK_SPECS.find((b) => b.key === 'glass')
   expect(spec).toBeDefined()
   expect(spec!.renderPass).toBe('translucent')
   expect(spec!.occlusion).toBe('self')
@@ -183,23 +183,23 @@ test('glass block spec has translucent render pass and self occlusion', () => {
 })
 
 test('glass item spec places the glass block', () => {
-  const item = AUTHORED_ITEM_SPECS.find(i => i.key === 'glass')
+  const item = AUTHORED_ITEM_SPECS.find((i) => i.key === 'glass')
   expect(item).toBeDefined()
   expect(item!.placesBlockKey).toBe('glass')
 })
 
 test('default starter inventory slot 6 is empty', () => {
-  const slot6 = DEFAULT_STARTER_INVENTORY_STACK_SPECS.find(s => s.slot === 6)
+  const slot6 = DEFAULT_STARTER_INVENTORY_STACK_SPECS.find((s) => s.slot === 6)
   expect(slot6).toBeUndefined()
 })
 
 test('default starter inventory slot 9 is glass', () => {
-  const slot9 = DEFAULT_STARTER_INVENTORY_STACK_SPECS.find(s => s.slot === 9)
+  const slot9 = DEFAULT_STARTER_INVENTORY_STACK_SPECS.find((s) => s.slot === 9)
   expect(slot9?.itemKey).toBe('glass')
 })
 
 test('sand is not in default starter inventory', () => {
-  const hasSand = DEFAULT_STARTER_INVENTORY_STACK_SPECS.some(s => s.itemKey === 'sand')
+  const hasSand = DEFAULT_STARTER_INVENTORY_STACK_SPECS.some((s) => s.itemKey === 'sand')
   expect(hasSand).toBe(false)
 })
 ```

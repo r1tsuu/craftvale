@@ -20,7 +20,5 @@ test('stone has higher durability than dirt', () => {
 })
 
 test('ore blocks have higher durability than stone', () => {
-  expect(getBlockDurability(BLOCK_IDS.coalOre)).toBeGreaterThan(
-    getBlockDurability(BLOCK_IDS.stone),
-  )
+  expect(getBlockDurability(BLOCK_IDS.coalOre)).toBeGreaterThan(getBlockDurability(BLOCK_IDS.stone))
 })

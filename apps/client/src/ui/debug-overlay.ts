@@ -183,9 +183,7 @@ export const buildDebugOverlayText = (input: DebugOverlayInput): TextDrawCommand
       ? [
           createDebugTextCommand(
             `${Math.round(input.breakProgress * 100)}%`,
-            valueX +
-              measureTextWidth(input.focusedBlockKey, DEBUG_LINE_SCALE) +
-              DEBUG_INLINE_GAP,
+            valueX + measureTextWidth(input.focusedBlockKey, DEBUG_LINE_SCALE) + DEBUG_INLINE_GAP,
             DEBUG_LINE_START_Y + DEBUG_LINE_GAP * 6,
             DEBUG_LINE_SCALE,
             getDebugBreakProgressColor(input.breakProgress),

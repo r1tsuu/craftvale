@@ -9,7 +9,7 @@ import {
   normalizeWorldTimeState,
   type WorldTimeState,
 } from '../shared/lighting.ts'
-import { Blocks, BLOCK_IDS, getBlockEmittedLightLevel } from '../world/blocks.ts'
+import { BLOCK_IDS, Blocks, getBlockEmittedLightLevel } from '../world/blocks.ts'
 import { CHUNK_HEIGHT, CHUNK_SIZE, WORLD_MAX_BLOCK_Y } from '../world/constants.ts'
 
 const LIGHT_DIRECTIONS = [
