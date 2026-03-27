@@ -166,6 +166,106 @@ test('client/server request-response correlation and error events work', async (
   }
 })
 
+test('/give adds items by key name with default amount', async () => {
+  const harness = await createHarness()
+
+  try {
+    const joined = await harness.client.eventBus.send({
+      type: 'joinWorld',
+      payload: { playerName: PLAYER_NAME },
+    })
+    harness.worldRuntime.reset()
+    harness.worldRuntime.applyJoinedWorld(joined)
+
+    harness.client.eventBus.send({
+      type: 'submitChat',
+      payload: { text: '/give stone' },
+    })
+    await Bun.sleep(0)
+
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toBe('Gave 64 x stone.')
+    // Starter already has 64 stone (full stack); give adds another full stack.
+    const stoneCount = harness.worldRuntime.inventory.slots
+      .filter((s) => s.itemId === ITEM_IDS.stone)
+      .reduce((sum, s) => sum + s.count, 0)
+    expect(stoneCount).toBe(128)
+  } finally {
+    await harness.serverRuntime.shutdown()
+    harness.client.close()
+    await rm(harness.rootDir, { recursive: true, force: true })
+  }
+})
+
+test('/give adds items by numeric ID with explicit amount', async () => {
+  const harness = await createHarness()
+
+  try {
+    const joined = await harness.client.eventBus.send({
+      type: 'joinWorld',
+      payload: { playerName: PLAYER_NAME },
+    })
+    harness.worldRuntime.reset()
+    harness.worldRuntime.applyJoinedWorld(joined)
+
+    harness.client.eventBus.send({
+      type: 'submitChat',
+      payload: { text: '/give 103 10' },
+    })
+    await Bun.sleep(0)
+
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toBe('Gave 10 x 103.')
+    // Starter already has 64 stone; give adds 10 more in a new slot.
+    const stoneCount = harness.worldRuntime.inventory.slots
+      .filter((s) => s.itemId === ITEM_IDS.stone)
+      .reduce((sum, s) => sum + s.count, 0)
+    expect(stoneCount).toBe(74)
+  } finally {
+    await harness.serverRuntime.shutdown()
+    harness.client.close()
+    await rm(harness.rootDir, { recursive: true, force: true })
+  }
+})
+
+test('/give rejects unknown item names and invalid amounts', async () => {
+  const harness = await createHarness()
+
+  try {
+    const joined = await harness.client.eventBus.send({
+      type: 'joinWorld',
+      payload: { playerName: PLAYER_NAME },
+    })
+    harness.worldRuntime.reset()
+    harness.worldRuntime.applyJoinedWorld(joined)
+
+    harness.client.eventBus.send({
+      type: 'submitChat',
+      payload: { text: '/give notanitem' },
+    })
+    await Bun.sleep(0)
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toBe('Unknown item: notanitem')
+
+    harness.client.eventBus.send({
+      type: 'submitChat',
+      payload: { text: '/give stone -5' },
+    })
+    await Bun.sleep(0)
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toBe(
+      'Amount must be a positive integer.',
+    )
+
+    harness.client.eventBus.send({
+      type: 'submitChat',
+      payload: { text: '/give' },
+    })
+    await Bun.sleep(0)
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toBe('Usage: /give <key|id> [amount]')
+  } finally {
+    await harness.serverRuntime.shutdown()
+    harness.client.close()
+    await rm(harness.rootDir, { recursive: true, force: true })
+  }
+})
+
 test('authoritative chunk delivery and mutation updates the replicated client world', async () => {
   const harness = await createHarness()
 

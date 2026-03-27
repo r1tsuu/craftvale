@@ -118,14 +118,15 @@ bun run dev:full  -- --client-dir=./client-data --server-dir=./server-data
 
 ### In-Game Commands
 
-| Command                       | Effect                   |
-| ----------------------------- | ------------------------ |
-| `/gamemode 0`                 | Switch to normal mode    |
-| `/gamemode 1`                 | Switch to creative mode  |
-| `/save`                       | Immediate world save     |
-| `/seed`                       | Print world seed to chat |
-| `/teleport <x> <y> <z>`       | Move to coordinates      |
-| `/timeset day\|night\|<tick>` | Change world time        |
+| Command                       | Effect                                           |
+| ----------------------------- | ------------------------------------------------ |
+| `/gamemode 0`                 | Switch to normal mode                            |
+| `/gamemode 1`                 | Switch to creative mode                          |
+| `/give <key\|id> [amount]`    | Add items by key name or numeric ID (default 64) |
+| `/save`                       | Immediate world save                             |
+| `/seed`                       | Print world seed to chat                         |
+| `/teleport <x> <y> <z>`       | Move to coordinates                              |
+| `/timeset day\|night\|<tick>` | Change world time                                |
 
 The authoritative server autosaves periodically; successful autosaves are printed to chat.
 

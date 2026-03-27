@@ -4,6 +4,7 @@ import type {
   DroppedItemSnapshot,
   EntityId,
   InventorySnapshot,
+  ItemId,
   PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
@@ -27,7 +28,7 @@ import {
   STARTUP_CHUNK_RADIUS,
   WORLD_SEA_LEVEL,
 } from '../world/constants.ts'
-import { getPlacedBlockIdForItem } from '../world/items.ts'
+import { getPlacedBlockIdForItem, isValidItemId } from '../world/items.ts'
 import { createGeneratedChunk, getTerrainHeight } from '../world/terrain.ts'
 import { worldToChunkCoord } from '../world/world.ts'
 import { type DroppedItemSimulationResult, DroppedItemSystem } from './dropped-item-system.ts'
@@ -284,6 +285,19 @@ export class AuthoritativeWorld {
   public async interactInventorySlot(entityId: EntityId, slot: number): Promise<InventorySnapshot> {
     await this.ensureInitialized()
     return this.playerSystem.interactInventorySlot(entityId, slot)
+  }
+
+  public async givePlayerItem(
+    entityId: EntityId,
+    itemId: ItemId,
+    count: number,
+  ): Promise<{ added: number; remaining: number; inventory: InventorySnapshot }> {
+    await this.ensureInitialized()
+    if (!isValidItemId(itemId)) {
+      throw new Error(`Invalid item ID: ${itemId}`)
+    }
+    const result = this.playerSystem.addInventoryItem(entityId, itemId, count)
+    return { added: result.added, remaining: result.remaining, inventory: result.inventory }
   }
 
   public getWorldTimeState(): WorldTimeState {

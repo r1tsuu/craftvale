@@ -11,6 +11,7 @@ import {
   type ServerEventMap,
 } from '../shared/messages.ts'
 import { isWithinWorldBlockY, WORLD_MAX_BLOCK_Y, WORLD_MIN_BLOCK_Y } from '../world/constants.ts'
+import { isValidItemId, ITEM_IDS } from '../world/items.ts'
 
 type QueuedGameplayIntentInput =
   | Omit<Extract<QueuedGameplayIntent, { kind: 'mutateBlock' }>, 'sequence'>
@@ -354,6 +355,9 @@ export class WorldSessionController implements WorldSessionPeer {
       case 'timeset':
         await this.handleTimesetCommand(world, args)
         return
+      case 'give':
+        await this.handleGiveCommand(world, playerEntityId, args)
+        return
       default:
         this.emitSystemMessage(`Unknown command: ${commandName}`)
     }
@@ -454,6 +458,53 @@ export class WorldSessionController implements WorldSessionPeer {
       payload: { worldTime },
     })
     this.emitSystemMessage(`Time set to Day ${worldTime.dayCount + 1} ${worldTime.timeOfDayTicks}.`)
+  }
+
+  private async handleGiveCommand(
+    world: AuthoritativeWorld,
+    playerEntityId: EntityId,
+    args: string[],
+  ): Promise<void> {
+    const [idToken, amountToken] = args
+    if (!idToken) {
+      this.emitSystemMessage('Usage: /give <key|id> [amount]')
+      return
+    }
+
+    // Resolve by item key name first, then fall back to numeric ID.
+    const byKey = ITEM_IDS[idToken as keyof typeof ITEM_IDS]
+    const byNumber = Number(idToken)
+    const itemId = byKey ?? (Number.isInteger(byNumber) ? byNumber : undefined)
+
+    if (itemId === undefined || itemId === ITEM_IDS.empty || !isValidItemId(itemId)) {
+      this.emitSystemMessage(`Unknown item: ${idToken}`)
+      return
+    }
+
+    const amount = amountToken !== undefined ? Math.trunc(Number(amountToken)) : 64
+    if (!Number.isFinite(amount) || amount <= 0) {
+      this.emitSystemMessage('Amount must be a positive integer.')
+      return
+    }
+
+    const result = await world.givePlayerItem(playerEntityId, itemId, amount)
+    if (result.added > 0) {
+      this.host.sendToPlayer(playerEntityId, {
+        type: 'inventoryUpdated',
+        payload: {
+          playerEntityId,
+          playerName: this.requireCurrentPlayerName(world),
+          inventory: result.inventory,
+        },
+      })
+    }
+    if (result.added === 0) {
+      this.emitSystemMessage('Inventory is full.')
+    } else if (result.remaining > 0) {
+      this.emitSystemMessage(`Gave ${result.added} x ${idToken} (${result.remaining} did not fit).`)
+    } else {
+      this.emitSystemMessage(`Gave ${result.added} x ${idToken}.`)
+    }
   }
 
   private enqueueIntent(intent: QueuedGameplayIntentInput): void {
