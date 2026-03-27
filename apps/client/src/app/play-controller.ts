@@ -305,7 +305,7 @@ export class PlayController {
     } else if (input.hotbarScrollDelta !== 0) {
       const currentSlot = worldRuntime.inventory.selectedSlot
       const next =
-        ((currentSlot + Math.sign(input.hotbarScrollDelta)) % HOTBAR_SLOT_COUNT +
+        (((currentSlot + Math.sign(input.hotbarScrollDelta)) % HOTBAR_SLOT_COUNT) +
           HOTBAR_SLOT_COUNT) %
         HOTBAR_SLOT_COUNT
       adapter.eventBus.send({ type: 'selectInventorySlot', payload: { slot: next } })

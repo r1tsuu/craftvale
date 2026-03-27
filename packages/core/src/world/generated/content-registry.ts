@@ -495,9 +495,5 @@ export const STARTER_INVENTORY_STACKS = [
   { slot: 0, itemId: ITEM_IDS.grass, count: 64 },
   { slot: 1, itemId: ITEM_IDS.glowstone, count: 64 },
   { slot: 2, itemId: ITEM_IDS.dirt, count: 64 },
-  { slot: 3, itemId: ITEM_IDS.stone, count: 64 },
-  { slot: 4, itemId: ITEM_IDS.log, count: 64 },
-  { slot: 5, itemId: ITEM_IDS.leaves, count: 64 },
-  { slot: 7, itemId: ITEM_IDS.planks, count: 64 },
-  { slot: 8, itemId: ITEM_IDS.glass, count: 64 },
+  { slot: 3, itemId: ITEM_IDS.glass, count: 64 },
 ] as const satisfies readonly StarterInventoryStackDefinition[];

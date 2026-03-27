@@ -16,7 +16,10 @@ export const createPendingFixedStepInputEdges = (): PendingFixedStepInputEdges =
 
 export const queueFixedStepInputEdges = (
   pending: PendingFixedStepInputEdges,
-  input: Pick<InputState, 'breakBlockPressed' | 'placeBlockPressed' | 'hotbarSelection' | 'hotbarScrollDelta'>,
+  input: Pick<
+    InputState,
+    'breakBlockPressed' | 'placeBlockPressed' | 'hotbarSelection' | 'hotbarScrollDelta'
+  >,
 ): PendingFixedStepInputEdges => ({
   breakBlockPressed: pending.breakBlockPressed || input.breakBlockPressed,
   placeBlockPressed: pending.placeBlockPressed || input.placeBlockPressed,

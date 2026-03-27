@@ -35,12 +35,12 @@ for that layer. The general rule is:
 
 For a `canopyRadiusBase = 3` forest tree this produces four leaf layers:
 
-| Layer | Y offset | Radius |
-| ----- | -------- | ------ |
-| 0     | -1       | 3      |
-| 1     | 0        | 2      |
-| 2     | +1       | 2      |
-| 3     | +2       | 1      |
+| Layer | Y offset | Radius     |
+| ----- | -------- | ---------- |
+| 0     | -1       | 3          |
+| 1     | 0        | 2          |
+| 2     | +1       | 2          |
+| 3     | +2       | 1          |
 | cap   | +3       | 0 (single) |
 
 Corner blocks at each layer are included stochastically via a per-tree seeded hash so the
@@ -53,8 +53,8 @@ corner block at distance `> radius - 0.5` has a `50 %` chance of being emitted b
 Biomes currently carry a single `canopyRadius: 1 | 2`. Replace this with:
 
 ```ts
-canopyRadiusBase: number   // base radius of the bottom leaf layer (1–3)
-canopyRadiusVariance: number  // each tree adds hash % (canopyRadiusVariance + 1) to the base
+canopyRadiusBase: number // base radius of the bottom leaf layer (1–3)
+canopyRadiusVariance: number // each tree adds hash % (canopyRadiusVariance + 1) to the base
 ```
 
 Suggested biome values:
@@ -117,16 +117,16 @@ handles this correctly via the `leaves` special case).
 In `getSurfaceEntranceAnchorForCell`, the current gate:
 
 ```ts
-if (cellSeed % 100 >= 45) return null   // 45 % spawn rate
+if (cellSeed % 100 >= 45) return null // 45 % spawn rate
 ```
 
 is very high — roughly one entrance per 40×40 block area. Reduce to a 20 % spawn rate and
 increase the cell size so entrances are spaced further apart:
 
 ```ts
-const SURFACE_ENTRANCE_CELL_SIZE = 56   // was 40
+const SURFACE_ENTRANCE_CELL_SIZE = 56 // was 40
 // inside getSurfaceEntranceAnchorForCell:
-if (cellSeed % 100 >= 20) return null   // was >= 45
+if (cellSeed % 100 >= 20) return null // was >= 45
 ```
 
 This leaves surface entrances in the world but makes them feel like notable landmarks rather
@@ -137,7 +137,7 @@ than routine holes in the ground.
 In `shouldCarveCaveAt`, the current base threshold is `0.74`. Raise it to `0.77`:
 
 ```ts
-let threshold = 0.77  // was 0.74
+let threshold = 0.77 // was 0.74
 ```
 
 This trims approximately 15–20 % of cave volume from the existing noise field without
@@ -151,11 +151,11 @@ carve:
 
 ```ts
 if (depthBelowSurface <= 0) {
-  threshold += 0.06 - entranceBias * 0.14   // was 0.04 - 0.18
+  threshold += 0.06 - entranceBias * 0.14 // was 0.04 - 0.18
 } else if (depthBelowSurface <= 2) {
-  threshold += 0.03 - entranceBias * 0.08   // was 0.01 - 0.12
+  threshold += 0.03 - entranceBias * 0.08 // was 0.01 - 0.12
 } else if (depthBelowSurface <= 6) {
-  threshold += 0.04                          // was 0.03
+  threshold += 0.04 // was 0.03
 }
 ```
 
@@ -166,10 +166,10 @@ feel spacious.
 
 ## Important Files
 
-| File                                                     | Change                                              |
-| -------------------------------------------------------- | --------------------------------------------------- |
-| `packages/core/src/world/biomes.ts`                      | Replace `canopyRadius` with `canopyRadiusBase` + `canopyRadiusVariance`; adjust trunk heights |
-| `packages/core/src/world/terrain.ts`                     | Rewrite `decorateChunkWithTrees` canopy loop; adjust cave constants and thresholds |
+| File                                 | Change                                                                                        |
+| ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `packages/core/src/world/biomes.ts`  | Replace `canopyRadius` with `canopyRadiusBase` + `canopyRadiusVariance`; adjust trunk heights |
+| `packages/core/src/world/terrain.ts` | Rewrite `decorateChunkWithTrees` canopy loop; adjust cave constants and thresholds            |
 
 No content-spec, atlas, or generated-file changes are needed.
 
@@ -192,7 +192,7 @@ interface TreeAnchor {
   z: number
   surfaceY: number
   trunkHeight: number
-  canopyRadius: number   // resolved value, not biome enum
+  canopyRadius: number // resolved value, not biome enum
 }
 ```
 
@@ -202,7 +202,7 @@ interface TreeAnchor {
 const canopyRadius = biome.canopyRadiusBase + ((cellSeed >>> 18) % (biome.canopyRadiusVariance + 1))
 // ...
 const trunkBaseY = tree.surfaceY + 1
-const trunkTopY  = trunkBaseY + tree.trunkHeight - 1
+const trunkTopY = trunkBaseY + tree.trunkHeight - 1
 
 // Trunk through bottom leaf layer
 for (let worldY = trunkBaseY; worldY <= trunkTopY + 1; worldY++) {

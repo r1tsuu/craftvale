@@ -69,7 +69,7 @@ const scrollDelta = library.symbols.bridge_consume_scroll_y() as number
 Add one field:
 
 ```ts
-hotbarScrollDelta: number   // raw scroll notches this frame; positive = down, negative = up
+hotbarScrollDelta: number // raw scroll notches this frame; positive = down, negative = up
 ```
 
 `hotbarScrollDelta` is signed: positive means scroll-down (slot index increases),
@@ -84,24 +84,27 @@ export interface PendingFixedStepInputEdges {
   breakBlockPressed: boolean
   placeBlockPressed: boolean
   hotbarSelection: number | null
-  hotbarScrollDelta: number          // added
+  hotbarScrollDelta: number // added
 }
 
 export const emptyPendingFixedStepInputEdges = (): PendingFixedStepInputEdges => ({
   breakBlockPressed: false,
   placeBlockPressed: false,
   hotbarSelection: null,
-  hotbarScrollDelta: 0,              // added
+  hotbarScrollDelta: 0, // added
 })
 
 export const queueFixedStepInputEdges = (
   pending: PendingFixedStepInputEdges,
-  input: Pick<InputState, 'breakBlockPressed' | 'placeBlockPressed' | 'hotbarSelection' | 'hotbarScrollDelta'>,
+  input: Pick<
+    InputState,
+    'breakBlockPressed' | 'placeBlockPressed' | 'hotbarSelection' | 'hotbarScrollDelta'
+  >,
 ): PendingFixedStepInputEdges => ({
   breakBlockPressed: pending.breakBlockPressed || input.breakBlockPressed,
   placeBlockPressed: pending.placeBlockPressed || input.placeBlockPressed,
   hotbarSelection: input.hotbarSelection ?? pending.hotbarSelection,
-  hotbarScrollDelta: pending.hotbarScrollDelta + input.hotbarScrollDelta,  // accumulate
+  hotbarScrollDelta: pending.hotbarScrollDelta + input.hotbarScrollDelta, // accumulate
 })
 
 export const applyFixedStepInputEdges = (
@@ -112,7 +115,7 @@ export const applyFixedStepInputEdges = (
   breakBlockPressed: pending.breakBlockPressed || input.breakBlockPressed,
   placeBlockPressed: pending.placeBlockPressed || input.placeBlockPressed,
   hotbarSelection: pending.hotbarSelection ?? input.hotbarSelection,
-  hotbarScrollDelta: pending.hotbarScrollDelta + input.hotbarScrollDelta,  // accumulate
+  hotbarScrollDelta: pending.hotbarScrollDelta + input.hotbarScrollDelta, // accumulate
 })
 ```
 
@@ -135,8 +138,8 @@ if (input.hotbarSelection !== null) {
 if (input.hotbarScrollDelta !== 0) {
   const HOTBAR_SIZE = 9
   const currentSlot = getSelectedInventorySlotIndex(worldRuntime.inventory)
-  const steps = Math.sign(input.hotbarScrollDelta)  // one step per tick regardless of fast scroll
-  const nextSlot = ((currentSlot + steps) % HOTBAR_SIZE + HOTBAR_SIZE) % HOTBAR_SIZE
+  const steps = Math.sign(input.hotbarScrollDelta) // one step per tick regardless of fast scroll
+  const nextSlot = (((currentSlot + steps) % HOTBAR_SIZE) + HOTBAR_SIZE) % HOTBAR_SIZE
   adapter.eventBus.send({ type: 'selectInventorySlot', payload: { slot: nextSlot } })
 }
 ```
@@ -148,13 +151,13 @@ multiple scroll notches were buffered, keeping navigation predictable.
 
 ## Important Files
 
-| File | Change |
-| ---- | ------ |
-| `native/bridge.c` | Add scroll callback, `g_scroll_y` global, `bridge_consume_scroll_y` export |
-| `apps/client/src/platform/native.ts` | Declare `bridge_consume_scroll_y` symbol; read it in `pollInput` |
-| `apps/client/src/types.ts` | Add `hotbarScrollDelta: number` to `InputState` |
+| File                                       | Change                                                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `native/bridge.c`                          | Add scroll callback, `g_scroll_y` global, `bridge_consume_scroll_y` export                       |
+| `apps/client/src/platform/native.ts`       | Declare `bridge_consume_scroll_y` symbol; read it in `pollInput`                                 |
+| `apps/client/src/types.ts`                 | Add `hotbarScrollDelta: number` to `InputState`                                                  |
 | `apps/client/src/game/fixed-step-input.ts` | Add `hotbarScrollDelta` to `PendingFixedStepInputEdges`; accumulate in queue and apply functions |
-| `apps/client/src/app/play-controller.ts` | Resolve `hotbarScrollDelta` into `selectInventorySlot` event after existing digit-key handling |
+| `apps/client/src/app/play-controller.ts`   | Resolve `hotbarScrollDelta` into `selectInventorySlot` event after existing digit-key handling   |
 
 No content-spec, atlas, inventory model, or server-side changes are required.
 

@@ -1,7 +1,6 @@
 ---
 name: craftvale
-description:
-  Use when working in the Craftvale repository on gameplay, world generation,
+description: Use when working in the Craftvale repository on gameplay, world generation,
   rendering, persistence, UI, plans, or architecture/docs updates. This skill
   gives the repo-specific workflow, file map, and validation steps needed to
   make consistent changes safely.
