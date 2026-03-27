@@ -8,8 +8,8 @@ import { clamp, hash2dInt, hash3dInt, sampleValueNoise, sampleValueNoise3d } fro
 import { ORE_GENERATION_CONFIGS } from './ore-config.ts'
 
 const TREE_CELL_SIZE = 7
-const TREE_MAX_TRUNK_HEIGHT = 5
-const TREE_MAX_SURFACE_HEIGHT = WORLD_MAX_BLOCK_Y - (TREE_MAX_TRUNK_HEIGHT + 2)
+const TREE_MAX_TRUNK_HEIGHT = 7
+const TREE_MAX_SURFACE_HEIGHT = WORLD_MAX_BLOCK_Y - (TREE_MAX_TRUNK_HEIGHT + 4)
 export const WORLD_WATER_LEVEL = WORLD_SEA_LEVEL
 const CAVE_MIN_Y = 3
 const CAVE_REGION_SCALE = 72
@@ -17,7 +17,7 @@ const CAVE_ENTRANCE_SCALE = 44
 const CAVE_CHAMBER_SCALE = 34
 const CAVE_TUNNEL_SCALE = 18
 const CAVE_DETAIL_SCALE = 11
-const SURFACE_ENTRANCE_CELL_SIZE = 40
+const SURFACE_ENTRANCE_CELL_SIZE = 56
 const SURFACE_ENTRANCE_RADIUS_MAX = 3
 const SURFACE_ENTRANCE_DEPTH_MAX = 12
 
@@ -26,7 +26,7 @@ interface TreeAnchor {
   z: number
   surfaceY: number
   trunkHeight: number
-  canopyRadius: 1 | 2
+  canopyRadius: number
 }
 
 interface SurfaceEntranceAnchor {
@@ -156,13 +156,13 @@ const shouldCarveCaveAt = (
   )
   const caveScore = chamber * 0.38 + tunnel * 0.44 + detail * 0.1 + region * 0.08
 
-  let threshold = 0.74
+  let threshold = 0.77
   if (depthBelowSurface <= 0) {
-    threshold += 0.04 - entranceBias * 0.18
+    threshold += 0.06 - entranceBias * 0.14
   } else if (depthBelowSurface <= 2) {
-    threshold += 0.01 - entranceBias * 0.12
+    threshold += 0.03 - entranceBias * 0.08
   } else if (depthBelowSurface <= 6) {
-    threshold += 0.03
+    threshold += 0.04
   } else if (depthBelowSurface >= 36) {
     threshold -= 0.05
   }
@@ -206,7 +206,7 @@ const getSurfaceEntranceAnchorForCell = (
   cellZ: number,
 ): SurfaceEntranceAnchor | null => {
   const cellSeed = hash2dInt(cellX, cellZ, seed ^ 0x68f53a21)
-  if (cellSeed % 100 >= 45) {
+  if (cellSeed % 100 >= 20) {
     return null
   }
 
@@ -430,12 +430,18 @@ const getTreeAnchorForCell = (seed: number, cellX: number, cellZ: number): TreeA
     surfaceY,
     trunkHeight:
       biome.trunkHeightMin + ((cellSeed >>> 12) % Math.max(1, biome.trunkHeightVariance)),
-    canopyRadius: biome.canopyRadius,
+    canopyRadius: biome.canopyRadiusBase + ((cellSeed >>> 18) % (biome.canopyRadiusVariance + 1)),
   }
 }
 
+const canopyLayerRadius = (yOffset: number, canopyRadius: number): number => {
+  if (yOffset <= -1) return canopyRadius
+  if (yOffset <= 1) return Math.max(1, canopyRadius - 1)
+  return Math.max(1, canopyRadius - 2)
+}
+
 const decorateChunkWithTrees = (chunk: Chunk, seed: number): void => {
-  const structureRadius = 2
+  const structureRadius = 4
   const minWorldX = chunk.coord.x * CHUNK_SIZE - structureRadius
   const maxWorldX = chunk.coord.x * CHUNK_SIZE + CHUNK_SIZE - 1 + structureRadius
   const minWorldZ = chunk.coord.z * CHUNK_SIZE - structureRadius
@@ -456,54 +462,53 @@ const decorateChunkWithTrees = (chunk: Chunk, seed: number): void => {
       const trunkBaseY = tree.surfaceY + 1
       const trunkTopY = trunkBaseY + tree.trunkHeight - 1
 
-      for (let worldY = trunkBaseY; worldY <= trunkTopY; worldY += 1) {
+      // Trunk extends one block into the bottom leaf layer
+      for (let worldY = trunkBaseY; worldY <= trunkTopY + 1; worldY += 1) {
         setGeneratedBlockIfInChunk(chunk, tree.x, worldY, tree.z, BLOCK_IDS.log)
       }
 
-      for (let offsetZ = -tree.canopyRadius; offsetZ <= tree.canopyRadius; offsetZ += 1) {
-        for (let offsetX = -tree.canopyRadius; offsetX <= tree.canopyRadius; offsetX += 1) {
-          if (tree.canopyRadius === 2 && Math.abs(offsetX) === 2 && Math.abs(offsetZ) === 2) {
-            continue
-          }
-          if (tree.canopyRadius === 1 && Math.abs(offsetX) === 1 && Math.abs(offsetZ) === 1) {
-            continue
-          }
+      // Per-tree seed for stochastic corner variation
+      const treeSeed = hash2dInt(tree.x, tree.z, seed)
 
-          setGeneratedBlockIfInChunk(
-            chunk,
-            tree.x + offsetX,
-            trunkTopY - 1,
-            tree.z + offsetZ,
-            BLOCK_IDS.leaves,
-          )
-          setGeneratedBlockIfInChunk(
-            chunk,
-            tree.x + offsetX,
-            trunkTopY,
-            tree.z + offsetZ,
-            BLOCK_IDS.leaves,
-          )
+      // Four leaf layers at yOffset -1, 0, +1, +2 relative to trunkTopY;
+      // radius tapers from canopyRadius at the bottom upward
+      for (const yOffset of [-1, 0, 1, 2]) {
+        const worldY = trunkTopY + yOffset
+        const layerRadius = canopyLayerRadius(yOffset, tree.canopyRadius)
+
+        for (let offsetZ = -layerRadius; offsetZ <= layerRadius; offsetZ += 1) {
+          for (let offsetX = -layerRadius; offsetX <= layerRadius; offsetX += 1) {
+            const dist = Math.hypot(offsetX, offsetZ)
+            if (dist > layerRadius + 0.5) {
+              continue
+            }
+            // Diagonal-only thinning: only blocks strictly beyond the integer
+            // radius (but still within the +0.5 buffer) get a 50% coin flip.
+            // Axial blocks like (r,0) sit at dist==r so they are always kept,
+            // preserving solid canopy edges while diagonals vary per tree.
+            if (dist > layerRadius) {
+              const cornerHash = hash2dInt(
+                tree.x + offsetX,
+                tree.z + offsetZ,
+                treeSeed ^ ((yOffset + 2) * 0x5e3f),
+              )
+              if (cornerHash & 1) {
+                continue
+              }
+            }
+            setGeneratedBlockIfInChunk(
+              chunk,
+              tree.x + offsetX,
+              worldY,
+              tree.z + offsetZ,
+              BLOCK_IDS.leaves,
+            )
+          }
         }
       }
 
-      for (let offsetZ = -1; offsetZ <= 1; offsetZ += 1) {
-        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
-          if (Math.abs(offsetX) === 1 && Math.abs(offsetZ) === 1) {
-            continue
-          }
-
-          setGeneratedBlockIfInChunk(
-            chunk,
-            tree.x + offsetX,
-            trunkTopY + 1,
-            tree.z + offsetZ,
-            BLOCK_IDS.leaves,
-          )
-        }
-      }
-
-      setGeneratedBlockIfInChunk(chunk, tree.x, trunkTopY + 2, tree.z, BLOCK_IDS.leaves)
-      setGeneratedBlockIfInChunk(chunk, tree.x, trunkTopY, tree.z, BLOCK_IDS.log)
+      // Single cap block above the canopy
+      setGeneratedBlockIfInChunk(chunk, tree.x, trunkTopY + 3, tree.z, BLOCK_IDS.leaves)
     }
   }
 }

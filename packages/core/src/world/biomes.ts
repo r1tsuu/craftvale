@@ -18,7 +18,8 @@ export interface BiomeDefinition {
   treeChancePercent: number
   trunkHeightMin: number
   trunkHeightVariance: number
-  canopyRadius: 1 | 2
+  canopyRadiusBase: number
+  canopyRadiusVariance: number
   targetMoisture: number
   targetRuggedness: number
 }
@@ -44,9 +45,10 @@ export const Biomes: Record<BiomeId, BiomeDefinition> = {
     largeNoiseAmplitude: 7,
     detailNoiseAmplitude: 1.2,
     treeChancePercent: 20,
-    trunkHeightMin: 3,
-    trunkHeightVariance: 1,
-    canopyRadius: 1,
+    trunkHeightMin: 4,
+    trunkHeightVariance: 2,
+    canopyRadiusBase: 2,
+    canopyRadiusVariance: 0,
     targetMoisture: 0.1,
     targetRuggedness: -0.3,
   }),
@@ -61,9 +63,10 @@ export const Biomes: Record<BiomeId, BiomeDefinition> = {
     largeNoiseAmplitude: 9.5,
     detailNoiseAmplitude: 1.7,
     treeChancePercent: 62,
-    trunkHeightMin: 3,
-    trunkHeightVariance: 2,
-    canopyRadius: 2,
+    trunkHeightMin: 4,
+    trunkHeightVariance: 3,
+    canopyRadiusBase: 2,
+    canopyRadiusVariance: 1,
     targetMoisture: 0.7,
     targetRuggedness: -0.1,
   }),
@@ -80,7 +83,8 @@ export const Biomes: Record<BiomeId, BiomeDefinition> = {
     treeChancePercent: 3,
     trunkHeightMin: 3,
     trunkHeightVariance: 1,
-    canopyRadius: 1,
+    canopyRadiusBase: 1,
+    canopyRadiusVariance: 0,
     targetMoisture: 0.0,
     targetRuggedness: 0.85,
   }),
@@ -97,7 +101,8 @@ export const Biomes: Record<BiomeId, BiomeDefinition> = {
     treeChancePercent: 5,
     trunkHeightMin: 3,
     trunkHeightVariance: 1,
-    canopyRadius: 1,
+    canopyRadiusBase: 1,
+    canopyRadiusVariance: 0,
     targetMoisture: -0.8,
     targetRuggedness: -0.05,
   }),
