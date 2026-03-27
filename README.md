@@ -35,50 +35,50 @@ Use `bun run dev:full` to start a dedicated WebSocket server alongside the clien
 
 ### Development
 
-| Command | Description |
-|---|---|
-| `bun run dev:client` | Build native bridge and start the desktop client |
-| `bun run dev:client:clean` | Wipe client dist, then start the client |
-| `bun run dev:server` | Start the dedicated WebSocket server only |
-| `bun run dev:server:clean` | Wipe server dist, then start the server |
-| `bun run dev:full` | Start the dedicated server and client together |
-| `bun run dev:full:clean` | Wipe all dist, then start server + client |
+| Command                    | Description                                      |
+| -------------------------- | ------------------------------------------------ |
+| `bun run dev:client`       | Build native bridge and start the desktop client |
+| `bun run dev:client:clean` | Wipe client dist, then start the client          |
+| `bun run dev:server`       | Start the dedicated WebSocket server only        |
+| `bun run dev:server:clean` | Wipe server dist, then start the server          |
+| `bun run dev:full`         | Start the dedicated server and client together   |
+| `bun run dev:full:clean`   | Wipe all dist, then start server + client        |
 
 ### Build
 
-| Command | Description |
-|---|---|
-| `bun run build:native` | Build `native/libvoxel_bridge.dylib` |
-| `bun run clean:data` | Remove `apps/client/dist` and `apps/dedicated-server/dist` |
+| Command                | Description                                                |
+| ---------------------- | ---------------------------------------------------------- |
+| `bun run build:native` | Build `native/libvoxel_bridge.dylib`                       |
+| `bun run clean:data`   | Remove `apps/client/dist` and `apps/dedicated-server/dist` |
 
 ### Asset Generation
 
-| Command | Description |
-|---|---|
-| `bun run generate:content` | Regenerate block/item ids and registries from the content spec |
+| Command                         | Description                                                               |
+| ------------------------------- | ------------------------------------------------------------------------- |
+| `bun run generate:content`      | Regenerate block/item ids and registries from the content spec            |
 | `bun run generate:tile-sources` | Write one PNG per voxel tile into `apps/client/assets/textures/tiles-src` |
-| `bun run generate:atlas` | Rebuild `apps/client/assets/textures/voxel-atlas.png` from tile PNGs |
+| `bun run generate:atlas`        | Rebuild `apps/client/assets/textures/voxel-atlas.png` from tile PNGs      |
 
 ### Code Quality
 
-| Command | Description |
-|---|---|
-| `bun run lint` | Run ESLint across the repo |
-| `bun run lint:fix` | Run ESLint and apply safe auto-fixes |
-| `bun run format` | Run Prettier across supported files |
+| Command                | Description                              |
+| ---------------------- | ---------------------------------------- |
+| `bun run lint`         | Run ESLint across the repo               |
+| `bun run lint:fix`     | Run ESLint and apply safe auto-fixes     |
+| `bun run format`       | Run Prettier across supported files      |
 | `bun run format:check` | Check formatting without rewriting files |
-| `bun run typecheck` | Run TypeScript checks |
-| `bun test` | Run automated tests |
+| `bun run typecheck`    | Run TypeScript checks                    |
+| `bun test`             | Run automated tests                      |
 
 ### Launch Options
 
 Pass these after `--` when using any `dev:*` command:
 
-| Flag | Description |
-|---|---|
-| `--player-name=<name>` | Override the local player name for this run |
-| `--client-dir=<path>` | Override the desktop app's client-local data root (relative to `apps/client`) |
-| `--server-dir=<path>` | Override the dedicated server data root (relative to `apps/dedicated-server`) |
+| Flag                   | Description                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| `--player-name=<name>` | Override the local player name for this run                                   |
+| `--client-dir=<path>`  | Override the desktop app's client-local data root (relative to `apps/client`) |
+| `--server-dir=<path>`  | Override the dedicated server data root (relative to `apps/dedicated-server`) |
 
 ```sh
 # Examples
@@ -93,39 +93,39 @@ bun run dev:full  -- --client-dir=./client-data --server-dir=./server-data
 
 ### Menu
 
-| Input | Action |
-|---|---|
-| Mouse | Move cursor |
+| Input      | Action       |
+| ---------- | ------------ |
+| Mouse      | Move cursor  |
 | Left click | Press button |
-| `Esc` | Exit |
+| `Esc`      | Exit         |
 
 ### In Game
 
-| Input | Action |
-|---|---|
-| `WASD` | Move |
-| Mouse | Look |
-| `Space` | Jump |
+| Input              | Action                                          |
+| ------------------ | ----------------------------------------------- |
+| `WASD`             | Move                                            |
+| Mouse              | Look                                            |
+| `Space`            | Jump                                            |
 | Double-tap `Space` | Toggle creative flight (requires `/gamemode 1`) |
-| `Shift` | Descend while flying |
-| Left click | Break block |
-| Right click | Place selected hotbar item |
-| `1`–`9` | Select hotbar slot |
-| `E` | Open / close inventory |
-| `Enter` | Open chat |
-| `/` | Open command chat |
-| `Esc` | Exit / pause |
+| `Shift`            | Descend while flying                            |
+| Left click         | Break block                                     |
+| Right click        | Place selected hotbar item                      |
+| `1`–`9`            | Select hotbar slot                              |
+| `E`                | Open / close inventory                          |
+| `Enter`            | Open chat                                       |
+| `/`                | Open command chat                               |
+| `Esc`              | Exit / pause                                    |
 
 ### In-Game Commands
 
-| Command | Effect |
-|---|---|
-| `/gamemode 0` | Switch to normal mode |
-| `/gamemode 1` | Switch to creative mode |
-| `/save` | Immediate world save |
-| `/seed` | Print world seed to chat |
-| `/teleport <x> <y> <z>` | Move to coordinates |
-| `/timeset day\|night\|<tick>` | Change world time |
+| Command                       | Effect                   |
+| ----------------------------- | ------------------------ |
+| `/gamemode 0`                 | Switch to normal mode    |
+| `/gamemode 1`                 | Switch to creative mode  |
+| `/save`                       | Immediate world save     |
+| `/seed`                       | Print world seed to chat |
+| `/teleport <x> <y> <z>`       | Move to coordinates      |
+| `/timeset day\|night\|<tick>` | Change world time        |
 
 The authoritative server autosaves periodically; successful autosaves are printed to chat.
 
@@ -235,14 +235,14 @@ Content authoring and the asset pipeline are documented in [`ARCHITECTURE.md`](.
 
 Source-line snapshot as of 2026-03-26 using `wc -l` over TypeScript, C, and shader files. Excludes docs, JSON/package metadata, lockfiles, and binary assets.
 
-| Package | Lines |
-|---|---|
-| `apps/client/src` | 8,782 TS |
-| `apps/client/assets/shaders` | 118 GLSL |
-| `apps/dedicated-server` | 343 TS |
-| `packages/core` | 8,548 TS |
-| `apps/cli/src` | 1,160 TS |
-| `native` | 459 C |
-| `tests` | 5,029 TS |
-| **Total (with tests)** | **24,439** |
-| **Total (without tests)** | **19,410** |
+| Package                      | Lines      |
+| ---------------------------- | ---------- |
+| `apps/client/src`            | 8,782 TS   |
+| `apps/client/assets/shaders` | 118 GLSL   |
+| `apps/dedicated-server`      | 343 TS     |
+| `packages/core`              | 8,548 TS   |
+| `apps/cli/src`               | 1,160 TS   |
+| `native`                     | 459 C      |
+| `tests`                      | 5,029 TS   |
+| **Total (with tests)**       | **24,439** |
+| **Total (without tests)**    | **19,410** |

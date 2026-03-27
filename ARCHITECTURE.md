@@ -29,13 +29,13 @@ The runtime splits into a client side and an authoritative server side:
 
 Package structure at a glance:
 
-| Package | Role |
-|---|---|
-| `apps/client` | Desktop app bootstrap, `GameApp`, rendering, UI, input, singleplayer worker startup |
-| `apps/dedicated-server` | Dedicated WebSocket server process |
-| `apps/cli` | Native build, dev flow, asset generation scripts |
-| `packages/core` | Shared server runtime, messaging, world gen, content, math |
-| `native` | Minimal GLFW/OpenGL C bridge |
+| Package                 | Role                                                                                |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `apps/client`           | Desktop app bootstrap, `GameApp`, rendering, UI, input, singleplayer worker startup |
+| `apps/dedicated-server` | Dedicated WebSocket server process                                                  |
+| `apps/cli`              | Native build, dev flow, asset generation scripts                                    |
+| `packages/core`         | Shared server runtime, messaging, world gen, content, math                          |
+| `native`                | Minimal GLFW/OpenGL C bridge                                                        |
 
 The intended shared import surfaces are `@craftvale/core/shared` and `@craftvale/core/server`. Deep relative cross-workspace imports should be avoided.
 
@@ -124,13 +124,13 @@ Gameplay events that affect authoritative state are enqueued and applied on the 
 
 Transport layers:
 
-| Layer | Location |
-|---|---|
-| `WorkerClientAdapter` | Client side (singleplayer) |
-| `WorkerServerAdapter` | Client-owned worker side |
-| `WorkerServerHost` | `apps/client/src/worker/host.ts` |
-| `WebSocketClientAdapter` | Multiplayer client side |
-| `DedicatedServerTransport` | Dedicated server |
+| Layer                      | Location                         |
+| -------------------------- | -------------------------------- |
+| `WorkerClientAdapter`      | Client side (singleplayer)       |
+| `WorkerServerAdapter`      | Client-owned worker side         |
+| `WorkerServerHost`         | `apps/client/src/worker/host.ts` |
+| `WebSocketClientAdapter`   | Multiplayer client side          |
+| `DedicatedServerTransport` | Dedicated server                 |
 
 Because the transport abstraction is explicit, local and remote play share the same gameplay/message semantics even though their process boundaries differ.
 
@@ -193,11 +193,11 @@ World generation is deterministic and seed-driven. The world is 256 blocks tall 
 
 The worldgen pipeline in `packages/core/src/world/`:
 
-| File | Role |
-|---|---|
-| `noise.ts` | Shared deterministic noise helpers |
-| `biomes.ts` | Biome sampling and biome definitions |
-| `terrain.ts` | Terrain heights, cave carving, ore placement, water, tree decoration |
+| File            | Role                                                                        |
+| --------------- | --------------------------------------------------------------------------- |
+| `noise.ts`      | Shared deterministic noise helpers                                          |
+| `biomes.ts`     | Biome sampling and biome definitions                                        |
+| `terrain.ts`    | Terrain heights, cave carving, ore placement, water, tree decoration        |
 | `ore-config.ts` | Authored ore-distribution settings (Y range, attempts per chunk, vein size) |
 
 Generation flow per chunk:
@@ -218,14 +218,14 @@ Block and item ids are not hand-authored. Content starts from one source and flo
 
 ### Sources of truth
 
-| File | Role |
-|---|---|
-| `packages/core/src/world/content-spec.ts` | Authored block/item definitions |
-| `packages/core/src/world/ore-config.ts` | Ore distribution defaults |
-| `packages/core/src/world/content-id-lock.json` | Checked-in id stability snapshot |
-| `packages/core/src/world/generated/` | Generated outputs — do not hand-edit |
-| `apps/client/assets/textures/tiles-src/` | Authored per-tile PNG source textures |
-| `apps/client/assets/textures/voxel-atlas.png` | Generated runtime atlas — do not hand-edit |
+| File                                           | Role                                       |
+| ---------------------------------------------- | ------------------------------------------ |
+| `packages/core/src/world/content-spec.ts`      | Authored block/item definitions            |
+| `packages/core/src/world/ore-config.ts`        | Ore distribution defaults                  |
+| `packages/core/src/world/content-id-lock.json` | Checked-in id stability snapshot           |
+| `packages/core/src/world/generated/`           | Generated outputs — do not hand-edit       |
+| `apps/client/assets/textures/tiles-src/`       | Authored per-tile PNG source textures      |
+| `apps/client/assets/textures/voxel-atlas.png`  | Generated runtime atlas — do not hand-edit |
 
 ### Content pipeline
 
@@ -256,17 +256,17 @@ Add an item entry in `AUTHORED_ITEM_SPECS`. Set `placesBlockKey` and `renderBloc
 
 ### Field guide
 
-| Field | Description |
-|---|---|
-| `key` | Stable authoring identity — keep short, lowercase, and durable |
-| `name` | Player-facing display name |
-| `color` | Fallback/debug item display color |
-| `dropItemKey` | Item dropped when the block is broken |
-| `placesBlockKey` | Block the item places, if any |
-| `renderBlockKey` | Block mesh used to render the held item, dropped item, and HUD inventory item |
-| `renderPass` | `"opaque"` for solid terrain, `"cutout"` for alpha-discard blocks (e.g. leaves), `null` for non-rendered blocks (e.g. air) |
-| `occlusion` | `"full"` for solid cubes, `"self"` for leaf-style self-culling, `"none"` for non-occluding blocks |
-| `emittedLightLevel` | Block light emitted, `0`–`15` |
+| Field               | Description                                                                                                                |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `key`               | Stable authoring identity — keep short, lowercase, and durable                                                             |
+| `name`              | Player-facing display name                                                                                                 |
+| `color`             | Fallback/debug item display color                                                                                          |
+| `dropItemKey`       | Item dropped when the block is broken                                                                                      |
+| `placesBlockKey`    | Block the item places, if any                                                                                              |
+| `renderBlockKey`    | Block mesh used to render the held item, dropped item, and HUD inventory item                                              |
+| `renderPass`        | `"opaque"` for solid terrain, `"cutout"` for alpha-discard blocks (e.g. leaves), `null` for non-rendered blocks (e.g. air) |
+| `occlusion`         | `"full"` for solid cubes, `"self"` for leaf-style self-culling, `"none"` for non-occluding blocks                          |
+| `emittedLightLevel` | Block light emitted, `0`–`15`                                                                                              |
 
 ### Tile texture rules
 
@@ -384,12 +384,12 @@ The save model is baseline-aware: generated chunks are deterministic from the wo
 
 UI is intentionally lightweight and code-driven:
 
-| File | Role |
-|---|---|
-| `apps/client/src/ui/menu.ts` | Menu layout generation |
-| `apps/client/src/ui/hud.ts` | Play HUD and crosshair composition |
+| File                               | Role                                        |
+| ---------------------------------- | ------------------------------------------- |
+| `apps/client/src/ui/menu.ts`       | Menu layout generation                      |
+| `apps/client/src/ui/hud.ts`        | Play HUD and crosshair composition          |
 | `apps/client/src/ui/components.ts` | Panel/label/button model and hit evaluation |
-| `apps/client/src/ui/renderer.ts` | Draws UI rectangles and text |
+| `apps/client/src/ui/renderer.ts`   | Draws UI rectangles and text                |
 
 The menu is evaluated each frame from state plus pointer input rather than maintained through a retained widget tree. In play mode, the hotbar, selected-item label, and crosshair follow the same code-driven overlay model.
 

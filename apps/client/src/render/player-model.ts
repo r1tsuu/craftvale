@@ -76,11 +76,11 @@ export const FIRST_PERSON_ARM_PART: CuboidPartDefinition = {
 export const FIRST_PERSON_ARM_CAMERA_OFFSET = {
   right: 0.58,
   up: -0.44,
-  forward: 0.50,
+  forward: 0.5,
 } as const
 
 export const FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET = {
-  right: 0.50,
+  right: 0.5,
   up: -0.36,
   forward: 0.52,
 } as const

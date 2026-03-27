@@ -37,10 +37,7 @@ export class LoadingController {
     return this.loadingState
   }
 
-  public tick(
-    windowWidth: number,
-    windowHeight: number,
-  ): LoadingTickResult {
+  public tick(windowWidth: number, windowHeight: number): LoadingTickResult {
     const loadingState = this.loadingState
     const uiComponents = loadingState
       ? evaluateUi(

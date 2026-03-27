@@ -1,11 +1,7 @@
 import type { JoinedWorldPayload, PlayerName } from '@craftvale/core/shared'
 import type { Vec3 } from '@craftvale/core/shared'
 
-import {
-  createEmptyInventory,
-  createLogger,
-  VoxelWorld,
-} from '@craftvale/core/shared'
+import { createEmptyInventory, createLogger, VoxelWorld } from '@craftvale/core/shared'
 
 import type { TextDrawCommand } from '../render/text.ts'
 import type { ClientSettings } from '../types.ts'
@@ -94,8 +90,12 @@ export class GameApp {
       savedServerStorage: deps.savedServerStorage,
       getClientSettings: () => this.clientSettings,
       updateClientSettings: (partial) => this.updateClientSettings(partial),
-      onJoinWorld: (worldName) => { void this.joinWorld(worldName) },
-      onJoinServer: (serverId) => { void this.joinServer(serverId) },
+      onJoinWorld: (worldName) => {
+        void this.joinWorld(worldName)
+      },
+      onJoinServer: (serverId) => {
+        void this.joinServer(serverId)
+      },
       onDisconnect: () => this.disconnectClient(),
       syncCursorMode: () => this.syncCursorMode(),
     })
@@ -313,6 +313,7 @@ export class GameApp {
         }
 
         worldRuntime.applyInventory(inventory)
+        this.playController.clearPrediction()
         if (this.lastServerMessage.startsWith('OUT OF ')) {
           this.lastServerMessage = ''
         }

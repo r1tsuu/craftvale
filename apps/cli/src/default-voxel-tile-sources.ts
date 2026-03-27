@@ -28,7 +28,7 @@ const hash2d = (x: number, y: number, seed: number): number => {
 
 // Returns a jittered float in [−0.5, 0.5] for a given cell and axis
 const hash2dFloat = (x: number, y: number, seed: number): number =>
-  ((hash2d(x, y, seed) & 0xff) / 255) - 0.5
+  (hash2d(x, y, seed) & 0xff) / 255 - 0.5
 
 // Returns the value from a 2D Gaussian-style soft blob centred at (cx, cy)
 const blobWeight = (x: number, y: number, cx: number, cy: number, r: number): number => {
@@ -313,12 +313,7 @@ const createOrePixel = (
     ]
   }
   if (isCentre(x - 1, y) || isCentre(x + 1, y) || isCentre(x, y - 1) || isCentre(x, y + 1)) {
-    return [
-      clampColor(oreBase[0] + 6),
-      clampColor(oreBase[1] + 6),
-      clampColor(oreBase[2] + 6),
-      255,
-    ]
+    return [clampColor(oreBase[0] + 6), clampColor(oreBase[1] + 6), clampColor(oreBase[2] + 6), 255]
   }
 
   return stone

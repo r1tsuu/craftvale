@@ -1,5 +1,5 @@
-import type { Vec3 ,
-  VoxelWorld} from '@craftvale/core/shared'
+import type { Vec3, VoxelWorld } from '@craftvale/core/shared'
+import type { InventorySnapshot } from '@craftvale/core/shared'
 
 import {
   Biomes,
@@ -10,8 +10,9 @@ import {
   getMainInventorySlotIndex,
   getPlacedBlockIdForItem,
   getSelectedInventorySlot,
-  raycastVoxel
+  raycastVoxel,
 } from '@craftvale/core/shared'
+import { interactInventorySlot } from '@craftvale/core/shared'
 import { heapStats } from 'bun:jsc'
 
 import type { PlayerController } from '../game/player.ts'
@@ -92,8 +93,17 @@ export class PlayController {
   private firstPersonSwingRemaining = 0
   private debugMemoryUsageText = getDebugMemoryUsageText()
   private nextDebugMemoryRefreshTime = 0
+  private predictedInventory: InventorySnapshot | null = null
 
   public constructor(private readonly deps: PlayControllerDeps) {}
+
+  public clearPrediction(): void {
+    this.predictedInventory = null
+  }
+
+  private getDisplayInventory(): InventorySnapshot {
+    return this.predictedInventory ?? this.deps.getWorldRuntime().inventory
+  }
 
   public getOverlayState(): { inventoryOpen: boolean; pauseScreen: PauseScreen } {
     return { inventoryOpen: this.inventoryOpen, pauseScreen: this.pauseScreen }
@@ -116,15 +126,26 @@ export class PlayController {
   }
 
   public async tick(context: PlayTickContext): Promise<PlayTickResult> {
-    const { input, deltaTime, smoothedFps, serverTps, connectionMode, currentWorldName, currentWorldSeed } =
-      context
+    const {
+      input,
+      deltaTime,
+      smoothedFps,
+      serverTps,
+      connectionMode,
+      currentWorldName,
+      currentWorldSeed,
+    } = context
     let { accumulator, pendingInputEdges, lastServerMessage } = context
 
     this.firstPersonSwingRemaining = Math.max(0, this.firstPersonSwingRemaining - deltaTime)
 
     if (
       (input.breakBlockPressed || input.placeBlockPressed) &&
-      !isGameplaySuppressed({ chatOpen: this.chatOpen, inventoryOpen: this.inventoryOpen, pauseScreen: this.pauseScreen })
+      !isGameplaySuppressed({
+        chatOpen: this.chatOpen,
+        inventoryOpen: this.inventoryOpen,
+        pauseScreen: this.pauseScreen,
+      })
     ) {
       this.firstPersonSwingRemaining = FIRST_PERSON_SWING_DURATION
     }
@@ -178,7 +199,7 @@ export class PlayController {
       : []
 
     const playHud = buildPlayHud(input.windowWidth, input.windowHeight, {
-      inventory: worldRuntime.inventory,
+      inventory: this.getDisplayInventory(),
       worldTime: worldRuntime.worldTime,
       inventoryOpen: this.inventoryOpen,
       cursorX: input.cursorX,
@@ -230,7 +251,13 @@ export class PlayController {
     const adapter = this.deps.getClientAdapter()
     const worldRuntime = this.deps.getWorldRuntime()
 
-    if (isGameplaySuppressed({ chatOpen: this.chatOpen, inventoryOpen: this.inventoryOpen, pauseScreen: this.pauseScreen })) {
+    if (
+      isGameplaySuppressed({
+        chatOpen: this.chatOpen,
+        inventoryOpen: this.inventoryOpen,
+        pauseScreen: this.pauseScreen,
+      })
+    ) {
       return null
     }
 
@@ -382,9 +409,12 @@ export class PlayController {
       return
     }
 
+    const resolvedSlot = section === 'hotbar' ? slot : getMainInventorySlotIndex(slot)
+    this.predictedInventory = interactInventorySlot(this.getDisplayInventory(), resolvedSlot)
+
     this.deps.getClientAdapter().eventBus.send({
       type: 'interactInventorySlot',
-      payload: { slot: section === 'hotbar' ? slot : getMainInventorySlotIndex(slot) },
+      payload: { slot: resolvedSlot },
     })
   }
 

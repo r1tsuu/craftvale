@@ -103,10 +103,10 @@ task touches a feature area with an existing implementation plan.
 
 ## Validation
 
-- Formatting: `bun run format:check`
-- Lint: `bun run lint`
-- Baseline: `bun test`
-- Static check: `bun run typecheck`
-- Native bridge or tooling touched: `bun run build:native`
+- Formatting: `bun run format:check` - must pass with no changes
+- Lint: `bun run lint`- must pass with no errors
+- Baseline: `bun test` - all tests must pass
+- Static check: `bun run typecheck` - must pass with no errors
+- Native bridge or tooling touched: `bun run build:native` - optional if you didn't change native code or build scripts, but if you did, this must complete with no errors
 - Docs/plans touched: confirm `README.md`, `architecture.md`, and relevant
   `plans/` entries still match the code
