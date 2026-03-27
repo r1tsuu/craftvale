@@ -509,6 +509,7 @@ export class GameApp {
     this.syncWindowTitle()
     this.syncCursorMode()
     this.accumulator = 0
+    this.pendingFixedStepInputEdges = createPendingFixedStepInputEdges()
     this.lastServerMessage = options.connectedMessage
     appLogger.info(
       `entered ${currentLoadingState?.entryMode === 'remote' ? 'multiplayer server' : 'local world'} "${joined.world.name}"`,
