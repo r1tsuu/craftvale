@@ -4,6 +4,7 @@ import { measureTextWidth } from '../apps/client/src/render/text-mesh.ts'
 import {
   buildDebugOverlayText,
   DEBUG_INDICATOR_COLORS,
+  getDebugBreakProgressColor,
   getDebugFpsColor,
   getDebugLightingColor,
   getDebugTpsColor,
@@ -26,6 +27,7 @@ test('debug overlay includes TPS and colors healthy indicators as good', () => {
     focusedBlockKey: 'glowstone',
     focusedSkyLight: 15,
     focusedBlockLight: 8,
+    breakProgress: 0,
   })
 
   expect(overlay).toEqual(
@@ -103,6 +105,7 @@ test('debug overlay colors degraded indicators and shows missing TPS neutrally',
     focusedBlockKey: null,
     focusedSkyLight: null,
     focusedBlockLight: null,
+    breakProgress: 0,
   })
 
   expect(overlay).toEqual(
@@ -125,6 +128,62 @@ test('debug overlay colors degraded indicators and shows missing TPS neutrally',
       }),
     ]),
   )
+})
+
+test('break progress indicator colors good at low progress, ok mid, bad near complete', () => {
+  expect(getDebugBreakProgressColor(0.1)).toEqual(DEBUG_INDICATOR_COLORS.good)
+  expect(getDebugBreakProgressColor(0.5)).toEqual(DEBUG_INDICATOR_COLORS.ok)
+  expect(getDebugBreakProgressColor(0.9)).toEqual(DEBUG_INDICATOR_COLORS.bad)
+})
+
+test('debug overlay shows break percentage inline when breaking a block', () => {
+  const overlay = buildDebugOverlayText({
+    fps: 60,
+    tps: 20,
+    tpsSourceLabel: 'WORKER',
+    worldName: 'Alpha',
+    memoryUsageText: '12.3MB / 48.0MB (+1.4MB)',
+    loadedChunkCount: 25,
+    lastServerMessage: '',
+    position: [0, 70, 0],
+    yawDegrees: 0,
+    pitchDegrees: 0,
+    playerSkyLight: 15,
+    playerBlockLight: 0,
+    focusedBlockKey: 'stone',
+    focusedSkyLight: 0,
+    focusedBlockLight: 0,
+    breakProgress: 0.75,
+  })
+
+  expect(overlay).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ text: '75%', color: DEBUG_INDICATOR_COLORS.bad }),
+    ]),
+  )
+})
+
+test('debug overlay omits break percentage when not breaking', () => {
+  const overlay = buildDebugOverlayText({
+    fps: 60,
+    tps: 20,
+    tpsSourceLabel: 'WORKER',
+    worldName: 'Alpha',
+    memoryUsageText: '12.3MB / 48.0MB (+1.4MB)',
+    loadedChunkCount: 25,
+    lastServerMessage: '',
+    position: [0, 70, 0],
+    yawDegrees: 0,
+    pitchDegrees: 0,
+    playerSkyLight: 15,
+    playerBlockLight: 0,
+    focusedBlockKey: 'stone',
+    focusedSkyLight: 0,
+    focusedBlockLight: 0,
+    breakProgress: 0,
+  })
+
+  expect(overlay.every((cmd) => !cmd.text.endsWith('%'))).toBe(true)
 })
 
 test('debug indicator helpers classify good, ok, and bad thresholds consistently', () => {
@@ -158,6 +217,7 @@ test('debug overlay keeps long labels and lighting segments from overlapping the
     focusedBlockKey: 'dirt',
     focusedSkyLight: 0,
     focusedBlockLight: 0,
+    breakProgress: 0,
   })
 
   const tpsLabel = overlay.find((command) => command.text === 'TPS WORKER')

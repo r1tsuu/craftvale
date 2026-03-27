@@ -170,6 +170,7 @@ export class GameApp {
     }
 
     let focusedBlock: Vec3 | null = null
+    let breakProgress = 0
     let overlayText: TextDrawCommand[] = []
     let uiComponents: UiResolvedComponent[] = []
 
@@ -193,6 +194,7 @@ export class GameApp {
         lastServerMessage: this.lastServerMessage,
       })
       focusedBlock = result.focusedBlock
+      breakProgress = result.breakProgress
       overlayText = result.overlayText
       uiComponents = result.uiComponents
       this.accumulator = result.remainingAccumulator
@@ -208,6 +210,7 @@ export class GameApp {
       input.windowWidth,
       input.windowHeight,
       focusedBlock,
+      breakProgress,
       overlayText,
       uiComponents,
     )
@@ -594,6 +597,7 @@ export class GameApp {
     windowWidth: number,
     windowHeight: number,
     focusedBlock: Vec3 | null,
+    breakProgress: number,
     overlayText: readonly TextDrawCommand[],
     uiComponents: readonly UiResolvedComponent[],
   ): void {
@@ -611,6 +615,7 @@ export class GameApp {
       framebufferWidth,
       framebufferHeight,
       focusedBlock,
+      breakProgress,
       worldRuntime ? [...worldRuntime.droppedItems.values()] : [],
       overlayText,
       uiComponents,

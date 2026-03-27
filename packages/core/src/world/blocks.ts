@@ -27,6 +27,7 @@ export interface BlockDefinition {
   renderPass: BlockRenderPass | null
   dropItemId: ItemId | null
   emittedLightLevel: number
+  durability: number
   color: [number, number, number]
   tiles?: BlockTiles
 }
@@ -58,6 +59,8 @@ export const getDroppedItemIdForBlock = (blockId: BlockId): ItemId | null =>
 
 export const getBlockEmittedLightLevel = (blockId: BlockId): number =>
   Blocks[blockId].emittedLightLevel
+
+export const getBlockDurability = (blockId: BlockId): number => Blocks[blockId].durability
 
 export const isCollectibleBlock = (blockId: BlockId): boolean =>
   getDroppedItemIdForBlock(blockId) !== null

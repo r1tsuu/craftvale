@@ -5,6 +5,7 @@ import {
   Biomes,
   BLOCK_IDS,
   getBiomeAt,
+  getBlockDurability,
   getBlockKey,
   getItemDisplayName,
   getMainInventorySlotIndex,
@@ -23,6 +24,11 @@ import type { UiResolvedComponent } from '../ui/components.ts'
 import type { IClientAdapter } from './client-adapter.ts'
 import type { ClientWorldRuntime } from './world-runtime.ts'
 
+import {
+  advanceBreakState,
+  type BreakState,
+  getBreakProgress,
+} from '../game/break-state.ts'
 import {
   applyFixedStepInputEdges,
   createPendingFixedStepInputEdges,
@@ -66,6 +72,7 @@ export interface PlayTickContext {
 
 export interface PlayTickResult {
   focusedBlock: Vec3 | null
+  breakProgress: number
   overlayText: TextDrawCommand[]
   uiComponents: UiResolvedComponent[]
   remainingAccumulator: number
@@ -94,6 +101,7 @@ export class PlayController {
   private debugMemoryUsageText = getDebugMemoryUsageText()
   private nextDebugMemoryRefreshTime = 0
   private predictedInventory: InventorySnapshot | null = null
+  private breakState: BreakState | null = null
 
   public constructor(private readonly deps: PlayControllerDeps) {}
 
@@ -123,6 +131,7 @@ export class PlayController {
     this.inventoryOpen = false
     this.pauseScreen = 'closed'
     this.firstPersonSwingRemaining = 0
+    this.breakState = null
   }
 
   public async tick(context: PlayTickContext): Promise<PlayTickResult> {
@@ -141,6 +150,18 @@ export class PlayController {
 
     if (
       (input.breakBlockPressed || input.placeBlockPressed) &&
+      !isGameplaySuppressed({
+        chatOpen: this.chatOpen,
+        inventoryOpen: this.inventoryOpen,
+        pauseScreen: this.pauseScreen,
+      })
+    ) {
+      this.firstPersonSwingRemaining = FIRST_PERSON_SWING_DURATION
+    }
+
+    if (
+      this.firstPersonSwingRemaining <= 0 &&
+      this.breakState !== null &&
       !isGameplaySuppressed({
         chatOpen: this.chatOpen,
         inventoryOpen: this.inventoryOpen,
@@ -181,6 +202,18 @@ export class PlayController {
     const biomeName = this.getCurrentBiomeName(currentWorldSeed, x, z)
 
     const focusedBlock = focusHit?.hit ?? null
+
+    let breakProgress = 0
+    if (this.breakState !== null && focusedBlock !== null &&
+        this.breakState.x === focusedBlock.x &&
+        this.breakState.y === focusedBlock.y &&
+        this.breakState.z === focusedBlock.z) {
+      const blockId = worldRuntime.world.getBlock(focusedBlock.x, focusedBlock.y, focusedBlock.z)
+      const localGamemode = worldRuntime.getClientPlayer()?.gamemode ?? this.deps.player.gamemode
+      const durability = localGamemode === 1 ? 0 : getBlockDurability(blockId)
+      breakProgress = getBreakProgress(this.breakState, durability)
+    }
+
     const overlayText = this.deps.getClientSettings().showDebugOverlay
       ? this.buildOverlayText(
           worldRuntime.world,
@@ -190,6 +223,7 @@ export class PlayController {
           yawDegrees,
           pitchDegrees,
           focusedBlock,
+          breakProgress,
           smoothedFps,
           serverTps,
           connectionMode,
@@ -239,6 +273,7 @@ export class PlayController {
 
     return {
       focusedBlock,
+      breakProgress,
       overlayText,
       uiComponents: evaluation.components,
       remainingAccumulator: accumulator,
@@ -258,6 +293,7 @@ export class PlayController {
         pauseScreen: this.pauseScreen,
       })
     ) {
+      this.breakState = null
       return null
     }
 
@@ -300,13 +336,23 @@ export class PlayController {
       8,
     )
 
-    if (hit && input.breakBlockPressed) {
+    if (hit && input.breakBlock) {
+      const { x, y, z } = hit.hit
+      this.breakState = advanceBreakState(this.breakState, { x, y, z }, deltaSeconds * 1000)
       const localGamemode = worldRuntime.getClientPlayer()?.gamemode ?? this.deps.player.gamemode
-      worldRuntime.applyPredictedBreak(hit.hit.x, hit.hit.y, hit.hit.z, localGamemode)
-      adapter.eventBus.send({
-        type: 'mutateBlock',
-        payload: { x: hit.hit.x, y: hit.hit.y, z: hit.hit.z, blockId: BLOCK_IDS.air },
-      })
+      const blockId = worldRuntime.world.getBlock(x, y, z)
+      const durability = localGamemode === 1 ? 0 : getBlockDurability(blockId)
+      const progress = getBreakProgress(this.breakState!, durability)
+      if (progress >= 1) {
+        worldRuntime.applyPredictedBreak(x, y, z, localGamemode)
+        adapter.eventBus.send({
+          type: 'mutateBlock',
+          payload: { x, y, z, blockId: BLOCK_IDS.air },
+        })
+        this.breakState = null
+      }
+    } else {
+      this.breakState = null
     }
 
     if (hit && input.placeBlockPressed) {
@@ -518,6 +564,7 @@ export class PlayController {
     yawDegrees: number,
     pitchDegrees: number,
     focusedBlock: Vec3 | null,
+    breakProgress: number,
     smoothedFps: number,
     serverTps: number | null,
     connectionMode: 'local' | 'remote' | null,
@@ -555,6 +602,7 @@ export class PlayController {
       focusedBlockLight: focusedBlock
         ? world.getBlockLight(focusedBlock.x, focusedBlock.y, focusedBlock.z)
         : null,
+      breakProgress,
     })
   }
 

@@ -81,7 +81,7 @@ const formatBlockDefinition = (block: ResolvedBlockSpec): string => {
     : ''
   const renderPass = block.renderPass === null ? 'null' : quote(block.renderPass)
   const dropItemId = block.dropItemKey === null ? 'null' : `ITEM_IDS.${block.dropItemKey}`
-  return `  [BLOCK_IDS.${block.key}]: {\n    id: BLOCK_IDS.${block.key},\n    name: ${quote(block.name)},\n    collidable: ${block.collidable},\n    breakable: ${block.breakable},\n    occlusion: ${quote(block.occlusion)},\n    renderPass: ${renderPass},\n    dropItemId: ${dropItemId},\n    emittedLightLevel: ${block.emittedLightLevel},\n    color: [${block.color.join(', ')}]${tiles},\n  },`
+  return `  [BLOCK_IDS.${block.key}]: {\n    id: BLOCK_IDS.${block.key},\n    name: ${quote(block.name)},\n    collidable: ${block.collidable},\n    breakable: ${block.breakable},\n    occlusion: ${quote(block.occlusion)},\n    renderPass: ${renderPass},\n    dropItemId: ${dropItemId},\n    emittedLightLevel: ${block.emittedLightLevel},\n    durability: ${block.durability},\n    color: [${block.color.join(', ')}]${tiles},\n  },`
 }
 
 const formatItemDefinition = (item: ResolvedItemSpec): string => {
@@ -285,6 +285,7 @@ const buildContentRegistrySource = (
     '  renderPass: "opaque" | "cutout" | "translucent" | null;\n',
     '  dropItemId: ItemId | null;\n',
     '  emittedLightLevel: number;\n',
+    '  durability: number;\n',
     '  color: [number, number, number];\n',
     '  tiles?: GeneratedBlockTiles;\n',
     '}\n',

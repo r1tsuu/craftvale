@@ -180,6 +180,7 @@ export class VoxelRenderer {
     width: number,
     height: number,
     focusedBlock: Vec3 | null,
+    breakProgress: number,
     droppedItems: readonly DroppedItemSnapshot[],
     overlayText: readonly TextDrawCommand[],
     uiComponents: readonly UiResolvedComponent[],
@@ -276,7 +277,7 @@ export class VoxelRenderer {
     this.nativeBridge.gl.disable(GL.BLEND)
 
     this.nativeBridge.gl.bindVertexArray(0)
-    this.focusHighlightRenderer.render(focusedBlock, viewProjection)
+    this.focusHighlightRenderer.render(focusedBlock, breakProgress, viewProjection)
     // Switch to viewmodel projection (fixed 70° FOV)
     const vmViewProjection = player.getViewModelViewProjection(aspect)
     this.nativeBridge.gl.useProgram(this.program)

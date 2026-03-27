@@ -75,12 +75,12 @@ export class FocusHighlightRenderer {
     nativeBridge.gl.bindVertexArray(0)
   }
 
-  public render(block: Vec3 | null, viewProjection: Float32Array): void {
+  public render(block: Vec3 | null, breakProgress: number, viewProjection: Float32Array): void {
     if (!block) {
       return
     }
 
-    const mesh = buildFocusHighlightMesh(block)
+    const mesh = buildFocusHighlightMesh(block, breakProgress)
 
     this.nativeBridge.gl.disable(GL.CULL_FACE)
     this.nativeBridge.gl.useProgram(this.program)

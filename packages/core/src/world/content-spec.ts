@@ -18,6 +18,7 @@ export interface AuthoredBlockSpec {
   renderPass: AuthoredBlockRenderPass | null
   dropItemKey: string | null
   emittedLightLevel: number
+  durability: number
   color: readonly [number, number, number]
   tiles?: AuthoredBlockTiles
 }
@@ -47,6 +48,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: null,
     dropItemKey: null,
     emittedLightLevel: 0,
+    durability: 0,
     color: [0, 0, 0],
   },
   {
@@ -58,6 +60,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'grass',
     emittedLightLevel: 0,
+    durability: 600,
     color: [0.42, 0.71, 0.31],
     tiles: {
       top: 'grass-top',
@@ -74,6 +77,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'dirt',
     emittedLightLevel: 0,
+    durability: 600,
     color: [0.48, 0.34, 0.2],
     tiles: {
       top: 'dirt',
@@ -90,6 +94,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'stone',
     emittedLightLevel: 0,
+    durability: 1500,
     color: [0.5, 0.5, 0.56],
     tiles: {
       top: 'stone',
@@ -106,6 +111,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'log',
     emittedLightLevel: 0,
+    durability: 900,
     color: [0.48, 0.37, 0.24],
     tiles: {
       top: 'log-top',
@@ -122,6 +128,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'cutout',
     dropItemKey: 'leaves',
     emittedLightLevel: 0,
+    durability: 300,
     color: [0.32, 0.58, 0.22],
     tiles: {
       top: 'leaves',
@@ -138,6 +145,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'sand',
     emittedLightLevel: 0,
+    durability: 600,
     color: [0.84, 0.78, 0.52],
     tiles: {
       top: 'sand',
@@ -154,6 +162,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'planks',
     emittedLightLevel: 0,
+    durability: 900,
     color: [0.72, 0.55, 0.31],
     tiles: {
       top: 'planks',
@@ -170,6 +179,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'cobblestone',
     emittedLightLevel: 0,
+    durability: 1500,
     color: [0.58, 0.58, 0.61],
     tiles: {
       top: 'cobblestone',
@@ -186,6 +196,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'brick',
     emittedLightLevel: 0,
+    durability: 1500,
     color: [0.69, 0.27, 0.22],
     tiles: {
       top: 'brick',
@@ -202,6 +213,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: null,
     emittedLightLevel: 0,
+    durability: 0,
     color: [0.24, 0.24, 0.27],
     tiles: {
       top: 'bedrock',
@@ -218,6 +230,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'glowstone',
     emittedLightLevel: 15,
+    durability: 600,
     color: [0.94, 0.79, 0.37],
     tiles: {
       top: 'glowstone',
@@ -234,6 +247,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'translucent',
     dropItemKey: null,
     emittedLightLevel: 0,
+    durability: 0,
     color: [0.25, 0.48, 0.82],
     tiles: {
       top: 'water',
@@ -250,6 +264,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'coalOre',
     emittedLightLevel: 0,
+    durability: 2000,
     color: [0.31, 0.31, 0.33],
     tiles: {
       top: 'coal-ore',
@@ -266,6 +281,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'ironOre',
     emittedLightLevel: 0,
+    durability: 2000,
     color: [0.69, 0.53, 0.41],
     tiles: {
       top: 'iron-ore',
@@ -282,6 +298,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'goldOre',
     emittedLightLevel: 0,
+    durability: 2000,
     color: [0.86, 0.71, 0.24],
     tiles: {
       top: 'gold-ore',
@@ -298,6 +315,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: 'diamondOre',
     emittedLightLevel: 0,
+    durability: 2000,
     color: [0.2, 0.78, 0.78],
     tiles: {
       top: 'diamond-ore',
@@ -314,6 +332,7 @@ export const AUTHORED_BLOCK_SPECS = [
     renderPass: 'opaque',
     dropItemKey: null,
     emittedLightLevel: 0,
+    durability: 0,
     color: [0.77, 0.61, 0.47],
     tiles: {
       top: 'arm',

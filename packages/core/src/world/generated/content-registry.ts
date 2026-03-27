@@ -19,6 +19,7 @@ export interface GeneratedBlockDefinition {
   renderPass: "opaque" | "cutout" | "translucent" | null;
   dropItemId: ItemId | null;
   emittedLightLevel: number;
+  durability: number;
   color: [number, number, number];
   tiles?: GeneratedBlockTiles;
 }
@@ -48,6 +49,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: null,
     dropItemId: null,
     emittedLightLevel: 0,
+    durability: 0,
     color: [0, 0, 0],
   },
   [BLOCK_IDS.grass]: {
@@ -59,6 +61,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.grass,
     emittedLightLevel: 0,
+    durability: 600,
     color: [0.42, 0.71, 0.31],
     tiles: {
       top: "grass-top",
@@ -75,6 +78,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.dirt,
     emittedLightLevel: 0,
+    durability: 600,
     color: [0.48, 0.34, 0.2],
     tiles: {
       top: "dirt",
@@ -91,6 +95,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.stone,
     emittedLightLevel: 0,
+    durability: 1500,
     color: [0.5, 0.5, 0.56],
     tiles: {
       top: "stone",
@@ -107,6 +112,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.log,
     emittedLightLevel: 0,
+    durability: 900,
     color: [0.48, 0.37, 0.24],
     tiles: {
       top: "log-top",
@@ -123,6 +129,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "cutout",
     dropItemId: ITEM_IDS.leaves,
     emittedLightLevel: 0,
+    durability: 300,
     color: [0.32, 0.58, 0.22],
     tiles: {
       top: "leaves",
@@ -139,6 +146,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.sand,
     emittedLightLevel: 0,
+    durability: 600,
     color: [0.84, 0.78, 0.52],
     tiles: {
       top: "sand",
@@ -155,6 +163,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.planks,
     emittedLightLevel: 0,
+    durability: 900,
     color: [0.72, 0.55, 0.31],
     tiles: {
       top: "planks",
@@ -171,6 +180,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.cobblestone,
     emittedLightLevel: 0,
+    durability: 1500,
     color: [0.58, 0.58, 0.61],
     tiles: {
       top: "cobblestone",
@@ -187,6 +197,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.brick,
     emittedLightLevel: 0,
+    durability: 1500,
     color: [0.69, 0.27, 0.22],
     tiles: {
       top: "brick",
@@ -203,6 +214,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: null,
     emittedLightLevel: 0,
+    durability: 0,
     color: [0.24, 0.24, 0.27],
     tiles: {
       top: "bedrock",
@@ -219,6 +231,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.glowstone,
     emittedLightLevel: 15,
+    durability: 600,
     color: [0.94, 0.79, 0.37],
     tiles: {
       top: "glowstone",
@@ -235,6 +248,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "translucent",
     dropItemId: null,
     emittedLightLevel: 0,
+    durability: 0,
     color: [0.25, 0.48, 0.82],
     tiles: {
       top: "water",
@@ -251,6 +265,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.coalOre,
     emittedLightLevel: 0,
+    durability: 2000,
     color: [0.31, 0.31, 0.33],
     tiles: {
       top: "coal-ore",
@@ -267,6 +282,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.ironOre,
     emittedLightLevel: 0,
+    durability: 2000,
     color: [0.69, 0.53, 0.41],
     tiles: {
       top: "iron-ore",
@@ -283,6 +299,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.goldOre,
     emittedLightLevel: 0,
+    durability: 2000,
     color: [0.86, 0.71, 0.24],
     tiles: {
       top: "gold-ore",
@@ -299,6 +316,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: ITEM_IDS.diamondOre,
     emittedLightLevel: 0,
+    durability: 2000,
     color: [0.2, 0.78, 0.78],
     tiles: {
       top: "diamond-ore",
@@ -315,6 +333,7 @@ export const GENERATED_BLOCK_DEFINITIONS = {
     renderPass: "opaque",
     dropItemId: null,
     emittedLightLevel: 0,
+    durability: 0,
     color: [0.77, 0.61, 0.47],
     tiles: {
       top: "arm",

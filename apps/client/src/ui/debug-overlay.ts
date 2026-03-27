@@ -45,6 +45,7 @@ export interface DebugOverlayInput {
   focusedBlockKey: string | null
   focusedSkyLight: number | null
   focusedBlockLight: number | null
+  breakProgress: number
 }
 
 const getIndicatorColor = (
@@ -77,6 +78,12 @@ export const getDebugTpsColor = (tps: number | null): readonly [number, number, 
     good: 19,
     ok: 15,
   })
+
+export const getDebugBreakProgressColor = (progress: number): readonly [number, number, number] => {
+  if (progress >= 0.66) return DEBUG_INDICATOR_COLORS.bad
+  if (progress >= 0.33) return DEBUG_INDICATOR_COLORS.ok
+  return DEBUG_INDICATOR_COLORS.good
+}
 
 export const getDebugLightingColor = (
   skyLight: number,
@@ -172,6 +179,19 @@ export const buildDebugOverlayText = (input: DebugOverlayInput): TextDrawCommand
       DEBUG_LINE_START_Y + DEBUG_LINE_GAP * 6,
       input.focusedBlockKey ? DEBUG_INDICATOR_COLORS.accent : DEBUG_INDICATOR_COLORS.subtle,
     ),
+    ...(input.breakProgress > 0 && input.focusedBlockKey !== null
+      ? [
+          createDebugTextCommand(
+            `${Math.round(input.breakProgress * 100)}%`,
+            valueX +
+              measureTextWidth(input.focusedBlockKey, DEBUG_LINE_SCALE) +
+              DEBUG_INLINE_GAP,
+            DEBUG_LINE_START_Y + DEBUG_LINE_GAP * 6,
+            DEBUG_LINE_SCALE,
+            getDebugBreakProgressColor(input.breakProgress),
+          ),
+        ]
+      : []),
     ...buildMetricRow(
       'ROT',
       `YAW:${input.yawDegrees.toFixed(1)} PITCH:${input.pitchDegrees.toFixed(1)}`,
