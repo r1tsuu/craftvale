@@ -97,13 +97,13 @@ const findPartialStackSlot = (inventory: InventorySnapshot, itemId: ItemId): num
 }
 
 const findEmptySlot = (inventory: InventorySnapshot): number | null => {
-  for (let slot = HOTBAR_SLOT_COUNT; slot < inventory.slots.length; slot += 1) {
+  for (let slot = 0; slot < HOTBAR_SLOT_COUNT; slot += 1) {
     if (isEmptySlot(inventory.slots[slot])) {
       return slot
     }
   }
 
-  for (let slot = 0; slot < HOTBAR_SLOT_COUNT; slot += 1) {
+  for (let slot = HOTBAR_SLOT_COUNT; slot < inventory.slots.length; slot += 1) {
     if (isEmptySlot(inventory.slots[slot])) {
       return slot
     }

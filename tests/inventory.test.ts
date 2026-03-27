@@ -17,23 +17,19 @@ import {
 } from '../packages/core/src/world/inventory.ts'
 import { ITEM_IDS } from '../packages/core/src/world/items.ts'
 
-test('starter inventory creates a full hotbar plus a starter brick stack', () => {
+test('starter inventory creates expected hotbar items with remaining slots empty', () => {
   const inventory = createStarterInventory()
   const hotbar = getHotbarInventorySlots(inventory)
   const main = getMainInventorySlots(inventory)
 
   expect(hotbar).toHaveLength(9)
-  expect(hotbar).toEqual([
-    { itemId: ITEM_IDS.grass, count: DEFAULT_INVENTORY_STACK_SIZE },
-    { itemId: ITEM_IDS.glowstone, count: DEFAULT_INVENTORY_STACK_SIZE },
-    { itemId: ITEM_IDS.dirt, count: DEFAULT_INVENTORY_STACK_SIZE },
-    { itemId: ITEM_IDS.stone, count: DEFAULT_INVENTORY_STACK_SIZE },
-    { itemId: ITEM_IDS.log, count: DEFAULT_INVENTORY_STACK_SIZE },
-    { itemId: ITEM_IDS.leaves, count: DEFAULT_INVENTORY_STACK_SIZE },
-    { itemId: ITEM_IDS.empty, count: 0 },
-    { itemId: ITEM_IDS.planks, count: DEFAULT_INVENTORY_STACK_SIZE },
-    { itemId: ITEM_IDS.glass, count: DEFAULT_INVENTORY_STACK_SIZE },
-  ])
+  expect(hotbar[0]).toEqual({ itemId: ITEM_IDS.grass, count: DEFAULT_INVENTORY_STACK_SIZE })
+  expect(hotbar[1]).toEqual({ itemId: ITEM_IDS.glowstone, count: DEFAULT_INVENTORY_STACK_SIZE })
+  expect(hotbar[2]).toEqual({ itemId: ITEM_IDS.dirt, count: DEFAULT_INVENTORY_STACK_SIZE })
+  expect(hotbar[3]).toEqual({ itemId: ITEM_IDS.glass, count: DEFAULT_INVENTORY_STACK_SIZE })
+  expect(hotbar.slice(4).every((slot) => slot.itemId === ITEM_IDS.empty && slot.count === 0)).toBe(
+    true,
+  )
   expect(main).toHaveLength(MAIN_INVENTORY_SLOT_COUNT)
   expect(main.every((slot) => slot.itemId === ITEM_IDS.empty && slot.count === 0)).toBe(true)
   expect(inventory.selectedSlot).toBe(0)
@@ -89,14 +85,69 @@ test('selected slot clamps across the nine-slot hotbar range', () => {
   expect(setSelectedInventorySlot(inventory, 200).selectedSlot).toBe(8)
 })
 
-test('adding items fills empty main-inventory stacks when hotbar stacks are full', () => {
+test('adding items prefers empty hotbar slots over main inventory', () => {
+  // Starter inventory has slots 4-8 empty in the hotbar; new items should land in slot 4, not main
   const inventory = createStarterInventory()
-  const result = addInventoryItem(inventory, ITEM_IDS.grass, 5)
+  const result = addInventoryItem(inventory, ITEM_IDS.sand, 5)
+  const hotbar = getHotbarInventorySlots(result.inventory)
   const main = getMainInventorySlots(result.inventory)
 
   expect(result.added).toBe(5)
   expect(result.remaining).toBe(0)
-  expect(main[0]).toEqual({ itemId: ITEM_IDS.grass, count: 5 })
+  expect(hotbar[4]).toEqual({ itemId: ITEM_IDS.sand, count: 5 })
+  expect(main.every((slot) => slot.itemId === ITEM_IDS.empty)).toBe(true)
+})
+
+test('adding items spills into main inventory only after hotbar is full', () => {
+  // Fill every hotbar slot, then add items — they must go to main inventory
+  const inventory = normalizeInventorySnapshot({
+    slots: [
+      { itemId: ITEM_IDS.grass, count: 64 },
+      { itemId: ITEM_IDS.dirt, count: 64 },
+      { itemId: ITEM_IDS.stone, count: 64 },
+      { itemId: ITEM_IDS.log, count: 64 },
+      { itemId: ITEM_IDS.leaves, count: 64 },
+      { itemId: ITEM_IDS.glowstone, count: 64 },
+      { itemId: ITEM_IDS.planks, count: 64 },
+      { itemId: ITEM_IDS.glass, count: 64 },
+      { itemId: ITEM_IDS.brick, count: 64 },
+      ...Array.from(
+        { length: MAIN_INVENTORY_SLOT_COUNT },
+        (): InventorySlot => ({ itemId: ITEM_IDS.empty, count: 0 }),
+      ),
+    ],
+    selectedSlot: 0,
+    cursor: null,
+  })
+  const result = addInventoryItem(inventory, ITEM_IDS.sand, 5)
+  const main = getMainInventorySlots(result.inventory)
+
+  expect(result.added).toBe(5)
+  expect(result.remaining).toBe(0)
+  expect(main[0]).toEqual({ itemId: ITEM_IDS.sand, count: 5 })
+})
+
+test('adding items fills partial hotbar stacks before claiming empty main-inventory slots', () => {
+  // Partial grass stack in hotbar slot 0; new grass should fill it, not open a new main slot
+  const inventory = normalizeInventorySnapshot({
+    slots: [
+      { itemId: ITEM_IDS.grass, count: 60 },
+      ...Array.from(
+        { length: 8 + MAIN_INVENTORY_SLOT_COUNT },
+        (): InventorySlot => ({ itemId: ITEM_IDS.empty, count: 0 }),
+      ),
+    ],
+    selectedSlot: 0,
+    cursor: null,
+  })
+  const result = addInventoryItem(inventory, ITEM_IDS.grass, 4)
+  const hotbar = getHotbarInventorySlots(result.inventory)
+  const main = getMainInventorySlots(result.inventory)
+
+  expect(result.added).toBe(4)
+  expect(result.remaining).toBe(0)
+  expect(hotbar[0]).toEqual({ itemId: ITEM_IDS.grass, count: 64 })
+  expect(main.every((slot) => slot.itemId === ITEM_IDS.empty)).toBe(true)
 })
 
 test('inventory interaction picks up, places, and merges stacks', () => {
