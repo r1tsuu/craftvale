@@ -108,12 +108,14 @@ const getColumnBlocksForBiome = (
     return BLOCK_IDS.air
   }
 
+  const underwater = height < WORLD_WATER_LEVEL
+
   if (worldY === height) {
-    return biome.surfaceBlock
+    return underwater ? BLOCK_IDS.sand : biome.surfaceBlock
   }
 
   if (worldY >= height - 2) {
-    return biome.fillerBlock
+    return underwater ? BLOCK_IDS.sand : biome.fillerBlock
   }
 
   return biome.deepBlock

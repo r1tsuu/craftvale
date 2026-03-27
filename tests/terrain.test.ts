@@ -408,10 +408,11 @@ test('forest chunks generate denser tree coverage than scrub chunks', () => {
 test('scrub and highlands biome columns keep their expected surface materials', () => {
   const scrubSurfaceBlocks = collectSurfaceBlocksForBiome(42, 'scrub', 256)
   const highlandsSurfaceBlocks = collectSurfaceBlocksForBiome(42, 'highlands', 256)
-  const scrubAllowedSurfaceBlocks = new Set<number>([BLOCK_IDS.air, BLOCK_IDS.dirt])
+  const scrubAllowedSurfaceBlocks = new Set<number>([BLOCK_IDS.air, BLOCK_IDS.dirt, BLOCK_IDS.sand])
   const highlandsAllowedSurfaceBlocks = new Set<number>([
     BLOCK_IDS.air,
     BLOCK_IDS.stone,
+    BLOCK_IDS.sand,
     BLOCK_IDS.coalOre,
     BLOCK_IDS.ironOre,
     BLOCK_IDS.goldOre,
