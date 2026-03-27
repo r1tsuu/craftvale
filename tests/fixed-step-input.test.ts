@@ -31,6 +31,7 @@ const createInput = (overrides: Partial<InputState> = {}): InputState => ({
   tabPressed: false,
   inventoryToggle: false,
   hotbarSelection: null,
+  hotbarScrollDelta: 0,
   windowWidth: 800,
   windowHeight: 600,
   framebufferWidth: 800,
@@ -64,6 +65,7 @@ test('fixed-step input edges accumulate either mouse button independently', () =
     breakBlockPressed: true,
     placeBlockPressed: true,
     hotbarSelection: null,
+    hotbarScrollDelta: 0,
   })
 })
 

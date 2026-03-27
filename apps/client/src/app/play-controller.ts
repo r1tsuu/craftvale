@@ -11,6 +11,7 @@ import {
   getMainInventorySlotIndex,
   getPlacedBlockIdForItem,
   getSelectedInventorySlot,
+  HOTBAR_SLOT_COUNT,
   raycastVoxel,
 } from '@craftvale/core/shared'
 import { interactInventorySlot } from '@craftvale/core/shared'
@@ -301,6 +302,13 @@ export class PlayController {
         type: 'selectInventorySlot',
         payload: { slot: input.hotbarSelection },
       })
+    } else if (input.hotbarScrollDelta !== 0) {
+      const currentSlot = worldRuntime.inventory.selectedSlot
+      const next =
+        ((currentSlot + Math.sign(input.hotbarScrollDelta)) % HOTBAR_SLOT_COUNT +
+          HOTBAR_SLOT_COUNT) %
+        HOTBAR_SLOT_COUNT
+      adapter.eventBus.send({ type: 'selectInventorySlot', payload: { slot: next } })
     }
 
     void worldRuntime.requestChunksAroundPosition(

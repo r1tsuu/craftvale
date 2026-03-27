@@ -27,6 +27,7 @@ export interface InputState {
   tabPressed: boolean
   inventoryToggle: boolean
   hotbarSelection: number | null
+  hotbarScrollDelta: number
   windowWidth: number
   windowHeight: number
   framebufferWidth: number

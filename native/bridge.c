@@ -18,6 +18,7 @@ static char g_typed_text[256];
 static int g_typed_text_length = 0;
 static int g_pressed_keys[GLFW_KEY_LAST + 1];
 static int g_pressed_mouse_buttons[GLFW_MOUSE_BUTTON_LAST + 1];
+static int g_scroll_y = 0;
 
 static void window_size_callback(GLFWwindow *window, int width, int height) {
   (void)window;
@@ -64,6 +65,12 @@ static void mouse_button_callback(
   if (action == GLFW_PRESS && button >= 0 && button <= GLFW_MOUSE_BUTTON_LAST) {
     g_pressed_mouse_buttons[button] = 1;
   }
+}
+
+static void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
+  (void)window;
+  (void)xoffset;
+  g_scroll_y += (int)yoffset;
 }
 
 static void char_callback(GLFWwindow *window, unsigned int codepoint) {
@@ -120,6 +127,7 @@ int bridge_init_window(int width, int height, const char *title) {
   glfwSetCursorPosCallback(g_window, cursor_position_callback);
   glfwSetKeyCallback(g_window, key_callback);
   glfwSetMouseButtonCallback(g_window, mouse_button_callback);
+  glfwSetScrollCallback(g_window, scroll_callback);
   glfwSetCharCallback(g_window, char_callback);
   glfwGetWindowSize(g_window, &g_window_width, &g_window_height);
   glfwGetFramebufferSize(g_window, &g_framebuffer_width, &g_framebuffer_height);
@@ -226,6 +234,12 @@ int bridge_consume_mouse_button_press(int button) {
   int pressed = g_pressed_mouse_buttons[button];
   g_pressed_mouse_buttons[button] = 0;
   return pressed;
+}
+
+int bridge_consume_scroll_y(void) {
+  int v = g_scroll_y;
+  g_scroll_y = 0;
+  return v;
 }
 
 double bridge_get_cursor_x(void) {

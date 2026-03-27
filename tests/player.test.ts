@@ -30,6 +30,7 @@ const createInput = (overrides: Partial<InputState> = {}): InputState => ({
   tabPressed: false,
   inventoryToggle: false,
   hotbarSelection: null,
+  hotbarScrollDelta: 0,
   windowWidth: 800,
   windowHeight: 600,
   framebufferWidth: 800,
