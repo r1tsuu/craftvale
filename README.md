@@ -1,5 +1,7 @@
 # Craftvale
 
+<video src="https://github.com/user-attachments/assets/220c9092-4e4d-4c01-9847-8f0924e5b18c" autoplay loop muted playsinline></video>
+
 A macOS-first Bun desktop voxel sandbox. A thin C bridge handles GLFW windowing and OpenGL rendering; Bun workspaces split the desktop client, dedicated server, and shared gameplay/runtime code into explicit packages.
 
 ## Quick Start
