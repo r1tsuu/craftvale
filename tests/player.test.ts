@@ -31,6 +31,8 @@ const createInput = (overrides: Partial<InputState> = {}): InputState => ({
   inventoryToggle: false,
   hotbarSelection: null,
   hotbarScrollDelta: 0,
+  dropItemPressed: false,
+  dropItemHeld: false,
   windowWidth: 800,
   windowHeight: 600,
   framebufferWidth: 800,
@@ -307,4 +309,79 @@ test('fov settings change the projection matrix', () => {
 
   expect(widerProjection[0]).toBeLessThan(defaultProjection[0])
   expect(widerProjection[5]).toBeLessThan(defaultProjection[5])
+})
+
+test('double-tap W starts sprinting and moves faster than walking', () => {
+  const world = createEmptyWorld()
+  addFloor(world)
+
+  // Walk for one second
+  const walker = new PlayerController()
+  walker.state = { position: [2.5, 1, 2.5], yaw: 0, pitch: 0 }
+  for (let step = 0; step < 60; step++) {
+    walker.update(createInput({ moveForward: true }), 1 / 60, world)
+  }
+  const walkDistance = walker.state.position[0] - 2.5
+
+  // Double-tap W to start sprint then walk for the same duration
+  const sprinter = new PlayerController()
+  sprinter.state = { position: [2.5, 1, 2.5], yaw: 0, pitch: 0 }
+  sprinter.update(createInput({ moveForward: true }), 1 / 60, world)
+  sprinter.update(createInput({ moveForward: false }), 0.05, world)
+  sprinter.update(createInput({ moveForward: true }), 1 / 60, world)
+  for (let step = 0; step < 57; step++) {
+    sprinter.update(createInput({ moveForward: true }), 1 / 60, world)
+  }
+  const sprintDistance = sprinter.state.position[0] - 2.5
+
+  expect(sprinter.sprinting).toBe(true)
+  expect(sprintDistance).toBeGreaterThan(walkDistance)
+})
+
+test('single W press does not start sprinting', () => {
+  const world = createEmptyWorld()
+  addFloor(world)
+  const player = new PlayerController()
+  player.state = { position: [2.5, 1, 2.5], yaw: 0, pitch: 0 }
+
+  const walker = new PlayerController()
+  walker.state = { position: [2.5, 1, 2.5], yaw: 0, pitch: 0 }
+
+  for (let step = 0; step < 60; step++) {
+    player.update(createInput({ moveForward: true }), 1 / 60, world)
+    walker.update(createInput({ moveForward: true }), 1 / 60, world)
+  }
+
+  expect(player.sprinting).toBe(false)
+  expect(player.state.position[0]).toBeCloseTo(walker.state.position[0], 3)
+})
+
+test('releasing W cancels sprint', () => {
+  const world = createEmptyWorld()
+  addFloor(world)
+  const player = new PlayerController()
+  player.state = { position: [2.5, 1, 2.5], yaw: 0, pitch: 0 }
+
+  // Engage sprint via double-tap
+  player.update(createInput({ moveForward: true }), 1 / 60, world)
+  player.update(createInput({ moveForward: false }), 0.05, world)
+  player.update(createInput({ moveForward: true }), 1 / 60, world)
+  expect(player.sprinting).toBe(true)
+
+  // Release W
+  player.update(createInput({ moveForward: false }), 1 / 60, world)
+  expect(player.sprinting).toBe(false)
+})
+
+test('W double-tap outside the window does not sprint', () => {
+  const world = createEmptyWorld()
+  addFloor(world)
+  const player = new PlayerController()
+  player.state = { position: [2.5, 1, 2.5], yaw: 0, pitch: 0 }
+
+  player.update(createInput({ moveForward: true }), 1 / 60, world)
+  player.update(createInput({ moveForward: false }), 0.4, world) // exceeds 0.32 s window
+  player.update(createInput({ moveForward: true }), 1 / 60, world)
+
+  expect(player.sprinting).toBe(false)
 })

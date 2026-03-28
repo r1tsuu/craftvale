@@ -13,6 +13,7 @@ import {
   interactInventorySlot,
   MAIN_INVENTORY_SLOT_COUNT,
   normalizeInventorySnapshot,
+  removeInventorySlotCount,
   setSelectedInventorySlot,
 } from '../packages/core/src/world/inventory.ts'
 import { ITEM_IDS } from '../packages/core/src/world/items.ts'
@@ -180,4 +181,35 @@ test('inventory interaction picks up, places, and merges stacks', () => {
   inventory = interactInventorySlot(inventory, 0)
   expect(getHotbarInventorySlots(inventory)[0]).toEqual({ itemId: ITEM_IDS.grass, count: 36 })
   expect(inventory.cursor).toBeNull()
+})
+
+test('removeInventorySlotCount decrements slot by the requested amount', () => {
+  const inventory = createStarterInventory() // slot 0 = grass × 64
+  const result = removeInventorySlotCount(inventory, 0, 10)
+
+  expect(getHotbarInventorySlots(result)[0]).toEqual({ itemId: ITEM_IDS.grass, count: 54 })
+})
+
+test('removeInventorySlotCount zeroes slot when count equals stack size', () => {
+  const inventory = createStarterInventory()
+  const result = removeInventorySlotCount(inventory, 0, 64)
+
+  expect(getHotbarInventorySlots(result)[0]).toEqual({ itemId: ITEM_IDS.empty, count: 0 })
+})
+
+test('removeInventorySlotCount zeroes slot when count exceeds available items', () => {
+  const inventory = createStarterInventory()
+  const result = removeInventorySlotCount(inventory, 0, 100)
+
+  expect(getHotbarInventorySlots(result)[0]).toEqual({ itemId: ITEM_IDS.empty, count: 0 })
+})
+
+test('removeInventorySlotCount leaves other slots unchanged', () => {
+  const inventory = createStarterInventory()
+  const result = removeInventorySlotCount(inventory, 0, 5)
+  const hotbar = getHotbarInventorySlots(result)
+
+  for (let i = 1; i < 9; i++) {
+    expect(hotbar[i]).toEqual(getHotbarInventorySlots(inventory)[i])
+  }
 })

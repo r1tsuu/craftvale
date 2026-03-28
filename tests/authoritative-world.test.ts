@@ -425,3 +425,69 @@ test('block mutations relight only the nearby loaded chunk neighborhood', async 
     await rm(rootDir, { recursive: true, force: true })
   }
 })
+
+test('dropItem removes items from inventory and spawns a dropped item', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-drop-item-'))
+  const storage = new BinaryWorldStorage(rootDir)
+
+  try {
+    const worldRecord = await storage.createWorld('DropItem', 42)
+    const world = new AuthoritativeWorld(worldRecord, storage, {
+      createInventory: createTestStarterInventory,
+    })
+    const joined = await world.joinPlayer(PLAYER_A)
+    // Test inventory: hotbar[0] = grass × 64
+
+    const result = await world.dropItem(joined.clientPlayer.entityId, 0, 1)
+
+    expect(result.inventory.slots[0]).toEqual({ itemId: ITEM_IDS.grass, count: 63 })
+    expect(result.inventoryChanged).toBe(true)
+    expect(result.droppedItems.spawned).toHaveLength(1)
+    expect(result.droppedItems.spawned[0]?.itemId).toBe(ITEM_IDS.grass)
+    expect(result.droppedItems.spawned[0]?.count).toBe(1)
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('dropItem empties slot when count equals stack size', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-drop-stack-'))
+  const storage = new BinaryWorldStorage(rootDir)
+
+  try {
+    const worldRecord = await storage.createWorld('DropStack', 42)
+    const world = new AuthoritativeWorld(worldRecord, storage, {
+      createInventory: createTestStarterInventory,
+    })
+    const joined = await world.joinPlayer(PLAYER_A)
+
+    const result = await world.dropItem(joined.clientPlayer.entityId, 0, 64)
+
+    expect(result.inventory.slots[0]).toEqual({ itemId: ITEM_IDS.empty, count: 0 })
+    expect(result.droppedItems.spawned).toHaveLength(1)
+    expect(result.droppedItems.spawned[0]?.count).toBe(64)
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('dropItem on an empty slot is a no-op', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-drop-empty-'))
+  const storage = new BinaryWorldStorage(rootDir)
+
+  try {
+    const worldRecord = await storage.createWorld('DropEmpty', 42)
+    const world = new AuthoritativeWorld(worldRecord, storage, {
+      createInventory: createTestStarterInventory,
+    })
+    const joined = await world.joinPlayer(PLAYER_A)
+    // Test inventory: hotbar[6] is empty
+
+    const result = await world.dropItem(joined.clientPlayer.entityId, 6, 1)
+
+    expect(result.inventoryChanged).toBe(false)
+    expect(result.droppedItems.spawned).toHaveLength(0)
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})

@@ -20,6 +20,7 @@ import type { ClientSettings, InputState } from '../types.ts'
 
 const WORLD_UP = vec3(0, 1, 0)
 const MOVE_SPEED = 4.75
+const SPRINT_SPEED = 6.18
 const JUMP_VELOCITY = 7.5
 const GRAVITY = 24
 const BASE_MOUSE_SENSITIVITY = 0.0025
@@ -41,10 +42,13 @@ export class PlayerController {
   private grounded = false
   private previousJumpDown = false
   private timeSinceJumpPress = Number.POSITIVE_INFINITY
+  private previousForwardDown = false
+  private timeSinceForwardPress = Number.POSITIVE_INFINITY
   private fovDegrees = DEFAULT_FOV_DEGREES
   private mouseSensitivityPercent = 100
   public gamemode: PlayerGamemode = 0
   public flying = false
+  public sprinting = false
 
   public state: PlayerState = {
     position: [0, 10, 0],
@@ -120,6 +124,7 @@ export class PlayerController {
 
   public update(input: InputState, deltaSeconds: number, world: VoxelWorld): void {
     this.timeSinceJumpPress += deltaSeconds
+    this.timeSinceForwardPress += deltaSeconds
     const jumpPressed = input.moveUp && !this.previousJumpDown
     if (this.gamemode === 1 && jumpPressed) {
       if (this.timeSinceJumpPress <= DOUBLE_TAP_WINDOW_SECONDS) {
@@ -135,8 +140,22 @@ export class PlayerController {
     if (this.flying) {
       this.updateFlying(input, deltaSeconds, world)
       this.previousJumpDown = input.moveUp
+      this.previousForwardDown = input.moveForward
+      this.sprinting = false
       return
     }
+
+    const forwardPressed = input.moveForward && !this.previousForwardDown
+    if (forwardPressed) {
+      if (this.timeSinceForwardPress <= DOUBLE_TAP_WINDOW_SECONDS) {
+        this.sprinting = true
+      }
+      this.timeSinceForwardPress = 0
+    }
+    if (!input.moveForward) {
+      this.sprinting = false
+    }
+    this.previousForwardDown = input.moveForward
 
     const forward = this.getWalkForwardVector()
     const right = normalizeVec3(crossVec3(forward, WORLD_UP))
@@ -158,8 +177,9 @@ export class PlayerController {
 
     this.verticalVelocity -= GRAVITY * deltaSeconds
 
-    position = this.moveAxis(world, position, 'x', normalized.x * MOVE_SPEED * deltaSeconds)
-    position = this.moveAxis(world, position, 'z', normalized.z * MOVE_SPEED * deltaSeconds)
+    const speed = this.sprinting ? SPRINT_SPEED : MOVE_SPEED
+    position = this.moveAxis(world, position, 'x', normalized.x * speed * deltaSeconds)
+    position = this.moveAxis(world, position, 'z', normalized.z * speed * deltaSeconds)
 
     const beforeVertical = position.y
     position = this.moveAxis(world, position, 'y', this.verticalVelocity * deltaSeconds)

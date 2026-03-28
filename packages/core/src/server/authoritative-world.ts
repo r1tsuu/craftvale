@@ -28,6 +28,7 @@ import {
   STARTUP_CHUNK_RADIUS,
   WORLD_SEA_LEVEL,
 } from '../world/constants.ts'
+import { getInventorySlot } from '../world/inventory.ts'
 import { getPlacedBlockIdForItem, isValidItemId } from '../world/items.ts'
 import { createGeneratedChunk, getTerrainHeight } from '../world/terrain.ts'
 import { worldToChunkCoord } from '../world/world.ts'
@@ -61,6 +62,12 @@ export interface WorldSimulationResult {
   updatedDroppedItems: DroppedItemSnapshot[]
   removedDroppedItemEntityIds: EntityId[]
   inventoryUpdates: WorldInventoryUpdate[]
+}
+
+export interface DropItemResult {
+  inventory: InventorySnapshot
+  inventoryChanged: boolean
+  droppedItems: DroppedItemSimulationResult
 }
 
 export interface StartupAreaProgress {
@@ -300,6 +307,40 @@ export class AuthoritativeWorld {
     return { added: result.added, remaining: result.remaining, inventory: result.inventory }
   }
 
+  public async dropItem(
+    entityId: EntityId,
+    slot: number,
+    count: number,
+  ): Promise<DropItemResult> {
+    await this.ensureInitialized()
+    const inventory = this.playerSystem.getInventorySnapshot(entityId)
+    const slotData = getInventorySlot(inventory, slot)
+    if (slotData.count <= 0) {
+      return {
+        inventory,
+        inventoryChanged: false,
+        droppedItems: { spawned: [], updated: [], removed: [], inventoryUpdates: [] },
+      }
+    }
+
+    const dropCount = Math.min(Math.max(1, Math.trunc(count)), slotData.count)
+    const mutResult = this.playerSystem.removeInventorySlot(entityId, slot, dropCount)
+    const playerSnapshot = this.playerSystem.getPlayerSnapshot(entityId)
+    const PLAYER_EYE_HEIGHT = 1.62
+    const eyePosition: [number, number, number] = [
+      playerSnapshot.state.position[0],
+      playerSnapshot.state.position[1] + PLAYER_EYE_HEIGHT,
+      playerSnapshot.state.position[2],
+    ]
+    const droppedItems = await this.droppedItemSystem.spawnPlayerDrop(
+      slotData.itemId,
+      dropCount,
+      eyePosition,
+      playerSnapshot.state.yaw,
+    )
+    return { inventory: mutResult.inventory, inventoryChanged: mutResult.inventoryChanged, droppedItems }
+  }
+
   public getWorldTimeState(): WorldTimeState {
     return this.lightingSystem.getTimeState()
   }
@@ -484,6 +525,14 @@ export class AuthoritativeWorld {
             result,
             await this.updatePlayerState(intent.playerEntityId, intent.state, intent.flying),
           )
+          break
+        }
+        case 'dropItem': {
+          const dropped = await this.dropItem(intent.playerEntityId, intent.slot, intent.count)
+          if (dropped.inventoryChanged) {
+            this.mergeInventoryUpdate(result, intent.playerEntityId, dropped.inventory)
+          }
+          this.mergeSimulationResult(result, this.toWorldSimulationResult(dropped.droppedItems))
           break
         }
       }

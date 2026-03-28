@@ -39,6 +39,13 @@ export type QueuedGameplayIntent =
       state: PlayerState
       flying: boolean
     }
+  | {
+      sequence: number
+      kind: 'dropItem'
+      playerEntityId: EntityId
+      slot: number
+      count: number
+    }
 
 export interface WorldInventoryUpdate {
   playerEntityId: EntityId

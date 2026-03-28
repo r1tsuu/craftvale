@@ -135,6 +135,7 @@ export interface ClientEventMap {
   interactInventorySlot: InventoryInteractionRequest
   updatePlayerState: PlayerStateUpdateRequest
   submitChat: SubmitChatRequest
+  dropItem: { slot: number; count: number }
 }
 
 export interface ServerEventMap {
@@ -219,6 +220,7 @@ const CLIENT_EVENT_TYPES = new Set<keyof ClientEventMap>([
   'interactInventorySlot',
   'updatePlayerState',
   'submitChat',
+  'dropItem',
 ])
 
 const SERVER_EVENT_TYPES = new Set<keyof ServerEventMap>([

@@ -44,6 +44,7 @@ import { buildPlayHud } from '../ui/hud.ts'
 import { createDefaultClientSettings } from './client-settings.ts'
 
 const FIXED_TIMESTEP = 1 / 60
+const DROP_STACK_THRESHOLD_SECONDS = 0.4
 const FIRST_PERSON_SWING_DURATION = 0.18
 const DEBUG_MEMORY_REFRESH_INTERVAL_SECONDS = 0.25
 
@@ -99,6 +100,8 @@ export class PlayController {
   private nextDebugMemoryRefreshTime = 0
   private predictedInventory: InventorySnapshot | null = null
   private breakState: BreakState | null = null
+  private dropHeldSeconds = 0
+  private droppedStackThisTap = false
 
   public constructor(private readonly deps: PlayControllerDeps) {}
 
@@ -129,6 +132,8 @@ export class PlayController {
     this.pauseScreen = 'closed'
     this.firstPersonSwingRemaining = 0
     this.breakState = null
+    this.dropHeldSeconds = 0
+    this.droppedStackThisTap = false
   }
 
   public async tick(context: PlayTickContext): Promise<PlayTickResult> {
@@ -294,6 +299,8 @@ export class PlayController {
       })
     ) {
       this.breakState = null
+      this.dropHeldSeconds = 0
+      this.droppedStackThisTap = false
       return null
     }
 
@@ -309,6 +316,33 @@ export class PlayController {
           HOTBAR_SLOT_COUNT) %
         HOTBAR_SLOT_COUNT
       adapter.eventBus.send({ type: 'selectInventorySlot', payload: { slot: next } })
+    }
+
+    if (input.dropItemHeld) {
+      this.dropHeldSeconds += deltaSeconds
+    } else {
+      this.dropHeldSeconds = 0
+      this.droppedStackThisTap = false
+    }
+
+    const dropSlot = worldRuntime.inventory.selectedSlot
+    const dropSlotData = getSelectedInventorySlot(worldRuntime.inventory)
+
+    if (input.dropItemPressed && dropSlotData.count > 0) {
+      adapter.eventBus.send({ type: 'dropItem', payload: { slot: dropSlot, count: 1 } })
+    }
+
+    if (
+      input.dropItemHeld &&
+      !this.droppedStackThisTap &&
+      this.dropHeldSeconds >= DROP_STACK_THRESHOLD_SECONDS &&
+      dropSlotData.count > 1
+    ) {
+      adapter.eventBus.send({
+        type: 'dropItem',
+        payload: { slot: dropSlot, count: dropSlotData.count - 1 },
+      })
+      this.droppedStackThisTap = true
     }
 
     void worldRuntime.requestChunksAroundPosition(

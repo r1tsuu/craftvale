@@ -297,4 +297,24 @@ export const removeFromSelectedInventorySlot = (
   )
 }
 
+export const removeInventorySlotCount = (
+  inventory: InventorySnapshot,
+  slot: number,
+  count: number,
+): InventorySnapshot => {
+  const normalized = normalizeInventorySnapshot(inventory)
+  const clampedSlot = clampInventorySlotIndex(slot)
+  const target = normalized.slots[clampedSlot] ?? createEmptyInventorySlot()
+  if (isEmptySlot(target)) {
+    return normalized
+  }
+
+  const nextCount = Math.max(0, target.count - Math.max(0, Math.trunc(count)))
+  return withInventorySlot(
+    normalized,
+    clampedSlot,
+    nextCount > 0 ? { itemId: target.itemId, count: nextCount } : clearSlot(),
+  )
+}
+
 export const isInventoryItemSelectable = (itemId: ItemId): boolean => isPlaceableItem(itemId)

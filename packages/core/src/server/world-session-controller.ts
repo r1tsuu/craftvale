@@ -18,6 +18,7 @@ type QueuedGameplayIntentInput =
   | Omit<Extract<QueuedGameplayIntent, { kind: 'selectInventorySlot' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'interactInventorySlot' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'updatePlayerState' }>, 'sequence'>
+  | Omit<Extract<QueuedGameplayIntent, { kind: 'dropItem' }>, 'sequence'>
 
 export interface WorldSessionPeer {
   sendEvent<K extends keyof ServerEventMap>(message: { type: K; payload: ServerEventMap[K] }): void
@@ -267,6 +268,15 @@ export class WorldSessionController implements WorldSessionPeer {
           playerEntityId: this.requireCurrentPlayerEntityId(),
           state,
           flying,
+        })
+      }),
+      this.adapter.eventBus.on('dropItem', ({ slot, count }) => {
+        this.requireWorld('dropping item')
+        this.enqueueIntent({
+          kind: 'dropItem',
+          playerEntityId: this.requireCurrentPlayerEntityId(),
+          slot,
+          count,
         })
       }),
       this.adapter.eventBus.on('submitChat', async ({ text }) => {

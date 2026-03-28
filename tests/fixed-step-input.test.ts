@@ -32,6 +32,8 @@ const createInput = (overrides: Partial<InputState> = {}): InputState => ({
   inventoryToggle: false,
   hotbarSelection: null,
   hotbarScrollDelta: 0,
+  dropItemPressed: false,
+  dropItemHeld: false,
   windowWidth: 800,
   windowHeight: 600,
   framebufferWidth: 800,
@@ -66,6 +68,8 @@ test('fixed-step input edges accumulate either mouse button independently', () =
     placeBlockPressed: true,
     hotbarSelection: null,
     hotbarScrollDelta: 0,
+    dropItemPressed: false,
+    dropItemHeld: false,
   })
 })
 
@@ -91,4 +95,34 @@ test('latest queued hotbar selection wins before the next simulation step', () =
   )
 
   expect(queued.hotbarSelection).toBe(4)
+})
+
+test('dropItemPressed edge survives until the next simulation step', () => {
+  const queued = queueFixedStepInputEdges(
+    createPendingFixedStepInputEdges(),
+    createInput({ dropItemPressed: true }),
+  )
+  const stepInput = applyFixedStepInputEdges(createInput(), queued)
+
+  expect(queued.dropItemPressed).toBe(true)
+  expect(stepInput.dropItemPressed).toBe(true)
+})
+
+test('dropItemHeld state accumulates across frames', () => {
+  const queued = queueFixedStepInputEdges(
+    queueFixedStepInputEdges(
+      createPendingFixedStepInputEdges(),
+      createInput({ dropItemHeld: false }),
+    ),
+    createInput({ dropItemHeld: true }),
+  )
+
+  expect(queued.dropItemHeld).toBe(true)
+})
+
+test('createPendingFixedStepInputEdges initialises drop fields to false', () => {
+  const pending = createPendingFixedStepInputEdges()
+
+  expect(pending.dropItemPressed).toBe(false)
+  expect(pending.dropItemHeld).toBe(false)
 })

@@ -17,6 +17,7 @@ const GRAVITY = 16
 const PICKUP_RADIUS = 1.35
 const PICKUP_RADIUS_SQUARED = PICKUP_RADIUS * PICKUP_RADIUS
 const PICKUP_COOLDOWN_MS = 250
+const PLAYER_DROP_PICKUP_COOLDOWN_MS = 2000
 const ITEM_HALF_EXTENT = 0.18
 const GROUND_FRICTION = 0.82
 const AIR_DRAG = 0.98
@@ -77,6 +78,37 @@ export class DroppedItemSystem {
   ): Promise<DroppedItemSimulationResult> {
     await this.ensureLoaded()
     const item = this.createDroppedItem(itemId, count, position)
+    this.saveDirty = true
+    return {
+      ...emptySimulationResult(),
+      spawned: [item],
+    }
+  }
+
+  public async spawnPlayerDrop(
+    itemId: ItemId,
+    count: number,
+    position: readonly [number, number, number],
+    yaw: number,
+  ): Promise<DroppedItemSimulationResult> {
+    await this.ensureLoaded()
+    const THROW_HORIZONTAL = 4.5
+    const THROW_VERTICAL = 1.0
+    const entityId = this.entities.registry.createEntity('drop')
+    const spawnPosition: [number, number, number] = [position[0], position[1], position[2]]
+    const velocity: [number, number, number] = [
+      Math.cos(yaw) * THROW_HORIZONTAL,
+      THROW_VERTICAL,
+      Math.sin(yaw) * THROW_HORIZONTAL,
+    ]
+    this.entities.droppedItemTransform.set(entityId, { position: spawnPosition, velocity })
+    this.entities.droppedItemStack.set(entityId, {
+      itemId,
+      count: Math.max(1, Math.trunc(count)),
+    })
+    this.entities.droppedItemLifecycle.set(entityId, { pickupCooldownMs: PLAYER_DROP_PICKUP_COOLDOWN_MS })
+    this.addToChunkIndex(entityId, spawnPosition)
+    const item = this.getSnapshot(entityId)
     this.saveDirty = true
     return {
       ...emptySimulationResult(),

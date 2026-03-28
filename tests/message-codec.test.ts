@@ -63,3 +63,18 @@ test('transport codec round-trips request payloads for client messages', () => {
     },
   })
 })
+
+test('transport codec round-trips dropItem client event', () => {
+  const encoded = encodeTransportMessage({
+    kind: 'event',
+    type: 'dropItem',
+    payload: { slot: 3, count: 12 },
+  })
+
+  const decoded = decodeClientToServerMessage(encoded)
+  expect(decoded).toEqual({
+    kind: 'event',
+    type: 'dropItem',
+    payload: { slot: 3, count: 12 },
+  })
+})

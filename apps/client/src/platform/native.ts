@@ -137,6 +137,7 @@ const library = dlopen(libraryPath, {
 
 const GLFW_KEY_W = 87
 const GLFW_KEY_E = 69
+const GLFW_KEY_Q = 81
 const GLFW_KEY_A = 65
 const GLFW_KEY_S = 83
 const GLFW_KEY_D = 68
@@ -303,6 +304,8 @@ export class NativeBridge {
       enterPressed: Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_ENTER)),
       tabPressed: Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_TAB)),
       inventoryToggle: Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_E)),
+      dropItemPressed: Boolean(library.symbols.bridge_consume_key_press(GLFW_KEY_Q)),
+      dropItemHeld: Boolean(library.symbols.bridge_is_key_down(GLFW_KEY_Q)),
       hotbarSelection,
       hotbarScrollDelta: library.symbols.bridge_consume_scroll_y() as number,
       windowWidth,

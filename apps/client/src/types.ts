@@ -28,6 +28,8 @@ export interface InputState {
   inventoryToggle: boolean
   hotbarSelection: number | null
   hotbarScrollDelta: number
+  dropItemPressed: boolean
+  dropItemHeld: boolean
   windowWidth: number
   windowHeight: number
   framebufferWidth: number

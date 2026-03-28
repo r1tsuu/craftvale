@@ -16,6 +16,7 @@ import {
   interactInventorySlot,
   normalizeInventorySnapshot,
   removeFromSelectedInventorySlot,
+  removeInventorySlotCount,
   setSelectedInventorySlot,
 } from '../world/inventory.ts'
 import { type WorldEntityState } from './world-entity-state.ts'
@@ -329,6 +330,31 @@ export class PlayerSystem {
       inventoryChanged: true,
       removed: count,
     }
+  }
+
+  public removeInventorySlot(
+    entityId: EntityId,
+    slot: number,
+    count: number,
+  ): InventoryMutationResult {
+    const inventory = this.requireComponent(
+      this.entities.playerInventory,
+      entityId,
+      'player inventory',
+    )
+    const persistence = this.requireComponent(
+      this.entities.playerPersistence,
+      entityId,
+      'player persistence',
+    )
+    const next = removeInventorySlotCount(inventory.inventory, slot, count)
+    if (inventoriesEqual(next, inventory.inventory)) {
+      return { inventory: this.cloneInventory(inventory.inventory), inventoryChanged: false }
+    }
+
+    this.entities.playerInventory.set(entityId, { inventory: next })
+    this.entities.playerPersistence.set(entityId, { ...persistence, saveDirty: true })
+    return { inventory: this.cloneInventory(next), inventoryChanged: true }
   }
 
   public getSelectedInventorySlot(entityId: EntityId) {
