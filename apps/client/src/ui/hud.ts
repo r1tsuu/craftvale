@@ -59,13 +59,13 @@ const CHAT_INPUT_FRAME_ALPHA = 0.6
 const CHAT_INPUT_INNER_ALPHA = 0.82
 const CHAT_OPEN_LINE_ALPHA = 0.68
 const CHAT_CLOSED_LINE_ALPHA = 0.4
-const INVENTORY_PANEL_WIDTH = 642
-const PLAYER_INVENTORY_PANEL_WIDTH = 604
+const OVERLAY_PANEL_WIDTH = 528
 const INVENTORY_PANEL_HEIGHT = 396
 const INVENTORY_SLOT_SIZE = 42
 const INVENTORY_SLOT_GAP = 6
 const INVENTORY_PREVIEW_WIDTH = 120
 const INVENTORY_PREVIEW_HEIGHT = 108
+const CRAFTING_TABLE_RECIPE_WIDTH = 250
 
 interface VisibleChatLine {
   entry: ChatEntry
@@ -263,22 +263,28 @@ const buildCraftingArrow = (
   }),
 ]
 
-const buildCraftingSectionLabel = (
-  id: string,
-  rect: { x: number; y: number; width: number; height: number },
-  text: string,
-): UiComponent =>
-  createLabel({
-    id,
-    kind: 'label',
-    rect,
-    text,
-    scale: 2,
-    color: [0.86, 0.88, 0.9],
-  })
-
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value))
+
+const buildOverlayFrame = (idPrefix: string, x: number, y: number): UiComponent[] => [
+  createPanel({
+    id: `${idPrefix}-backdrop`,
+    kind: 'panel',
+    rect: { x, y, width: OVERLAY_PANEL_WIDTH, height: INVENTORY_PANEL_HEIGHT },
+    color: [0.05, 0.06, 0.08, 0.92],
+  }),
+  createPanel({
+    id: `${idPrefix}-inner`,
+    kind: 'panel',
+    rect: {
+      x: x + 6,
+      y: y + 6,
+      width: OVERLAY_PANEL_WIDTH - 12,
+      height: INVENTORY_PANEL_HEIGHT - 12,
+    },
+    color: [0.14, 0.16, 0.18, 0.96],
+  }),
+]
 
 const createInventoryPreviewRect = (panelX: number, panelY: number): UiRect => ({
   x: panelX + 42,
@@ -286,6 +292,9 @@ const createInventoryPreviewRect = (panelX: number, panelY: number): UiRect => (
   width: INVENTORY_PREVIEW_WIDTH,
   height: INVENTORY_PREVIEW_HEIGHT,
 })
+
+const createCenteredCraftingTableStartX = (panelX: number): number =>
+  panelX + Math.round((OVERLAY_PANEL_WIDTH - CRAFTING_TABLE_RECIPE_WIDTH) / 2)
 
 const createInventoryPreviewAngles = (
   rect: UiRect,
@@ -617,28 +626,12 @@ const buildInventoryOverlay = (
   const hotbarSlots = getHotbarInventorySlots(inventory)
   const playerCraftingInput = getPlayerCraftingInputSlots(inventory)
   const playerCraftingResult = getPlayerCraftingResult(inventory)
-  const x = Math.round((windowWidth - PLAYER_INVENTORY_PANEL_WIDTH) / 2)
+  const x = Math.round((windowWidth - OVERLAY_PANEL_WIDTH) / 2)
   const y = Math.round((windowHeight - INVENTORY_PANEL_HEIGHT) / 2)
   const previewRect = createInventoryPreviewRect(x, y)
   const previewAngles = createInventoryPreviewAngles(previewRect, cursorX, cursorY)
   const components: UiComponent[] = [
-    createPanel({
-      id: 'inventory-backdrop',
-      kind: 'panel',
-      rect: { x, y, width: PLAYER_INVENTORY_PANEL_WIDTH, height: INVENTORY_PANEL_HEIGHT },
-      color: [0.05, 0.06, 0.08, 0.92],
-    }),
-    createPanel({
-      id: 'inventory-inner',
-      kind: 'panel',
-      rect: {
-        x: x + 6,
-        y: y + 6,
-        width: PLAYER_INVENTORY_PANEL_WIDTH - 12,
-        height: INVENTORY_PANEL_HEIGHT - 12,
-      },
-      color: [0.14, 0.16, 0.18, 0.96],
-    }),
+    ...buildOverlayFrame('inventory', x, y),
     createPlayerPreview({
       id: 'inventory-player-preview',
       kind: 'playerPreview',
@@ -650,7 +643,7 @@ const buildInventoryOverlay = (
 
   const gridStartX = x + 36
   const mainStartY = y + 166
-  const craftingStartX = x + 368
+  const craftingStartX = x + 316
   const craftingStartY = y + 56
   components.push(
     ...buildCraftingInputGrid(
@@ -760,48 +753,12 @@ const buildCraftingTableOverlay = (
     CRAFTING_TABLE_GRID_WIDTH,
     CRAFTING_TABLE_GRID_HEIGHT,
   )
-  const x = Math.round((windowWidth - INVENTORY_PANEL_WIDTH) / 2)
+  const x = Math.round((windowWidth - OVERLAY_PANEL_WIDTH) / 2)
   const y = Math.round((windowHeight - INVENTORY_PANEL_HEIGHT) / 2)
-  const components: UiComponent[] = [
-    createPanel({
-      id: 'crafting-table-backdrop',
-      kind: 'panel',
-      rect: { x, y, width: INVENTORY_PANEL_WIDTH, height: INVENTORY_PANEL_HEIGHT },
-      color: [0.05, 0.06, 0.08, 0.92],
-    }),
-    createPanel({
-      id: 'crafting-table-inner',
-      kind: 'panel',
-      rect: {
-        x: x + 6,
-        y: y + 6,
-        width: INVENTORY_PANEL_WIDTH - 12,
-        height: INVENTORY_PANEL_HEIGHT - 12,
-      },
-      color: [0.14, 0.16, 0.18, 0.96],
-    }),
-    createLabel({
-      id: 'crafting-table-title',
-      kind: 'label',
-      rect: { x: x + 24, y: y + 18, width: 320, height: 22 },
-      text: 'CRAFTING TABLE',
-      scale: 3,
-      color: [0.96, 0.97, 0.99],
-    }),
-    buildCraftingSectionLabel(
-      'crafting-table-grid-label',
-      { x: x + 36, y: y + 62, width: 240, height: 18 },
-      'CRAFTING 3x3',
-    ),
-    buildCraftingSectionLabel(
-      'crafting-table-inventory-label',
-      { x: x + 36, y: y + 164, width: 240, height: 18 },
-      'INVENTORY',
-    ),
-  ]
+  const components: UiComponent[] = [...buildOverlayFrame('crafting-table', x, y)]
 
-  const craftingStartX = x + 36
-  const craftingStartY = y + 92
+  const craftingStartX = createCenteredCraftingTableStartX(x)
+  const craftingStartY = y + 42
   components.push(
     ...buildCraftingInputGrid(
       'crafting-table-slot',
@@ -835,7 +792,7 @@ const buildCraftingTableOverlay = (
   )
 
   const inventoryStartX = x + 36
-  const inventoryStartY = y + 194
+  const inventoryStartY = y + 184
   for (let index = 0; index < mainSlots.length; index += 1) {
     const col = index % 9
     const row = Math.floor(index / 9)
@@ -857,7 +814,7 @@ const buildCraftingTableOverlay = (
     )
   }
 
-  const hotbarStartY = y + INVENTORY_PANEL_HEIGHT - 86
+  const hotbarStartY = y + INVENTORY_PANEL_HEIGHT - 66
   for (let index = 0; index < hotbarSlots.length; index += 1) {
     components.push(
       ...buildInventorySlotVisual(

@@ -332,6 +332,66 @@ test('inventory player preview rotates with cursor position', () => {
   expect(leftPreview!.yaw).toBeGreaterThan(rightPreview!.yaw)
 })
 
+test('crafting table overlay reuses the compact inventory-width layout without labels', () => {
+  const inventory = createTestStarterInventory()
+  inventory.cursor = { itemId: ITEM_IDS.brick, count: 8 }
+  const hud = buildPlayHud(1280, 720, {
+    inventory,
+    inventoryOpen: true,
+    openContainer: {
+      kind: 'craftingTable',
+      blockEntityId: 'block-entity:crafting-table:1',
+      inputSlots: Array.from({ length: 9 }, (_, index) =>
+        index === 0 ? { itemId: ITEM_IDS.log, count: 1 } : { itemId: ITEM_IDS.empty, count: 0 },
+      ),
+    },
+    cursorX: 700,
+    cursorY: 420,
+  })
+
+  expect(hud.find((component) => component.id === 'crafting-table-backdrop')).toEqual(
+    expect.objectContaining({
+      rect: { x: 376, y: 162, width: 528, height: 396 },
+    }),
+  )
+  expect(hud.find((component) => component.id === 'crafting-table-slot-0-hotspot')).toEqual(
+    expect.objectContaining({
+      action: 'open-container-slot:0',
+      rect: { x: 515, y: 204, width: 42, height: 42 },
+    }),
+  )
+  expect(hud.find((component) => component.id === 'crafting-table-result-hotspot')).toEqual(
+    expect.objectContaining({
+      action: 'open-container-result',
+      rect: { x: 723, y: 248, width: 42, height: 42 },
+    }),
+  )
+  expect(hud.find((component) => component.id === 'crafting-table-main-slot-0-hotspot')).toEqual(
+    expect.objectContaining({
+      action: 'inventory-slot:main:0',
+      rect: { x: 412, y: 346, width: 42, height: 42 },
+    }),
+  )
+  expect(hud.find((component) => component.id === 'crafting-table-hotbar-slot-0-key')).toEqual(
+    expect.objectContaining({
+      text: '1',
+    }),
+  )
+  expect(hud.find((component) => component.id === 'crafting-table-hotbar-slot-0-hotspot')).toEqual(
+    expect.objectContaining({
+      rect: { x: 412, y: 492, width: 42, height: 42 },
+    }),
+  )
+  expect(hud.find((component) => component.id === 'crafting-table-cursor-slot-count')).toEqual(
+    expect.objectContaining({
+      text: '8',
+    }),
+  )
+  expect(hud.some((component) => component.id === 'crafting-table-title')).toBe(false)
+  expect(hud.some((component) => component.id === 'crafting-table-grid-label')).toBe(false)
+  expect(hud.some((component) => component.id === 'crafting-table-inventory-label')).toBe(false)
+})
+
 test('play HUD renders a pause menu overlay over gameplay', () => {
   const hud = buildPlayHud(1280, 720, {
     inventory: createTestStarterInventory(),

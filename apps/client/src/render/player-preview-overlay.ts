@@ -22,7 +22,7 @@ interface GpuMesh {
 }
 
 const PREVIEW_CAMERA_VIEW = createLookAtMat4(
-  { x: 0, y: 1.08, z: 4.2 },
+  { x: 0, y: 1.08, z: 3.55 },
   { x: 0, y: 1.0, z: 0 },
   { x: 0, y: 1, z: 0 },
 )
