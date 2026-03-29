@@ -967,6 +967,24 @@ export const buildPlayHud = (
   }
 
   const overlayOpen = Boolean(state.inventoryOpen || state.openContainer)
+  const overlayComponents = state.openContainer
+    ? buildCraftingTableOverlay(
+        windowWidth,
+        windowHeight,
+        state.inventory,
+        state.openContainer,
+        state.cursorX ?? 0,
+        state.cursorY ?? 0,
+      )
+    : state.inventoryOpen
+      ? buildInventoryOverlay(
+          windowWidth,
+          windowHeight,
+          state.inventory,
+          state.cursorX ?? 0,
+          state.cursorY ?? 0,
+        )
+      : buildHotbar(windowWidth, windowHeight, state.inventory)
 
   return [
     ...(overlayOpen || state.showCrosshair === false
@@ -977,35 +995,16 @@ export const buildPlayHud = (
       ? buildBiomeBadge(windowWidth, windowHeight, state.biomeName)
       : []),
     ...buildModeBadge(windowWidth, state.gamemode ?? 0, state.flying ?? false),
-    ...(!overlayOpen
-      ? buildChatFeed(
-          windowWidth,
-          windowHeight,
-          state.chatMessages ?? [],
-          state.chatOpen ?? false,
-          state.chatNowMs ?? Date.now(),
-        )
-      : []),
-    ...(!overlayOpen && state.chatOpen
+    ...overlayComponents,
+    ...buildChatFeed(
+      windowWidth,
+      windowHeight,
+      state.chatMessages ?? [],
+      state.chatOpen ?? false,
+      state.chatNowMs ?? Date.now(),
+    ),
+    ...(state.chatOpen
       ? buildChatInput(windowWidth, windowHeight, state.chatDraft ?? '')
       : []),
-    ...(state.openContainer
-      ? buildCraftingTableOverlay(
-          windowWidth,
-          windowHeight,
-          state.inventory,
-          state.openContainer,
-          state.cursorX ?? 0,
-          state.cursorY ?? 0,
-        )
-      : state.inventoryOpen
-        ? buildInventoryOverlay(
-            windowWidth,
-            windowHeight,
-            state.inventory,
-            state.cursorX ?? 0,
-            state.cursorY ?? 0,
-          )
-        : buildHotbar(windowWidth, windowHeight, state.inventory)),
   ]
 }

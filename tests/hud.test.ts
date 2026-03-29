@@ -317,6 +317,39 @@ test('play HUD renders the full inventory overlay when inventory is open', () =>
   expect(hud.some((component) => component.id === 'inventory-title')).toBe(false)
 })
 
+test('play HUD keeps chat visible while inventory is open', () => {
+  const hud = buildPlayHud(1280, 720, {
+    inventory: createTestStarterInventory(),
+    inventoryOpen: true,
+    chatOpen: true,
+    chatDraft: '/give glass 64',
+    chatNowMs: 10_000,
+    chatMessages: [
+      {
+        kind: 'system',
+        text: 'Added 64 x GLASS.',
+        receivedAt: 9_500,
+      },
+    ],
+  })
+
+  expect(hud).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: 'inventory-backdrop',
+      }),
+      expect.objectContaining({
+        id: 'chat-feed-line-0',
+        text: 'Added 64 x GLASS.',
+      }),
+      expect.objectContaining({
+        id: 'chat-input-label',
+        text: '> /give glass 64',
+      }),
+    ]),
+  )
+})
+
 test('inventory player preview rotates with cursor position', () => {
   const leftHud = buildPlayHud(1280, 720, {
     inventory: createTestStarterInventory(),
