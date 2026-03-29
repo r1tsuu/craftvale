@@ -4,6 +4,7 @@ import { buildPlayHud } from '../apps/client/src/ui/hud.ts'
 import {
   createStarterInventory,
   getMainInventorySlotIndex,
+  normalizeInventorySnapshot,
   setSelectedInventorySlot,
 } from '../packages/core/src/world/inventory.ts'
 import { ITEM_IDS } from '../packages/core/src/world/items.ts'
@@ -39,7 +40,17 @@ test('play HUD can hide the crosshair from settings', () => {
 })
 
 test('play HUD still renders the hotbar and selected slot label', () => {
-  const inventory = setSelectedInventorySlot(createStarterInventory(), 4)
+  const inventory = normalizeInventorySnapshot({
+    slots: [
+      { itemId: ITEM_IDS.grass, count: 64 },
+      { itemId: ITEM_IDS.empty, count: 0 },
+      { itemId: ITEM_IDS.empty, count: 0 },
+      { itemId: ITEM_IDS.empty, count: 0 },
+      { itemId: ITEM_IDS.log, count: 64 },
+    ],
+    selectedSlot: 4,
+    cursor: null,
+  })
   const hud = buildPlayHud(1280, 720, {
     inventory,
   })

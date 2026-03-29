@@ -20,6 +20,7 @@ import { BLOCK_IDS, getDroppedItemIdForBlock } from '../packages/core/src/world/
 import {
   DEFAULT_INVENTORY_STACK_SIZE,
   getHotbarInventorySlots,
+  getInventoryCount,
   getMainInventorySlotIndex,
   getMainInventorySlots,
 } from '../packages/core/src/world/inventory.ts'
@@ -317,6 +318,7 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
     const targetItemId = getDroppedItemIdForBlock(targetBlockId)
     expect(targetBlockId).not.toBe(BLOCK_IDS.air)
     expect(targetItemId).not.toBeNull()
+    const initialTargetItemCount = getInventoryCount(harness.worldRuntime.inventory, targetItemId!)
 
     let changedChunkReceived = false
     harness.client.eventBus.on('chunkChanged', () => {
@@ -385,15 +387,15 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
     })
     await harness.advance()
 
-    const collectedSlot = getMainInventorySlots(harness.worldRuntime.inventory).find(
-      (slot) => slot.itemId === targetItemId,
+    expect(getInventoryCount(harness.worldRuntime.inventory, targetItemId!)).toBe(
+      initialTargetItemCount + 1,
     )
-    expect(collectedSlot?.count).toBe(1)
     expect(harness.worldRuntime.droppedItems.size).toBe(0)
 
     const collectedSlotIndex = getHotbarInventorySlots(harness.worldRuntime.inventory).findIndex(
       (slot) => slot.itemId === targetItemId,
     )
+    expect(collectedSlotIndex).toBeGreaterThanOrEqual(0)
     harness.client.eventBus.send({
       type: 'selectInventorySlot',
       payload: {
@@ -478,16 +480,9 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
     await harness.advance()
 
     expect(harness.worldRuntime.world.getBlock(1, targetY, 1)).toBe(targetBlockId)
-    expect(
-      getHotbarInventorySlots(harness.worldRuntime.inventory).find(
-        (slot) => slot.itemId === targetItemId,
-      )?.count,
-    ).toBe(DEFAULT_INVENTORY_STACK_SIZE - 1)
-    expect(
-      getMainInventorySlots(harness.worldRuntime.inventory).find(
-        (slot) => slot.itemId === targetItemId,
-      )?.count,
-    ).toBe(1)
+    expect(getInventoryCount(harness.worldRuntime.inventory, targetItemId!)).toBe(
+      initialTargetItemCount,
+    )
 
     harness.client.eventBus.send({
       type: 'submitChat',
