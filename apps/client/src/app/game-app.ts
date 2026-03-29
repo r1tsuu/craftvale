@@ -321,6 +321,14 @@ export class GameApp {
           this.lastServerMessage = ''
         }
       }),
+      adapter.eventBus.on('containerUpdated', ({ playerEntityId, container }) => {
+        if (playerEntityId !== worldRuntime.clientPlayerEntityId) {
+          return
+        }
+
+        worldRuntime.applyOpenContainer(container)
+        this.playController.clearPrediction()
+      }),
       adapter.eventBus.on('droppedItemSpawned', ({ item }) => {
         worldRuntime.applyDroppedItem(item)
       }),

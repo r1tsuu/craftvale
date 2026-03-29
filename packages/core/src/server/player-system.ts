@@ -14,10 +14,12 @@ import {
   createStarterInventory,
   getSelectedInventorySlot,
   interactInventorySlot,
+  interactPlayerCraftingInputSlot,
   normalizeInventorySnapshot,
   removeFromSelectedInventorySlot,
   removeInventorySlotCount,
   setSelectedInventorySlot,
+  takePlayerCraftingResult,
 } from '../world/inventory.ts'
 import { type WorldEntityState } from './world-entity-state.ts'
 
@@ -254,6 +256,59 @@ export class PlayerSystem {
     }
 
     return this.cloneInventory(inventory.inventory)
+  }
+
+  public setInventorySnapshot(
+    entityId: EntityId,
+    inventory: InventorySnapshot,
+  ): InventoryMutationResult {
+    const current = this.requireComponent(
+      this.entities.playerInventory,
+      entityId,
+      'player inventory',
+    )
+    const persistence = this.requireComponent(
+      this.entities.playerPersistence,
+      entityId,
+      'player persistence',
+    )
+    const normalized = normalizeInventorySnapshot(inventory)
+    if (inventoriesEqual(normalized, current.inventory)) {
+      return { inventory: this.cloneInventory(current.inventory), inventoryChanged: false }
+    }
+
+    this.entities.playerInventory.set(entityId, { inventory: normalized })
+    this.entities.playerPersistence.set(entityId, {
+      ...persistence,
+      saveDirty: true,
+    })
+    return {
+      inventory: this.cloneInventory(normalized),
+      inventoryChanged: true,
+    }
+  }
+
+  public async interactPlayerCraftingSlot(
+    entityId: EntityId,
+    slot: number,
+  ): Promise<InventorySnapshot> {
+    const inventory = this.requireComponent(
+      this.entities.playerInventory,
+      entityId,
+      'player inventory',
+    )
+    const next = interactPlayerCraftingInputSlot(inventory.inventory, slot)
+    return this.setInventorySnapshot(entityId, next).inventory
+  }
+
+  public async takePlayerCraftingResult(entityId: EntityId): Promise<InventorySnapshot> {
+    const inventory = this.requireComponent(
+      this.entities.playerInventory,
+      entityId,
+      'player inventory',
+    )
+    const next = takePlayerCraftingResult(inventory.inventory)
+    return this.setInventorySnapshot(entityId, next).inventory
   }
 
   public addInventoryItem(

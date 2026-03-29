@@ -6,6 +6,7 @@ import type {
   DroppedItemSnapshot,
   EntityId,
   InventorySnapshot,
+  OpenContainerSnapshot,
   PlayerName,
   PlayerSnapshot,
   PlayerState,
@@ -43,6 +44,33 @@ export type QueuedGameplayIntent =
     }
   | {
       sequence: number
+      kind: 'interactPlayerCraftingSlot'
+      playerEntityId: EntityId
+      slot: number
+    }
+  | {
+      sequence: number
+      kind: 'takePlayerCraftingResult'
+      playerEntityId: EntityId
+    }
+  | {
+      sequence: number
+      kind: 'interactOpenContainerSlot'
+      playerEntityId: EntityId
+      slot: number
+    }
+  | {
+      sequence: number
+      kind: 'takeOpenContainerResult'
+      playerEntityId: EntityId
+    }
+  | {
+      sequence: number
+      kind: 'closeOpenContainer'
+      playerEntityId: EntityId
+    }
+  | {
+      sequence: number
       kind: 'updatePlayerState'
       playerEntityId: EntityId
       state: PlayerState
@@ -62,6 +90,12 @@ export interface WorldInventoryUpdate {
   inventory: InventorySnapshot
 }
 
+export interface WorldContainerUpdate {
+  playerEntityId: EntityId
+  playerName: PlayerName
+  container: OpenContainerSnapshot | null
+}
+
 export interface WorldChatMessage {
   targetPlayerEntityId: EntityId | null
   entry: ChatEntry
@@ -71,6 +105,7 @@ export interface WorldTickResult {
   changedChunks: ChunkPayload[]
   worldTime: WorldTimeState | null
   inventoryUpdates: WorldInventoryUpdate[]
+  containerUpdates: WorldContainerUpdate[]
   playerUpdates: PlayerSnapshot[]
   chatMessages: WorldChatMessage[]
   spawnedDroppedItems: DroppedItemSnapshot[]
@@ -82,6 +117,7 @@ export const createEmptyWorldTickResult = (): WorldTickResult => ({
   changedChunks: [],
   worldTime: null,
   inventoryUpdates: [],
+  containerUpdates: [],
   playerUpdates: [],
   chatMessages: [],
   spawnedDroppedItems: [],

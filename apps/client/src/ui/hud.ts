@@ -2,17 +2,26 @@ import type {
   ChatEntry,
   InventorySlot,
   InventorySnapshot,
+  OpenContainerSnapshot,
   PlayerGamemode,
   WorldTimeState,
 } from '@craftvale/core/shared'
 
 import { ITEM_IDS } from '@craftvale/core/shared'
 import {
+  CRAFTING_TABLE_GRID_HEIGHT,
+  CRAFTING_TABLE_GRID_WIDTH,
+  createEmptyInventorySlot,
   formatWorldClock,
+  getCraftingResult,
   getHotbarInventorySlots,
   getItemDisplayName,
   getMainInventorySlots,
+  getPlayerCraftingInputSlots,
+  getPlayerCraftingResult,
   getSelectedInventorySlot,
+  PLAYER_CRAFTING_GRID_HEIGHT,
+  PLAYER_CRAFTING_GRID_WIDTH,
 } from '@craftvale/core/shared'
 
 import type { PauseScreen } from '../game/play-overlay.ts'
@@ -49,9 +58,10 @@ const CHAT_INPUT_INNER_ALPHA = 0.82
 const CHAT_OPEN_LINE_ALPHA = 0.68
 const CHAT_CLOSED_LINE_ALPHA = 0.4
 const INVENTORY_PANEL_WIDTH = 642
+const PLAYER_INVENTORY_PANEL_WIDTH = 604
 const INVENTORY_PANEL_HEIGHT = 396
-const INVENTORY_SLOT_SIZE = 54
-const INVENTORY_SLOT_GAP = 8
+const INVENTORY_SLOT_SIZE = 42
+const INVENTORY_SLOT_GAP = 6
 
 interface VisibleChatLine {
   entry: ChatEntry
@@ -228,6 +238,74 @@ const buildInventorySlotVisual = (
         rect,
         action: options.action,
       }),
+    )
+  }
+
+  return components
+}
+
+const buildCraftingArrow = (
+  idPrefix: string,
+  rect: { x: number; y: number; width: number; height: number },
+): UiComponent[] => [
+  createLabel({
+    id: `${idPrefix}-label`,
+    kind: 'label',
+    rect,
+    text: '=>',
+    scale: 3,
+    color: [0.94, 0.95, 0.97],
+    centered: true,
+  }),
+]
+
+const buildCraftingSectionLabel = (
+  id: string,
+  rect: { x: number; y: number; width: number; height: number },
+  text: string,
+): UiComponent =>
+  createLabel({
+    id,
+    kind: 'label',
+    rect,
+    text,
+    scale: 2,
+    color: [0.86, 0.88, 0.9],
+  })
+
+const buildCraftingInputGrid = (
+  idPrefix: string,
+  startX: number,
+  startY: number,
+  width: number,
+  height: number,
+  slots: readonly InventorySlot[],
+  actionPrefix: string,
+): UiComponent[] => {
+  const components: UiComponent[] = []
+
+  for (let index = 0; index < slots.length; index += 1) {
+    const col = index % width
+    const row = Math.floor(index / width)
+    if (row >= height) {
+      break
+    }
+
+    components.push(
+      ...buildInventorySlotVisual(
+        `${idPrefix}-${index}`,
+        {
+          x: startX + col * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP),
+          y: startY + row * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP),
+          width: INVENTORY_SLOT_SIZE,
+          height: INVENTORY_SLOT_SIZE,
+        },
+        slots[index]!,
+        {
+          interactive: true,
+          action: `${actionPrefix}:${index}`,
+        },
+      ),
     )
   }
 
@@ -505,13 +583,15 @@ const buildInventoryOverlay = (
 ): UiComponent[] => {
   const mainSlots = getMainInventorySlots(inventory)
   const hotbarSlots = getHotbarInventorySlots(inventory)
-  const x = Math.round((windowWidth - INVENTORY_PANEL_WIDTH) / 2)
+  const playerCraftingInput = getPlayerCraftingInputSlots(inventory)
+  const playerCraftingResult = getPlayerCraftingResult(inventory)
+  const x = Math.round((windowWidth - PLAYER_INVENTORY_PANEL_WIDTH) / 2)
   const y = Math.round((windowHeight - INVENTORY_PANEL_HEIGHT) / 2)
   const components: UiComponent[] = [
     createPanel({
       id: 'inventory-backdrop',
       kind: 'panel',
-      rect: { x, y, width: INVENTORY_PANEL_WIDTH, height: INVENTORY_PANEL_HEIGHT },
+      rect: { x, y, width: PLAYER_INVENTORY_PANEL_WIDTH, height: INVENTORY_PANEL_HEIGHT },
       color: [0.05, 0.06, 0.08, 0.92],
     }),
     createPanel({
@@ -520,7 +600,7 @@ const buildInventoryOverlay = (
       rect: {
         x: x + 6,
         y: y + 6,
-        width: INVENTORY_PANEL_WIDTH - 12,
+        width: PLAYER_INVENTORY_PANEL_WIDTH - 12,
         height: INVENTORY_PANEL_HEIGHT - 12,
       },
       color: [0.14, 0.16, 0.18, 0.96],
@@ -533,19 +613,44 @@ const buildInventoryOverlay = (
       scale: 3,
       color: [0.96, 0.97, 0.99],
     }),
-    createLabel({
-      id: 'inventory-help',
-      kind: 'label',
-      rect: { x: x + INVENTORY_PANEL_WIDTH - 180, y: y + 22, width: 150, height: 18 },
-      text: 'E TO CLOSE',
-      scale: 2,
-      color: [0.86, 0.88, 0.9],
-      centered: true,
-    }),
   ]
 
   const gridStartX = x + 36
-  const mainStartY = y + 74
+  const mainStartY = y + 166
+  const craftingStartX = x + 368
+  const craftingStartY = y + 56
+  components.push(
+    ...buildCraftingInputGrid(
+      'inventory-player-crafting-slot',
+      craftingStartX,
+      craftingStartY,
+      PLAYER_CRAFTING_GRID_WIDTH,
+      PLAYER_CRAFTING_GRID_HEIGHT,
+      playerCraftingInput,
+      'player-crafting-slot',
+    ),
+    ...buildCraftingArrow('inventory-player-crafting-arrow', {
+      x: craftingStartX + 2 * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP) + 8,
+      y: craftingStartY + 16,
+      width: 32,
+      height: INVENTORY_SLOT_SIZE,
+    }),
+    ...buildInventorySlotVisual(
+      'inventory-player-crafting-result',
+      {
+        x: craftingStartX + 2 * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP) + 44,
+        y: craftingStartY + 20,
+        width: INVENTORY_SLOT_SIZE,
+        height: INVENTORY_SLOT_SIZE,
+      },
+      playerCraftingResult ?? createEmptyInventorySlot(),
+      {
+        interactive: true,
+        action: 'player-crafting-result',
+      },
+    ),
+  )
+
   for (let index = 0; index < mainSlots.length; index += 1) {
     const col = index % 9
     const row = Math.floor(index / 9)
@@ -567,7 +672,7 @@ const buildInventoryOverlay = (
     )
   }
 
-  const hotbarStartY = y + INVENTORY_PANEL_HEIGHT - 86
+  const hotbarStartY = y + INVENTORY_PANEL_HEIGHT - 66
   for (let index = 0; index < hotbarSlots.length; index += 1) {
     components.push(
       ...buildInventorySlotVisual(
@@ -607,10 +712,163 @@ const buildInventoryOverlay = (
   return components
 }
 
+const buildCraftingTableOverlay = (
+  windowWidth: number,
+  windowHeight: number,
+  inventory: InventorySnapshot,
+  openContainer: OpenContainerSnapshot,
+  cursorX: number,
+  cursorY: number,
+): UiComponent[] => {
+  const mainSlots = getMainInventorySlots(inventory)
+  const hotbarSlots = getHotbarInventorySlots(inventory)
+  const craftingResult = getCraftingResult(
+    openContainer.inputSlots,
+    CRAFTING_TABLE_GRID_WIDTH,
+    CRAFTING_TABLE_GRID_HEIGHT,
+  )
+  const x = Math.round((windowWidth - INVENTORY_PANEL_WIDTH) / 2)
+  const y = Math.round((windowHeight - INVENTORY_PANEL_HEIGHT) / 2)
+  const components: UiComponent[] = [
+    createPanel({
+      id: 'crafting-table-backdrop',
+      kind: 'panel',
+      rect: { x, y, width: INVENTORY_PANEL_WIDTH, height: INVENTORY_PANEL_HEIGHT },
+      color: [0.05, 0.06, 0.08, 0.92],
+    }),
+    createPanel({
+      id: 'crafting-table-inner',
+      kind: 'panel',
+      rect: {
+        x: x + 6,
+        y: y + 6,
+        width: INVENTORY_PANEL_WIDTH - 12,
+        height: INVENTORY_PANEL_HEIGHT - 12,
+      },
+      color: [0.14, 0.16, 0.18, 0.96],
+    }),
+    createLabel({
+      id: 'crafting-table-title',
+      kind: 'label',
+      rect: { x: x + 24, y: y + 18, width: 320, height: 22 },
+      text: 'CRAFTING TABLE',
+      scale: 3,
+      color: [0.96, 0.97, 0.99],
+    }),
+    buildCraftingSectionLabel(
+      'crafting-table-grid-label',
+      { x: x + 36, y: y + 62, width: 240, height: 18 },
+      'CRAFTING 3x3',
+    ),
+    buildCraftingSectionLabel(
+      'crafting-table-inventory-label',
+      { x: x + 36, y: y + 164, width: 240, height: 18 },
+      'INVENTORY',
+    ),
+  ]
+
+  const craftingStartX = x + 36
+  const craftingStartY = y + 92
+  components.push(
+    ...buildCraftingInputGrid(
+      'crafting-table-slot',
+      craftingStartX,
+      craftingStartY,
+      CRAFTING_TABLE_GRID_WIDTH,
+      CRAFTING_TABLE_GRID_HEIGHT,
+      openContainer.inputSlots,
+      'open-container-slot',
+    ),
+    ...buildCraftingArrow('crafting-table-arrow', {
+      x: craftingStartX + 3 * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP) + 10,
+      y: craftingStartY + INVENTORY_SLOT_SIZE + 4,
+      width: 44,
+      height: INVENTORY_SLOT_SIZE,
+    }),
+    ...buildInventorySlotVisual(
+      'crafting-table-result',
+      {
+        x: craftingStartX + 3 * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP) + 64,
+        y: craftingStartY + INVENTORY_SLOT_SIZE + 2,
+        width: INVENTORY_SLOT_SIZE,
+        height: INVENTORY_SLOT_SIZE,
+      },
+      craftingResult ?? createEmptyInventorySlot(),
+      {
+        interactive: true,
+        action: 'open-container-result',
+      },
+    ),
+  )
+
+  const inventoryStartX = x + 36
+  const inventoryStartY = y + 194
+  for (let index = 0; index < mainSlots.length; index += 1) {
+    const col = index % 9
+    const row = Math.floor(index / 9)
+    components.push(
+      ...buildInventorySlotVisual(
+        `crafting-table-main-slot-${index}`,
+        {
+          x: inventoryStartX + col * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP),
+          y: inventoryStartY + row * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP),
+          width: INVENTORY_SLOT_SIZE,
+          height: INVENTORY_SLOT_SIZE,
+        },
+        mainSlots[index]!,
+        {
+          interactive: true,
+          action: `inventory-slot:main:${index}`,
+        },
+      ),
+    )
+  }
+
+  const hotbarStartY = y + INVENTORY_PANEL_HEIGHT - 86
+  for (let index = 0; index < hotbarSlots.length; index += 1) {
+    components.push(
+      ...buildInventorySlotVisual(
+        `crafting-table-hotbar-slot-${index}`,
+        {
+          x: inventoryStartX + index * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP),
+          y: hotbarStartY,
+          width: INVENTORY_SLOT_SIZE,
+          height: INVENTORY_SLOT_SIZE,
+        },
+        hotbarSlots[index]!,
+        {
+          interactive: true,
+          action: `inventory-slot:hotbar:${index}`,
+          selected: inventory.selectedSlot === index,
+          keyText: String(index + 1),
+        },
+      ),
+    )
+  }
+
+  if (!isEmptyInventorySlot(inventory.cursor)) {
+    components.push(
+      ...buildInventorySlotVisual(
+        'crafting-table-cursor-slot',
+        {
+          x: Math.round(cursorX - INVENTORY_SLOT_SIZE / 2),
+          y: Math.round(cursorY - INVENTORY_SLOT_SIZE / 2),
+          width: INVENTORY_SLOT_SIZE,
+          height: INVENTORY_SLOT_SIZE,
+        },
+        inventory.cursor!,
+      ),
+    )
+  }
+
+  return components
+}
+
 export interface PlayHudState {
   inventory: InventorySnapshot
   worldTime?: WorldTimeState | null
   inventoryOpen?: boolean
+  openContainer?: OpenContainerSnapshot | null
   cursorX?: number
   cursorY?: number
   showCrosshair?: boolean
@@ -638,16 +896,18 @@ export const buildPlayHud = (
     return buildPauseMenuOverlay(windowWidth, windowHeight)
   }
 
+  const overlayOpen = Boolean(state.inventoryOpen || state.openContainer)
+
   return [
-    ...(state.inventoryOpen || state.showCrosshair === false
+    ...(overlayOpen || state.showCrosshair === false
       ? []
       : buildCrosshair(windowWidth, windowHeight)),
-    ...(!state.inventoryOpen ? buildClockBadge(windowWidth, state.worldTime) : []),
-    ...(state.biomeName && !state.inventoryOpen
+    ...(!overlayOpen ? buildClockBadge(windowWidth, state.worldTime) : []),
+    ...(state.biomeName && !overlayOpen
       ? buildBiomeBadge(windowWidth, windowHeight, state.biomeName)
       : []),
     ...buildModeBadge(windowWidth, state.gamemode ?? 0, state.flying ?? false),
-    ...(!state.inventoryOpen
+    ...(!overlayOpen
       ? buildChatFeed(
           windowWidth,
           windowHeight,
@@ -656,17 +916,26 @@ export const buildPlayHud = (
           state.chatNowMs ?? Date.now(),
         )
       : []),
-    ...(!state.inventoryOpen && state.chatOpen
+    ...(!overlayOpen && state.chatOpen
       ? buildChatInput(windowWidth, windowHeight, state.chatDraft ?? '')
       : []),
-    ...(state.inventoryOpen
-      ? buildInventoryOverlay(
+    ...(state.openContainer
+      ? buildCraftingTableOverlay(
           windowWidth,
           windowHeight,
           state.inventory,
+          state.openContainer,
           state.cursorX ?? 0,
           state.cursorY ?? 0,
         )
-      : buildHotbar(windowWidth, windowHeight, state.inventory)),
+      : state.inventoryOpen
+        ? buildInventoryOverlay(
+            windowWidth,
+            windowHeight,
+            state.inventory,
+            state.cursorX ?? 0,
+            state.cursorY ?? 0,
+          )
+        : buildHotbar(windowWidth, windowHeight, state.inventory)),
   ]
 }

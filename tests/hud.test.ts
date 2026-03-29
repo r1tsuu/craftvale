@@ -271,11 +271,19 @@ test('play HUD renders the full inventory overlay when inventory is open', () =>
     expect.arrayContaining([
       expect.objectContaining({
         id: 'inventory-backdrop',
-        rect: { x: 319, y: 162, width: 642, height: 396 },
+        rect: expect.objectContaining({ y: 162, height: 396 }),
       }),
       expect.objectContaining({
         id: 'inventory-title',
         text: 'INVENTORY',
+      }),
+      expect.objectContaining({
+        id: 'inventory-player-crafting-slot-0-hotspot',
+        action: 'player-crafting-slot:0',
+      }),
+      expect.objectContaining({
+        id: 'inventory-player-crafting-result-hotspot',
+        action: 'player-crafting-result',
       }),
       expect.objectContaining({
         id: 'inventory-main-slot-0-count',

@@ -1,6 +1,7 @@
 import type {
   BlockEntityType,
   EntityId,
+  InventorySlot,
   InventorySnapshot,
   ItemId,
   PlayerGamemode,
@@ -63,6 +64,10 @@ export interface BlockEntityPositionComponent {
   z: number
 }
 
+export interface BlockEntityInventoryComponent {
+  slots: InventorySlot[]
+}
+
 export class WorldEntityState {
   public readonly registry = new EntityRegistry()
   public readonly playerIdentity = new ComponentStore<PlayerIdentityComponent>()
@@ -77,6 +82,7 @@ export class WorldEntityState {
   public readonly droppedItemLifecycle = new ComponentStore<DroppedItemLifecycleComponent>()
   public readonly blockEntityType = new ComponentStore<BlockEntityTypeComponent>()
   public readonly blockEntityPosition = new ComponentStore<BlockEntityPositionComponent>()
+  public readonly blockEntityInventory = new ComponentStore<BlockEntityInventoryComponent>()
 
   public hasPlayerEntity(entityId: EntityId): boolean {
     return this.registry.has(entityId) && this.playerIdentity.get(entityId) !== undefined

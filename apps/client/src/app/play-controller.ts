@@ -12,7 +12,9 @@ import {
   getPlacedBlockIdForItem,
   getSelectedInventorySlot,
   HOTBAR_SLOT_COUNT,
+  interactPlayerCraftingInputSlot,
   raycastVoxel,
+  takePlayerCraftingResult,
 } from '@craftvale/core/shared'
 import { interactInventorySlot } from '@craftvale/core/shared'
 import { heapStats } from 'bun:jsc'
@@ -120,7 +122,7 @@ export class PlayController {
   }
 
   public getOverlayState(): { inventoryOpen: boolean; pauseScreen: PauseScreen } {
-    return { inventoryOpen: this.inventoryOpen, pauseScreen: this.pauseScreen }
+    return { inventoryOpen: this.isInventoryOverlayOpen(), pauseScreen: this.pauseScreen }
   }
 
   public getSwingProgress(): number {
@@ -143,6 +145,10 @@ export class PlayController {
     this.droppedStackThisTap = false
   }
 
+  private isInventoryOverlayOpen(): boolean {
+    return this.inventoryOpen || this.deps.getWorldRuntime().openContainer !== null
+  }
+
   public async tick(context: PlayTickContext): Promise<PlayTickResult> {
     const {
       input,
@@ -161,7 +167,7 @@ export class PlayController {
       (input.breakBlockPressed || input.placeBlockPressed) &&
       !isGameplaySuppressed({
         chatOpen: this.chatOpen,
-        inventoryOpen: this.inventoryOpen,
+        inventoryOpen: this.isInventoryOverlayOpen(),
         pauseScreen: this.pauseScreen,
       })
     ) {
@@ -173,7 +179,7 @@ export class PlayController {
       this.breakState !== null &&
       !isGameplaySuppressed({
         chatOpen: this.chatOpen,
-        inventoryOpen: this.inventoryOpen,
+        inventoryOpen: this.isInventoryOverlayOpen(),
         pauseScreen: this.pauseScreen,
       })
     ) {
@@ -182,7 +188,7 @@ export class PlayController {
 
     this.handlePlayOverlayInput(input)
 
-    if (!this.chatOpen && !this.inventoryOpen && this.pauseScreen === 'closed') {
+    if (!this.chatOpen && !this.isInventoryOverlayOpen() && this.pauseScreen === 'closed') {
       this.deps.player.applyLook(input)
     }
 
@@ -246,6 +252,7 @@ export class PlayController {
       inventory: this.getDisplayInventory(),
       worldTime: worldRuntime.worldTime,
       inventoryOpen: this.inventoryOpen,
+      openContainer: worldRuntime.openContainer,
       cursorX: input.cursorX,
       cursorY: input.cursorY,
       showCrosshair: this.deps.getClientSettings().showCrosshair,
@@ -299,7 +306,7 @@ export class PlayController {
     if (
       isGameplaySuppressed({
         chatOpen: this.chatOpen,
-        inventoryOpen: this.inventoryOpen,
+        inventoryOpen: this.isInventoryOverlayOpen(),
         pauseScreen: this.pauseScreen,
       })
     ) {
@@ -455,9 +462,9 @@ export class PlayController {
       return
     }
 
-    if (this.inventoryOpen) {
+    if (this.isInventoryOverlayOpen()) {
       if (input.inventoryToggle) {
-        this.setInventoryOpen(false)
+        this.closeInventoryOverlay()
       }
       return
     }
@@ -515,6 +522,50 @@ export class PlayController {
       return
     }
 
+    if (action === 'player-crafting-result') {
+      this.predictedInventory = takePlayerCraftingResult(this.getDisplayInventory())
+      this.deps.getClientAdapter().eventBus.send({
+        type: 'takePlayerCraftingResult',
+        payload: {},
+      })
+      return
+    }
+
+    if (action === 'open-container-result') {
+      this.deps.getClientAdapter().eventBus.send({
+        type: 'takeOpenContainerResult',
+        payload: {},
+      })
+      return
+    }
+
+    if (action.startsWith('player-crafting-slot:')) {
+      const slot = Number(action.split(':')[1])
+      if (!Number.isInteger(slot)) {
+        return
+      }
+
+      this.predictedInventory = interactPlayerCraftingInputSlot(this.getDisplayInventory(), slot)
+      this.deps.getClientAdapter().eventBus.send({
+        type: 'interactPlayerCraftingSlot',
+        payload: { slot },
+      })
+      return
+    }
+
+    if (action.startsWith('open-container-slot:')) {
+      const slot = Number(action.split(':')[1])
+      if (!Number.isInteger(slot)) {
+        return
+      }
+
+      this.deps.getClientAdapter().eventBus.send({
+        type: 'interactOpenContainerSlot',
+        payload: { slot },
+      })
+      return
+    }
+
     if (!action.startsWith('inventory-slot:')) {
       return
     }
@@ -541,12 +592,12 @@ export class PlayController {
   private handlePlayEscape(): void {
     const action = resolvePlayEscapeAction({
       chatOpen: this.chatOpen,
-      inventoryOpen: this.inventoryOpen,
+      inventoryOpen: this.isInventoryOverlayOpen(),
       pauseScreen: this.pauseScreen,
     })
 
     if (action === 'close-inventory') {
-      this.setInventoryOpen(false)
+      this.closeInventoryOverlay()
       return
     }
 
@@ -567,6 +618,18 @@ export class PlayController {
     }
 
     this.setPauseScreen('menu')
+  }
+
+  private closeInventoryOverlay(): void {
+    const worldRuntime = this.deps.getWorldRuntime()
+    this.inventoryOpen = false
+    if (worldRuntime.openContainer !== null) {
+      this.deps.getClientAdapter().eventBus.send({
+        type: 'closeOpenContainer',
+        payload: {},
+      })
+    }
+    this.deps.syncCursorMode()
   }
 
   private setInventoryOpen(open: boolean): void {

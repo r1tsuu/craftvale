@@ -32,9 +32,18 @@ export interface InventorySlot {
 
 export interface InventorySnapshot {
   slots: InventorySlot[]
+  playerCraftingInput?: InventorySlot[]
   selectedSlot: number
   cursor: InventorySlot | null
 }
+
+export interface OpenCraftingTableContainerSnapshot {
+  kind: 'craftingTable'
+  blockEntityId: EntityId
+  inputSlots: InventorySlot[]
+}
+
+export type OpenContainerSnapshot = OpenCraftingTableContainerSnapshot
 
 export type BlockEntityType = 'craftingTable'
 export type EntityId = string

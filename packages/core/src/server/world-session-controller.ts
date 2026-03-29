@@ -18,6 +18,11 @@ type QueuedGameplayIntentInput =
   | Omit<Extract<QueuedGameplayIntent, { kind: 'useBlock' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'selectInventorySlot' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'interactInventorySlot' }>, 'sequence'>
+  | Omit<Extract<QueuedGameplayIntent, { kind: 'interactPlayerCraftingSlot' }>, 'sequence'>
+  | Omit<Extract<QueuedGameplayIntent, { kind: 'takePlayerCraftingResult' }>, 'sequence'>
+  | Omit<Extract<QueuedGameplayIntent, { kind: 'interactOpenContainerSlot' }>, 'sequence'>
+  | Omit<Extract<QueuedGameplayIntent, { kind: 'takeOpenContainerResult' }>, 'sequence'>
+  | Omit<Extract<QueuedGameplayIntent, { kind: 'closeOpenContainer' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'updatePlayerState' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'dropItem' }>, 'sequence'>
 
@@ -270,6 +275,43 @@ export class WorldSessionController implements WorldSessionPeer {
           kind: 'interactInventorySlot',
           playerEntityId: this.requireCurrentPlayerEntityId(),
           slot,
+        })
+      }),
+      this.adapter.eventBus.on('interactPlayerCraftingSlot', ({ slot }) => {
+        this.requireWorld('interacting with player crafting')
+        this.enqueueIntent({
+          kind: 'interactPlayerCraftingSlot',
+          playerEntityId: this.requireCurrentPlayerEntityId(),
+          slot,
+        })
+      }),
+      this.adapter.eventBus.on('takePlayerCraftingResult', () => {
+        this.requireWorld('taking player crafting result')
+        this.enqueueIntent({
+          kind: 'takePlayerCraftingResult',
+          playerEntityId: this.requireCurrentPlayerEntityId(),
+        })
+      }),
+      this.adapter.eventBus.on('interactOpenContainerSlot', ({ slot }) => {
+        this.requireWorld('interacting with open container')
+        this.enqueueIntent({
+          kind: 'interactOpenContainerSlot',
+          playerEntityId: this.requireCurrentPlayerEntityId(),
+          slot,
+        })
+      }),
+      this.adapter.eventBus.on('takeOpenContainerResult', () => {
+        this.requireWorld('taking container result')
+        this.enqueueIntent({
+          kind: 'takeOpenContainerResult',
+          playerEntityId: this.requireCurrentPlayerEntityId(),
+        })
+      }),
+      this.adapter.eventBus.on('closeOpenContainer', () => {
+        this.requireWorld('closing container')
+        this.enqueueIntent({
+          kind: 'closeOpenContainer',
+          playerEntityId: this.requireCurrentPlayerEntityId(),
         })
       }),
       this.adapter.eventBus.on('updatePlayerState', ({ state, flying }) => {

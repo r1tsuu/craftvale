@@ -1,9 +1,18 @@
-import type { BlockEntityType, BlockId, ChatEntry, EntityId, PlayerSnapshot } from '../types.ts'
+import type {
+  BlockEntityType,
+  BlockId,
+  ChatEntry,
+  EntityId,
+  InventorySlot,
+  PlayerSnapshot,
+} from '../types.ts'
 import type { AuthoritativeWorld } from './authoritative-world.ts'
 import type { WorldEntityState } from './world-entity-state.ts'
 import type { StoredBlockEntityRecord, WorldStorage } from './world-storage.ts'
 
 import { BLOCK_IDS } from '../world/blocks.ts'
+import { CRAFTING_TABLE_INPUT_SLOT_COUNT } from '../world/crafting.ts'
+import { createEmptyInventorySlot, normalizeInventorySlotArray } from '../world/inventory.ts'
 
 export interface BlockEntityChatMessage {
   targetPlayerEntityId: EntityId | null
@@ -39,6 +48,7 @@ interface BlockEntityTickContext extends BlockEntityBehaviorContext {
 interface BlockEntityBehavior {
   type: BlockEntityType
   blockId: BlockId
+  inventorySlotCount: number
   onUse?(context: BlockEntityUseContext): void | Promise<void>
   onTick?(context: BlockEntityTickContext): void | Promise<void>
 }
@@ -55,10 +65,9 @@ const BLOCK_ENTITY_BEHAVIORS: Record<BlockEntityType, BlockEntityBehavior> = {
   craftingTable: {
     type: 'craftingTable',
     blockId: BLOCK_IDS.craftingTable,
+    inventorySlotCount: CRAFTING_TABLE_INPUT_SLOT_COUNT,
     onUse: (context) => {
-      context.emitSystemMessage('CRAFTING TGABLE WAS CLICKED (TEMPORARY)', {
-        targetPlayerEntityId: context.playerEntityId,
-      })
+      context.world.openCraftingTableContainer(context.playerEntityId, context.blockEntityId)
     },
   },
 }
@@ -117,6 +126,10 @@ export class BlockEntitySystem {
     return this.positionIndex.get(positionKey(worldX, worldY, worldZ)) ?? null
   }
 
+  public hasEntity(entityId: EntityId): boolean {
+    return this.entities.hasBlockEntity(entityId)
+  }
+
   public getEntityType(entityId: EntityId): BlockEntityType {
     return this.entities.blockEntityType.require(entityId, 'block entity type').type
   }
@@ -124,6 +137,28 @@ export class BlockEntitySystem {
   public getEntityPosition(entityId: EntityId): [number, number, number] {
     const position = this.entities.blockEntityPosition.require(entityId, 'block entity position')
     return [position.x, position.y, position.z]
+  }
+
+  public getInventorySlots(entityId: EntityId): InventorySlot[] {
+    return normalizeInventorySlotArray(
+      this.entities.blockEntityInventory.require(entityId, 'block entity inventory').slots,
+      this.getBehavior(this.getEntityType(entityId)).inventorySlotCount,
+    )
+  }
+
+  public setInventorySlots(entityId: EntityId, slots: readonly InventorySlot[]): boolean {
+    const next = normalizeInventorySlotArray(
+      slots,
+      this.getBehavior(this.getEntityType(entityId)).inventorySlotCount,
+    )
+    const current = this.getInventorySlots(entityId)
+    if (JSON.stringify(current) === JSON.stringify(next)) {
+      return false
+    }
+
+    this.entities.blockEntityInventory.set(entityId, { slots: next })
+    this.saveDirty = true
+    return true
   }
 
   public async useBlock(
@@ -242,6 +277,12 @@ export class BlockEntitySystem {
         y: record.y,
         z: record.z,
       })
+      this.entities.blockEntityInventory.set(record.entityId, {
+        slots: normalizeInventorySlotArray(
+          record.slots,
+          this.getBehavior(record.type).inventorySlotCount,
+        ),
+      })
       this.positionIndex.set(key, record.entityId)
     }
   }
@@ -257,6 +298,7 @@ export class BlockEntitySystem {
         x: position.x,
         y: position.y,
         z: position.z,
+        slots: this.getInventorySlots(entityId),
       })
     }
 
@@ -272,6 +314,9 @@ export class BlockEntitySystem {
     const [x, y, z] = clonePosition(position)
     this.entities.blockEntityType.set(entityId, { type })
     this.entities.blockEntityPosition.set(entityId, { x, y, z })
+    this.entities.blockEntityInventory.set(entityId, {
+      slots: this.createInventorySlots(type),
+    })
     this.positionIndex.set(positionKey(x, y, z), entityId)
     this.saveDirty = true
     return entityId
@@ -285,7 +330,18 @@ export class BlockEntitySystem {
 
     this.entities.blockEntityType.delete(entityId)
     this.entities.blockEntityPosition.delete(entityId)
+    this.entities.blockEntityInventory.delete(entityId)
     this.entities.registry.destroyEntity(entityId)
     this.saveDirty = true
+  }
+
+  private createInventorySlots(type: BlockEntityType): InventorySlot[] {
+    return Array.from({ length: this.getBehavior(type).inventorySlotCount }, () =>
+      createEmptyInventorySlot(),
+    )
+  }
+
+  private getBehavior(type: BlockEntityType): BlockEntityBehavior {
+    return BLOCK_ENTITY_BEHAVIORS[type]
   }
 }

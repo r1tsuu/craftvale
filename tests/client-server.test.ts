@@ -85,6 +85,11 @@ const createHarness = async (): Promise<{
       worldRuntime.applyInventory(inventory)
     }
   })
+  client.eventBus.on('containerUpdated', ({ playerEntityId, container }) => {
+    if (playerEntityId === worldRuntime.clientPlayerEntityId) {
+      worldRuntime.applyOpenContainer(container)
+    }
+  })
   client.eventBus.on('droppedItemSpawned', ({ item }) => {
     worldRuntime.applyDroppedItem(item)
   })
@@ -163,6 +168,66 @@ test('client/server request-response correlation and error events work', async (
   } finally {
     await harness.serverRuntime.shutdown()
     harness.client.close()
+    await rm(harness.rootDir, { recursive: true, force: true })
+  }
+})
+
+test('client/server player crafting stays authoritative', async () => {
+  const harness = await createHarness()
+
+  try {
+    const joined = await harness.client.eventBus.send({
+      type: 'joinWorld',
+      payload: {
+        playerName: PLAYER_NAME,
+      },
+    })
+    harness.worldRuntime.reset()
+    harness.worldRuntime.applyJoinedWorld(joined)
+
+    harness.client.eventBus.send({
+      type: 'interactInventorySlot',
+      payload: {
+        slot: 4,
+      },
+    })
+    await harness.advance()
+    expect(harness.worldRuntime.inventory.cursor).toEqual({ itemId: ITEM_IDS.log, count: 64 })
+
+    harness.client.eventBus.send({
+      type: 'interactPlayerCraftingSlot',
+      payload: {
+        slot: 0,
+      },
+    })
+    await harness.advance()
+    expect(harness.worldRuntime.inventory.cursor).toEqual({ itemId: ITEM_IDS.log, count: 63 })
+    expect(harness.worldRuntime.inventory.playerCraftingInput?.[0]).toEqual({
+      itemId: ITEM_IDS.log,
+      count: 1,
+    })
+
+    harness.client.eventBus.send({
+      type: 'interactInventorySlot',
+      payload: {
+        slot: 4,
+      },
+    })
+    await harness.advance()
+    expect(harness.worldRuntime.inventory.cursor).toBeNull()
+
+    harness.client.eventBus.send({
+      type: 'takePlayerCraftingResult',
+      payload: {},
+    })
+    await harness.advance()
+    expect(harness.worldRuntime.inventory.cursor).toEqual({ itemId: ITEM_IDS.planks, count: 4 })
+    expect(harness.worldRuntime.inventory.playerCraftingInput?.[0]).toEqual({
+      itemId: ITEM_IDS.empty,
+      count: 0,
+    })
+  } finally {
+    await harness.serverRuntime.shutdown()
     await rm(harness.rootDir, { recursive: true, force: true })
   }
 })
@@ -638,8 +703,10 @@ test('server handles crafting table use through the authoritative tick', async (
     })
     await harness.advance()
 
-    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toBe(
-      'CRAFTING TGABLE WAS CLICKED (TEMPORARY)',
+    expect(harness.worldRuntime.openContainer).toEqual(
+      expect.objectContaining({
+        kind: 'craftingTable',
+      }),
     )
   } finally {
     await harness.serverRuntime.shutdown()

@@ -372,6 +372,13 @@ export class ServerRuntime {
       })
     }
 
+    for (const containerUpdate of result.containerUpdates) {
+      this.sendToPlayer(containerUpdate.playerEntityId, {
+        type: 'containerUpdated',
+        payload: containerUpdate,
+      })
+    }
+
     for (const player of result.playerUpdates) {
       this.broadcast({
         type: 'playerUpdated',

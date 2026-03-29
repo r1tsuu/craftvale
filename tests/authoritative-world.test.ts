@@ -11,6 +11,11 @@ import { BLOCK_IDS, getDroppedItemIdForBlock } from '../packages/core/src/world/
 import { Chunk } from '../packages/core/src/world/chunk.ts'
 import { CHUNK_SIZE, WORLD_SEA_LEVEL } from '../packages/core/src/world/constants.ts'
 import {
+  CRAFTING_TABLE_GRID_HEIGHT,
+  CRAFTING_TABLE_GRID_WIDTH,
+  getCraftingResult,
+} from '../packages/core/src/world/crafting.ts'
+import {
   getMainInventorySlotIndex,
   getMainInventorySlots,
 } from '../packages/core/src/world/inventory.ts'
@@ -352,7 +357,37 @@ test('placing a solid block into water replaces the water cell', async () => {
   }
 })
 
-test('crafting table block entities persist and emit server-side chat on use', async () => {
+test('player crafting is server-authoritative and consumes inputs on result take', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-player-crafting-'))
+  const storage = new BinaryWorldStorage(rootDir)
+
+  try {
+    const worldRecord = await storage.createWorld('PlayerCrafting', 42)
+    const world = new AuthoritativeWorld(worldRecord, storage, {
+      createInventory: createTestStarterInventory,
+    })
+    const joined = await world.joinPlayer(PLAYER_A)
+
+    let inventory = await world.interactInventorySlot(joined.clientPlayer.entityId, 4)
+    expect(inventory.cursor).toEqual({ itemId: ITEM_IDS.log, count: 64 })
+
+    inventory = await world.interactPlayerCraftingSlot(joined.clientPlayer.entityId, 0)
+    expect(inventory.cursor).toEqual({ itemId: ITEM_IDS.log, count: 63 })
+    expect(inventory.playerCraftingInput?.[0]).toEqual({ itemId: ITEM_IDS.log, count: 1 })
+
+    inventory = await world.interactInventorySlot(joined.clientPlayer.entityId, 4)
+    expect(inventory.cursor).toBeNull()
+    expect(inventory.slots[4]).toEqual({ itemId: ITEM_IDS.log, count: 63 })
+
+    inventory = await world.takePlayerCraftingResult(joined.clientPlayer.entityId)
+    expect(inventory.cursor).toEqual({ itemId: ITEM_IDS.planks, count: 4 })
+    expect(inventory.playerCraftingInput?.[0]).toEqual({ itemId: ITEM_IDS.empty, count: 0 })
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('crafting table containers open on use and persist their authoritative inputs', async () => {
   const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-crafting-table-'))
   const storage = new BinaryWorldStorage(rootDir)
 
@@ -400,15 +435,41 @@ test('crafting table block entities persist and emit server-side chat on use', a
       ],
       0.05,
     )
-    expect(useResult.chatMessages).toEqual([
+    expect(useResult.chatMessages).toEqual([])
+    expect(useResult.containerUpdates).toEqual([
       expect.objectContaining({
-        targetPlayerEntityId: joined.clientPlayer.entityId,
-        entry: expect.objectContaining({
-          kind: 'system',
-          text: 'CRAFTING TGABLE WAS CLICKED (TEMPORARY)',
+        playerEntityId: joined.clientPlayer.entityId,
+        container: expect.objectContaining({
+          kind: 'craftingTable',
         }),
       }),
     ])
+
+    const openedContainer = world.getOpenContainerSnapshot(joined.clientPlayer.entityId)
+    expect(openedContainer).not.toBeNull()
+    expect(openedContainer?.kind).toBe('craftingTable')
+
+    let interacted = await world.interactInventorySlot(joined.clientPlayer.entityId, 7)
+    expect(interacted.cursor).toEqual({ itemId: ITEM_IDS.planks, count: 64 })
+
+    interacted = (await world.interactOpenContainerSlot(joined.clientPlayer.entityId, 0)).inventory
+    expect(interacted.cursor).toEqual({ itemId: ITEM_IDS.planks, count: 63 })
+
+    await world.interactOpenContainerSlot(joined.clientPlayer.entityId, 1)
+    await world.interactOpenContainerSlot(joined.clientPlayer.entityId, 3)
+    await world.interactOpenContainerSlot(joined.clientPlayer.entityId, 4)
+
+    const tableBeforeSave = world.getOpenContainerSnapshot(joined.clientPlayer.entityId)
+    expect(
+      getCraftingResult(
+        tableBeforeSave!.inputSlots,
+        CRAFTING_TABLE_GRID_WIDTH,
+        CRAFTING_TABLE_GRID_HEIGHT,
+      ),
+    ).toEqual({
+      itemId: ITEM_IDS.craftingTable,
+      count: 1,
+    })
 
     await world.save()
 
@@ -431,8 +492,12 @@ test('crafting table block entities persist and emit server-side chat on use', a
       ],
       0.05,
     )
-
-    expect(reloadedUse.chatMessages[0]?.entry.text).toBe('CRAFTING TGABLE WAS CLICKED (TEMPORARY)')
+    expect(reloadedUse.chatMessages).toEqual([])
+    expect(reloadedUse.containerUpdates[0]?.container).toEqual({
+      kind: 'craftingTable',
+      blockEntityId: tableBeforeSave!.blockEntityId,
+      inputSlots: tableBeforeSave!.inputSlots,
+    })
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

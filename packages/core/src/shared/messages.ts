@@ -5,6 +5,7 @@ import type {
   DroppedItemSnapshot,
   EntityId,
   InventorySnapshot,
+  OpenContainerSnapshot,
   PlayerName,
   PlayerSnapshot,
   PlayerState,
@@ -65,6 +66,10 @@ export interface InventorySelectionRequest {
 }
 
 export interface InventoryInteractionRequest {
+  slot: number
+}
+
+export interface ContainerInteractionRequest {
   slot: number
 }
 
@@ -140,6 +145,11 @@ export interface ClientEventMap {
   useBlock: BlockUseRequest
   selectInventorySlot: InventorySelectionRequest
   interactInventorySlot: InventoryInteractionRequest
+  interactPlayerCraftingSlot: ContainerInteractionRequest
+  takePlayerCraftingResult: Record<string, never>
+  interactOpenContainerSlot: ContainerInteractionRequest
+  takeOpenContainerResult: Record<string, never>
+  closeOpenContainer: Record<string, never>
   updatePlayerState: PlayerStateUpdateRequest
   submitChat: SubmitChatRequest
   dropItem: { slot: number; count: number }
@@ -153,6 +163,11 @@ export interface ServerEventMap {
     playerEntityId: EntityId
     playerName: PlayerName
     inventory: InventorySnapshot
+  }
+  containerUpdated: {
+    playerEntityId: EntityId
+    playerName: PlayerName
+    container: OpenContainerSnapshot | null
   }
   droppedItemSpawned: { item: DroppedItemSnapshot }
   droppedItemUpdated: { item: DroppedItemSnapshot }
@@ -226,6 +241,11 @@ const CLIENT_EVENT_TYPES = new Set<keyof ClientEventMap>([
   'useBlock',
   'selectInventorySlot',
   'interactInventorySlot',
+  'interactPlayerCraftingSlot',
+  'takePlayerCraftingResult',
+  'interactOpenContainerSlot',
+  'takeOpenContainerResult',
+  'closeOpenContainer',
   'updatePlayerState',
   'submitChat',
   'dropItem',
@@ -236,6 +256,7 @@ const SERVER_EVENT_TYPES = new Set<keyof ServerEventMap>([
   'chunkDelivered',
   'chunkChanged',
   'inventoryUpdated',
+  'containerUpdated',
   'droppedItemSpawned',
   'droppedItemUpdated',
   'droppedItemRemoved',

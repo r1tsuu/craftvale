@@ -4,6 +4,7 @@ import type {
   DroppedItemSnapshot,
   EntityId,
   InventorySnapshot,
+  OpenContainerSnapshot,
   PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
@@ -42,6 +43,7 @@ const PREDICTED_LIGHT_DIRECTIONS = [
 export class ClientWorldRuntime {
   public readonly world = new VoxelWorld()
   public inventory: InventorySnapshot = createEmptyInventory()
+  public openContainer: OpenContainerSnapshot | null = null
   public worldTime: WorldTimeState = createDefaultWorldTimeState()
   public clientPlayerName: PlayerName | null = null
   public clientPlayerEntityId: EntityId | null = null
@@ -57,6 +59,7 @@ export class ClientWorldRuntime {
   public reset(): void {
     this.world.clear()
     this.inventory = createEmptyInventory()
+    this.openContainer = null
     this.worldTime = createDefaultWorldTimeState()
     this.clientPlayerName = null
     this.clientPlayerEntityId = null
@@ -82,6 +85,18 @@ export class ClientWorldRuntime {
 
   public applyInventory(inventory: InventorySnapshot): void {
     this.inventory = normalizeInventorySnapshot(inventory)
+  }
+
+  public applyOpenContainer(container: OpenContainerSnapshot | null): void {
+    this.openContainer = container
+      ? {
+          ...container,
+          inputSlots: container.inputSlots.map((slot) => ({
+            itemId: slot.itemId,
+            count: slot.count,
+          })),
+        }
+      : null
   }
 
   public applyPredictedBreak(
@@ -122,6 +137,7 @@ export class ClientWorldRuntime {
       this.applyDroppedItem(item)
     }
     this.applyInventory(joined.inventory)
+    this.applyOpenContainer(null)
   }
 
   public applyWorldTime(worldTime: WorldTimeState): void {

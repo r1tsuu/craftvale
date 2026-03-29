@@ -7,6 +7,7 @@ import type {
   ChunkCoord,
   DroppedItemSnapshot,
   EntityId,
+  InventorySlot,
   InventorySnapshot,
   ItemId,
   PlayerGamemode,
@@ -15,7 +16,15 @@ import type {
 } from '../types.ts'
 
 import { normalizeWorldTimeState, type WorldTimeState } from '../shared/lighting.ts'
-import { normalizeInventorySnapshot } from '../world/inventory.ts'
+import {
+  CRAFTING_TABLE_INPUT_SLOT_COUNT,
+  PLAYER_CRAFTING_INPUT_SLOT_COUNT,
+} from '../world/crafting.ts'
+import {
+  createEmptyInventorySlot,
+  normalizeInventorySlotArray,
+  normalizeInventorySnapshot,
+} from '../world/inventory.ts'
 
 const REGISTRY_MAGIC = 'VWRG'
 const CHUNK_MAGIC = 'VCHK'
@@ -25,9 +34,9 @@ const BLOCK_ENTITIES_MAGIC = 'VBEN'
 const WORLD_TIME_MAGIC = 'VTIM'
 const REGISTRY_VERSION = 1
 const CHUNK_VERSION = 3
-const PLAYER_VERSION = 6
+const PLAYER_VERSION = 7
 const DROPPED_ITEMS_VERSION = 2
-const BLOCK_ENTITIES_VERSION = 1
+const BLOCK_ENTITIES_VERSION = 2
 const WORLD_TIME_VERSION = 1
 
 export interface StoredWorldRecord extends WorldSummary {
@@ -58,6 +67,7 @@ export interface StoredBlockEntityRecord {
   x: number
   y: number
   z: number
+  slots: InventorySlot[]
 }
 
 export interface WorldStorage {
@@ -270,8 +280,11 @@ const decodeWorldTime = (bytes: Uint8Array): WorldTimeState => {
 
 const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
   const inventory = normalizeInventorySnapshot(record.inventory)
+  const playerCraftingInput = inventory.playerCraftingInput ?? []
   const entityIdBytes = textEncoder.encode(record.snapshot.entityId)
-  const bytes = new Uint8Array(68 + inventory.slots.length * 8 + 2 + entityIdBytes.length)
+  const bytes = new Uint8Array(
+    72 + inventory.slots.length * 8 + playerCraftingInput.length * 8 + 2 + entityIdBytes.length,
+  )
   const view = new DataView(bytes.buffer)
   bytes.set(textEncoder.encode(PLAYER_MAGIC), 0)
   view.setUint32(4, PLAYER_VERSION, true)
@@ -285,9 +298,16 @@ const encodePlayer = (record: StoredPlayerRecord): Uint8Array => {
   view.setUint32(56, inventory.slots.length, true)
   view.setUint32(60, inventory.cursor?.itemId ?? 0, true)
   view.setUint32(64, inventory.cursor?.count ?? 0, true)
+  view.setUint32(68, playerCraftingInput.length, true)
 
-  let offset = 68
+  let offset = 72
   for (const slot of inventory.slots) {
+    view.setUint32(offset, slot.itemId >>> 0, true)
+    view.setUint32(offset + 4, Math.max(0, Math.trunc(slot.count)) >>> 0, true)
+    offset += 8
+  }
+
+  for (const slot of playerCraftingInput) {
     view.setUint32(offset, slot.itemId >>> 0, true)
     view.setUint32(offset + 4, Math.max(0, Math.trunc(slot.count)) >>> 0, true)
     offset += 8
@@ -310,7 +330,7 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
 
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const version = view.getUint32(4, true)
-  if (version !== PLAYER_VERSION) {
+  if (version !== 6 && version !== PLAYER_VERSION) {
     throw new Error(`Unsupported player file version ${version}.`)
   }
 
@@ -320,7 +340,10 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
   const cursorItemId = view.getUint32(60, true) as ItemId
   const cursorCount = view.getUint32(64, true)
   const slots: InventorySnapshot['slots'] = []
-  let offset = 68
+  const playerCraftingInput: InventorySnapshot['playerCraftingInput'] = []
+  const playerCraftingSlotCount =
+    version >= PLAYER_VERSION ? view.getUint32(68, true) : PLAYER_CRAFTING_INPUT_SLOT_COUNT
+  let offset = version >= PLAYER_VERSION ? 72 : 68
 
   for (let index = 0; index < slotCount; index += 1) {
     slots.push({
@@ -330,10 +353,21 @@ const decodePlayer = (bytes: Uint8Array, playerName: PlayerName): StoredPlayerRe
     offset += 8
   }
 
+  if (version >= PLAYER_VERSION) {
+    for (let index = 0; index < playerCraftingSlotCount; index += 1) {
+      playerCraftingInput.push({
+        itemId: view.getUint32(offset, true) as ItemId,
+        count: view.getUint32(offset + 4, true),
+      })
+      offset += 8
+    }
+  }
+
   const entityId = readString(bytes, offset).value
 
   const inventory = normalizeInventorySnapshot({
     slots,
+    playerCraftingInput,
     selectedSlot,
     cursor:
       cursorCount > 0
@@ -453,7 +487,11 @@ const BLOCK_ENTITY_ID_TO_TYPE = new Map<number, BlockEntityType>(
 const encodeBlockEntities = (entities: readonly StoredBlockEntityRecord[]): Uint8Array => {
   const entityIds = entities.map((entity) => textEncoder.encode(entity.entityId))
   const totalSize =
-    12 + entities.reduce((size, _entity, index) => size + 15 + entityIds[index]!.length, 0)
+    12 +
+    entities.reduce(
+      (size, entity, index) => size + 19 + entity.slots.length * 8 + entityIds[index]!.length,
+      0,
+    )
   const bytes = new Uint8Array(totalSize)
   const view = new DataView(bytes.buffer)
   bytes.set(textEncoder.encode(BLOCK_ENTITIES_MAGIC), 0)
@@ -467,7 +505,13 @@ const encodeBlockEntities = (entities: readonly StoredBlockEntityRecord[]): Uint
     view.setInt32(offset + 4, entity.y, true)
     view.setInt32(offset + 8, entity.z, true)
     view.setUint8(offset + 12, BLOCK_ENTITY_TYPE_TO_ID[entity.type] ?? 0)
-    offset += 13
+    view.setUint32(offset + 13, entity.slots.length, true)
+    offset += 17
+    for (const slot of entity.slots) {
+      view.setUint32(offset, slot.itemId >>> 0, true)
+      view.setUint32(offset + 4, Math.max(0, Math.trunc(slot.count)) >>> 0, true)
+      offset += 8
+    }
     offset = writeString(bytes, offset, entity.entityId)
   }
 
@@ -486,7 +530,7 @@ const decodeBlockEntities = (bytes: Uint8Array): StoredBlockEntityRecord[] => {
 
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const version = view.getUint32(4, true)
-  if (version !== BLOCK_ENTITIES_VERSION) {
+  if (version !== 1 && version !== BLOCK_ENTITIES_VERSION) {
     throw new Error(`Unsupported block entities file version ${version}.`)
   }
 
@@ -499,13 +543,32 @@ const decodeBlockEntities = (bytes: Uint8Array): StoredBlockEntityRecord[] => {
     const y = view.getInt32(offset + 4, true)
     const z = view.getInt32(offset + 8, true)
     const typeId = view.getUint8(offset + 12)
-    offset += 13
-    const entityId = readString(bytes, offset)
-    offset = entityId.nextOffset
+    const slotCount = version >= BLOCK_ENTITIES_VERSION ? view.getUint32(offset + 13, true) : 0
+    offset += version >= BLOCK_ENTITIES_VERSION ? 17 : 13
     const type = BLOCK_ENTITY_ID_TO_TYPE.get(typeId)
     if (!type) {
       throw new Error(`Unknown block entity type id ${typeId}.`)
     }
+
+    const slots =
+      version >= BLOCK_ENTITIES_VERSION
+        ? normalizeInventorySlotArray(
+            Array.from({ length: slotCount }, (_, slotIndex) => ({
+              itemId: view.getUint32(offset + slotIndex * 8, true) as ItemId,
+              count: view.getUint32(offset + slotIndex * 8 + 4, true),
+            })),
+            slotCount,
+          )
+        : Array.from(
+            { length: type === 'craftingTable' ? CRAFTING_TABLE_INPUT_SLOT_COUNT : 0 },
+            () => createEmptyInventorySlot(),
+          )
+
+    if (version >= BLOCK_ENTITIES_VERSION) {
+      offset += slotCount * 8
+    }
+    const entityId = readString(bytes, offset)
+    offset = entityId.nextOffset
 
     entities.push({
       entityId: entityId.value,
@@ -513,6 +576,7 @@ const decodeBlockEntities = (bytes: Uint8Array): StoredBlockEntityRecord[] => {
       x,
       y,
       z,
+      slots,
     })
   }
 

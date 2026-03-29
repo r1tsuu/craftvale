@@ -3,17 +3,24 @@ import { expect, test } from 'bun:test'
 import type { InventorySlot } from '../packages/core/src/types.ts'
 
 import {
+  CRAFTING_TABLE_GRID_HEIGHT,
+  CRAFTING_TABLE_GRID_WIDTH,
+  getCraftingResult,
+} from '../packages/core/src/world/crafting.ts'
+import {
   addInventoryItem,
   createEmptyInventory,
   DEFAULT_INVENTORY_STACK_SIZE,
   getHotbarInventorySlots,
   getMainInventorySlotIndex,
   getMainInventorySlots,
+  getPlayerCraftingResult,
   interactInventorySlot,
   MAIN_INVENTORY_SLOT_COUNT,
   normalizeInventorySnapshot,
   removeInventorySlotCount,
   setSelectedInventorySlot,
+  takePlayerCraftingResult,
 } from '../packages/core/src/world/inventory.ts'
 import { ITEM_IDS } from '../packages/core/src/world/items.ts'
 import { createTestStarterInventory } from './helpers/test-inventory.ts'
@@ -190,6 +197,61 @@ test('inventory interaction picks up, places, and merges stacks', () => {
   inventory = interactInventorySlot(inventory, 0)
   expect(getHotbarInventorySlots(inventory)[0]).toEqual({ itemId: ITEM_IDS.grass, count: 36 })
   expect(inventory.cursor).toBeNull()
+})
+
+test('player crafting derives log into planks and consumes the input when taken', () => {
+  let inventory = createEmptyInventory()
+  inventory.playerCraftingInput = [
+    { itemId: ITEM_IDS.log, count: 1 },
+    { itemId: ITEM_IDS.empty, count: 0 },
+    { itemId: ITEM_IDS.empty, count: 0 },
+    { itemId: ITEM_IDS.empty, count: 0 },
+  ]
+
+  expect(getPlayerCraftingResult(inventory)).toEqual({
+    itemId: ITEM_IDS.planks,
+    count: 4,
+  })
+
+  inventory = takePlayerCraftingResult(inventory)
+  expect(inventory.playerCraftingInput).toEqual([
+    { itemId: ITEM_IDS.empty, count: 0 },
+    { itemId: ITEM_IDS.empty, count: 0 },
+    { itemId: ITEM_IDS.empty, count: 0 },
+    { itemId: ITEM_IDS.empty, count: 0 },
+  ])
+  expect(inventory.cursor).toEqual({
+    itemId: ITEM_IDS.planks,
+    count: 4,
+  })
+})
+
+test('player crafting derives a 2x2 planks square into a crafting table', () => {
+  const inventory = createEmptyInventory()
+  inventory.playerCraftingInput = [
+    { itemId: ITEM_IDS.planks, count: 1 },
+    { itemId: ITEM_IDS.planks, count: 1 },
+    { itemId: ITEM_IDS.planks, count: 1 },
+    { itemId: ITEM_IDS.planks, count: 1 },
+  ]
+
+  expect(getPlayerCraftingResult(inventory)).toEqual({
+    itemId: ITEM_IDS.craftingTable,
+    count: 1,
+  })
+})
+
+test('crafting recipes normalize inside the crafting-table 3x3 grid', () => {
+  const input: InventorySlot[] = Array.from({ length: 9 }, () => ({
+    itemId: ITEM_IDS.empty,
+    count: 0,
+  }))
+  input[4] = { itemId: ITEM_IDS.log, count: 1 }
+
+  expect(getCraftingResult(input, CRAFTING_TABLE_GRID_WIDTH, CRAFTING_TABLE_GRID_HEIGHT)).toEqual({
+    itemId: ITEM_IDS.planks,
+    count: 4,
+  })
 })
 
 test('removeInventorySlotCount decrements slot by the requested amount', () => {

@@ -5,6 +5,7 @@ import type {
   EntityId,
   InventorySnapshot,
   ItemId,
+  OpenContainerSnapshot,
   PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
@@ -28,7 +29,12 @@ import {
   STARTUP_CHUNK_RADIUS,
   WORLD_SEA_LEVEL,
 } from '../world/constants.ts'
-import { getInventorySlot } from '../world/inventory.ts'
+import {
+  CRAFTING_TABLE_GRID_HEIGHT,
+  CRAFTING_TABLE_GRID_WIDTH,
+  takeCraftingResult,
+} from '../world/crafting.ts'
+import { getInventorySlot, interactCraftingInputSlotArray } from '../world/inventory.ts'
 import { getPlacedBlockIdForItem, isValidItemId } from '../world/items.ts'
 import { createGeneratedChunk, getTerrainHeight } from '../world/terrain.ts'
 import { worldToChunkCoord } from '../world/world.ts'
@@ -40,6 +46,7 @@ import { WorldEntityState } from './world-entity-state.ts'
 import {
   createEmptyWorldTickResult,
   type QueuedGameplayIntent,
+  type WorldContainerUpdate,
   type WorldInventoryUpdate,
   type WorldTickResult,
 } from './world-tick.ts'
@@ -56,6 +63,11 @@ interface BlockMutationResult {
   inventory: InventorySnapshot
   inventoryChanged: boolean
   droppedItems: WorldSimulationResult
+}
+
+interface CraftingTableContainerSession {
+  kind: 'craftingTable'
+  blockEntityId: EntityId
 }
 
 export interface WorldSimulationResult {
@@ -128,6 +140,7 @@ const findSpawnColumn = (
 export class AuthoritativeWorld {
   private readonly chunks = new Map<string, ServerChunkEntry>()
   private readonly entityState = new WorldEntityState()
+  private readonly openContainersByPlayer = new Map<EntityId, CraftingTableContainerSession>()
   private readonly playerSystem: PlayerSystem
   private readonly blockEntitySystem: BlockEntitySystem
   private readonly droppedItemSystem: DroppedItemSystem
@@ -262,6 +275,7 @@ export class AuthoritativeWorld {
 
   public async leavePlayer(entityId: EntityId): Promise<PlayerSnapshot | null> {
     await this.ensureInitialized()
+    this.openContainersByPlayer.delete(entityId)
     return this.playerSystem.leavePlayer(entityId)
   }
 
@@ -308,6 +322,48 @@ export class AuthoritativeWorld {
     return this.playerSystem.getInventorySnapshot(entityId)
   }
 
+  public getOpenContainerSnapshot(entityId: EntityId): OpenContainerSnapshot | null {
+    const session = this.openContainersByPlayer.get(entityId)
+    if (!session) {
+      return null
+    }
+
+    if (
+      session.kind === 'craftingTable' &&
+      this.blockEntitySystem.hasEntity(session.blockEntityId)
+    ) {
+      return {
+        kind: 'craftingTable',
+        blockEntityId: session.blockEntityId,
+        inputSlots: this.blockEntitySystem.getInventorySlots(session.blockEntityId),
+      }
+    }
+
+    return null
+  }
+
+  public openCraftingTableContainer(
+    playerEntityId: EntityId,
+    blockEntityId: EntityId,
+  ): OpenContainerSnapshot | null {
+    if (!this.blockEntitySystem.hasEntity(blockEntityId)) {
+      this.openContainersByPlayer.delete(playerEntityId)
+      return null
+    }
+
+    this.openContainersByPlayer.set(playerEntityId, {
+      kind: 'craftingTable',
+      blockEntityId,
+    })
+    return this.getOpenContainerSnapshot(playerEntityId)
+  }
+
+  public closeOpenContainer(entityId: EntityId): OpenContainerSnapshot | null {
+    const current = this.getOpenContainerSnapshot(entityId)
+    this.openContainersByPlayer.delete(entityId)
+    return current
+  }
+
   public async selectInventorySlot(entityId: EntityId, slot: number): Promise<InventorySnapshot> {
     await this.ensureInitialized()
     return this.playerSystem.selectInventorySlot(entityId, slot)
@@ -316,6 +372,104 @@ export class AuthoritativeWorld {
   public async interactInventorySlot(entityId: EntityId, slot: number): Promise<InventorySnapshot> {
     await this.ensureInitialized()
     return this.playerSystem.interactInventorySlot(entityId, slot)
+  }
+
+  public async interactPlayerCraftingSlot(
+    entityId: EntityId,
+    slot: number,
+  ): Promise<InventorySnapshot> {
+    await this.ensureInitialized()
+    return this.playerSystem.interactPlayerCraftingSlot(entityId, slot)
+  }
+
+  public async takePlayerCraftingResult(entityId: EntityId): Promise<InventorySnapshot> {
+    await this.ensureInitialized()
+    return this.playerSystem.takePlayerCraftingResult(entityId)
+  }
+
+  public async interactOpenContainerSlot(
+    entityId: EntityId,
+    slot: number,
+  ): Promise<{
+    inventory: InventorySnapshot
+    inventoryChanged: boolean
+    container: OpenContainerSnapshot | null
+    containerChanged: boolean
+  }> {
+    await this.ensureInitialized()
+    const session = this.openContainersByPlayer.get(entityId)
+    const inventory = this.playerSystem.getInventorySnapshot(entityId)
+    if (!session || !this.blockEntitySystem.hasEntity(session.blockEntityId)) {
+      this.openContainersByPlayer.delete(entityId)
+      return {
+        inventory,
+        inventoryChanged: false,
+        container: null,
+        containerChanged: session !== undefined,
+      }
+    }
+
+    const interaction = interactCraftingInputSlotArray(
+      this.blockEntitySystem.getInventorySlots(session.blockEntityId),
+      inventory.cursor,
+      slot,
+    )
+    const inventoryResult = this.playerSystem.setInventorySnapshot(entityId, {
+      ...inventory,
+      cursor: interaction.cursor,
+    })
+    const containerChanged = this.blockEntitySystem.setInventorySlots(
+      session.blockEntityId,
+      interaction.slots,
+    )
+
+    return {
+      inventory: inventoryResult.inventory,
+      inventoryChanged: inventoryResult.inventoryChanged,
+      container: this.getOpenContainerSnapshot(entityId),
+      containerChanged,
+    }
+  }
+
+  public async takeOpenContainerResult(entityId: EntityId): Promise<{
+    inventory: InventorySnapshot
+    inventoryChanged: boolean
+    container: OpenContainerSnapshot | null
+    containerChanged: boolean
+  }> {
+    await this.ensureInitialized()
+    const session = this.openContainersByPlayer.get(entityId)
+    const inventory = this.playerSystem.getInventorySnapshot(entityId)
+    if (!session || !this.blockEntitySystem.hasEntity(session.blockEntityId)) {
+      this.openContainersByPlayer.delete(entityId)
+      return {
+        inventory,
+        inventoryChanged: false,
+        container: null,
+        containerChanged: session !== undefined,
+      }
+    }
+
+    const crafted = takeCraftingResult(
+      this.blockEntitySystem.getInventorySlots(session.blockEntityId),
+      CRAFTING_TABLE_GRID_WIDTH,
+      CRAFTING_TABLE_GRID_HEIGHT,
+      inventory.cursor,
+    )
+    const inventoryResult = this.playerSystem.setInventorySnapshot(entityId, {
+      ...inventory,
+      cursor: crafted.cursor,
+    })
+    const containerChanged = crafted.crafted
+      ? this.blockEntitySystem.setInventorySlots(session.blockEntityId, crafted.inputSlots)
+      : false
+
+    return {
+      inventory: inventoryResult.inventory,
+      inventoryChanged: inventoryResult.inventoryChanged,
+      container: this.getOpenContainerSnapshot(entityId),
+      containerChanged,
+    }
   }
 
   public async useBlock(
@@ -549,7 +703,14 @@ export class AuthoritativeWorld {
           break
         }
         case 'useBlock': {
+          const before = this.getOpenContainerSnapshot(intent.playerEntityId)
           await this.useBlock(intent.playerEntityId, intent.x, intent.y, intent.z)
+          this.mergeContainerUpdateIfChanged(
+            result,
+            intent.playerEntityId,
+            before,
+            this.getOpenContainerSnapshot(intent.playerEntityId),
+          )
           this.drainBlockEntityMessages(result)
           break
         }
@@ -558,6 +719,56 @@ export class AuthoritativeWorld {
             result,
             intent.playerEntityId,
             await this.interactInventorySlot(intent.playerEntityId, intent.slot),
+          )
+          break
+        }
+        case 'interactPlayerCraftingSlot': {
+          this.mergeInventoryUpdate(
+            result,
+            intent.playerEntityId,
+            await this.interactPlayerCraftingSlot(intent.playerEntityId, intent.slot),
+          )
+          break
+        }
+        case 'takePlayerCraftingResult': {
+          this.mergeInventoryUpdate(
+            result,
+            intent.playerEntityId,
+            await this.takePlayerCraftingResult(intent.playerEntityId),
+          )
+          break
+        }
+        case 'interactOpenContainerSlot': {
+          const interaction = await this.interactOpenContainerSlot(
+            intent.playerEntityId,
+            intent.slot,
+          )
+          if (interaction.inventoryChanged) {
+            this.mergeInventoryUpdate(result, intent.playerEntityId, interaction.inventory)
+          }
+          if (interaction.containerChanged) {
+            this.mergeContainerUpdate(result, intent.playerEntityId, interaction.container)
+          }
+          break
+        }
+        case 'takeOpenContainerResult': {
+          const interaction = await this.takeOpenContainerResult(intent.playerEntityId)
+          if (interaction.inventoryChanged) {
+            this.mergeInventoryUpdate(result, intent.playerEntityId, interaction.inventory)
+          }
+          if (interaction.containerChanged) {
+            this.mergeContainerUpdate(result, intent.playerEntityId, interaction.container)
+          }
+          break
+        }
+        case 'closeOpenContainer': {
+          const before = this.getOpenContainerSnapshot(intent.playerEntityId)
+          this.closeOpenContainer(intent.playerEntityId)
+          this.mergeContainerUpdateIfChanged(
+            result,
+            intent.playerEntityId,
+            before,
+            this.getOpenContainerSnapshot(intent.playerEntityId),
           )
           break
         }
@@ -579,6 +790,7 @@ export class AuthoritativeWorld {
       }
     }
 
+    this.closeInvalidOpenContainers(result)
     await this.blockEntitySystem.tick(deltaSeconds)
     this.drainBlockEntityMessages(result)
     this.mergeSimulationResult(result, await this.stepSimulation(deltaSeconds))
@@ -745,6 +957,41 @@ export class AuthoritativeWorld {
     result.inventoryUpdates.push(next)
   }
 
+  private mergeContainerUpdate(
+    result: WorldTickResult,
+    playerEntityId: EntityId,
+    container: OpenContainerSnapshot | null,
+  ): void {
+    const playerName = this.getPlayerName(playerEntityId) ?? 'Unknown'
+    const next: WorldContainerUpdate = {
+      playerEntityId,
+      playerName,
+      container,
+    }
+    const index = result.containerUpdates.findIndex(
+      (entry) => entry.playerEntityId === playerEntityId,
+    )
+    if (index >= 0) {
+      result.containerUpdates[index] = next
+      return
+    }
+
+    result.containerUpdates.push(next)
+  }
+
+  private mergeContainerUpdateIfChanged(
+    result: WorldTickResult,
+    playerEntityId: EntityId,
+    before: OpenContainerSnapshot | null,
+    after: OpenContainerSnapshot | null,
+  ): void {
+    if (JSON.stringify(before) === JSON.stringify(after)) {
+      return
+    }
+
+    this.mergeContainerUpdate(result, playerEntityId, after)
+  }
+
   private mergePlayerUpdate(result: WorldTickResult, player: PlayerSnapshot): void {
     const index = result.playerUpdates.findIndex((entry) => entry.entityId === player.entityId)
     if (index >= 0) {
@@ -757,6 +1004,17 @@ export class AuthoritativeWorld {
 
   private drainBlockEntityMessages(result: WorldTickResult): void {
     result.chatMessages.push(...this.blockEntitySystem.drainChatMessages())
+  }
+
+  private closeInvalidOpenContainers(result: WorldTickResult): void {
+    for (const [playerEntityId, session] of [...this.openContainersByPlayer.entries()]) {
+      if (this.blockEntitySystem.hasEntity(session.blockEntityId)) {
+        continue
+      }
+
+      this.openContainersByPlayer.delete(playerEntityId)
+      this.mergeContainerUpdate(result, playerEntityId, null)
+    }
   }
 
   private mergeSimulationResult(result: WorldTickResult, simulation: WorldSimulationResult): void {
