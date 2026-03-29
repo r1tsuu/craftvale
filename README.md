@@ -4,14 +4,13 @@
 
 A macOS-first Bun desktop voxel sandbox. A thin C bridge handles GLFW windowing and OpenGL rendering; Bun workspaces split the desktop client, dedicated server, and shared gameplay/runtime code into explicit packages.
 
+The native desktop build downloads the official GLFW source package on demand and builds it locally, so contributors do not need a separate `brew install glfw` step.
+
 ## Quick Start
 
 ```sh
 # Install dependencies
 bun install
-
-# Install GLFW (macOS)
-brew install glfw
 
 # Build the native bridge and launch the client
 bun run dev:client
@@ -23,7 +22,8 @@ Use `bun run dev:full` to start a dedicated WebSocket server alongside the clien
 
 - Bun 1.1+
 - Apple clang / Xcode command line tools
-- GLFW: `brew install glfw`
+- CMake
+- Network access the first time `bun run build:native` downloads the official GLFW 3.4 source package and builds it into `native/vendor/`
 
 ## Design Principles
 
