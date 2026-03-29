@@ -59,11 +59,13 @@ Use `bun run dev:full` to start a dedicated WebSocket server alongside the clien
 | ------------------------------- | ------------------------------------------------ |
 | `bun run benchmark`             | Build native libraries, then run all benchmarks  |
 | `bun run benchmark -- lighting` | Build native libraries, then run only `lighting` |
+| `bun run benchmark -- worldgen` | Build native libraries, then run only `worldgen` |
 
 Pass benchmark-specific flags after the benchmark name:
 
 ```sh
 bun run benchmark -- lighting --warmup=5 --rounds=40
+bun run benchmark -- worldgen --fixtures=8 --rounds=25
 ```
 
 ### Asset Generation

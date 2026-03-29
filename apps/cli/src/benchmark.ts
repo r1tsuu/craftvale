@@ -1,8 +1,9 @@
 import type { CliBenchmark } from './benchmarks/types.ts'
 
 import { lightingBenchmark } from './benchmarks/lighting.ts'
+import { worldgenBenchmark } from './benchmarks/worldgen.ts'
 
-const benchmarks: readonly CliBenchmark[] = [lightingBenchmark]
+const benchmarks: readonly CliBenchmark[] = [lightingBenchmark, worldgenBenchmark]
 
 const argv = Bun.argv.slice(2)
 const requestedName = argv[0] && !argv[0].startsWith('--') ? argv[0] : null
