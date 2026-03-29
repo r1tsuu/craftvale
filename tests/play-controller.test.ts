@@ -10,7 +10,7 @@ import { ClientWorldRuntime } from '../apps/client/src/app/world-runtime.ts'
 import { CREATIVE_BREAK_DURATION_MS } from '../apps/client/src/game/break-state.ts'
 import { createPendingFixedStepInputEdges } from '../apps/client/src/game/fixed-step-input.ts'
 import { PlayerController } from '../apps/client/src/game/player.ts'
-import { BLOCK_IDS, createEmptyInventory } from '../packages/core/src/shared/index.ts'
+import { BLOCK_IDS, createEmptyInventory, ITEM_IDS } from '../packages/core/src/shared/index.ts'
 
 const FIXED_TIMESTEP = 1 / 60
 
@@ -180,4 +180,41 @@ test('right-clicking a crafting table sends useBlock instead of mutateBlock', as
     }),
   )
   expect(sentMessages.some((message) => message.type === 'mutateBlock')).toBe(false)
+})
+
+test('escape closes an open crafting table immediately and notifies the server', async () => {
+  const { controller, sentMessages, worldRuntime } = createHarness()
+  worldRuntime.applyOpenContainer({
+    kind: 'craftingTable',
+    blockEntityId: 'block-entity:crafting-table:1',
+    inputSlots: Array.from({ length: 9 }, () => ({
+      itemId: ITEM_IDS.empty,
+      count: 0,
+    })),
+  })
+
+  await controller.tick({
+    input: createInput({ exitPressed: true }),
+    accumulator: FIXED_TIMESTEP,
+    pendingInputEdges: createPendingFixedStepInputEdges(),
+    deltaTime: FIXED_TIMESTEP,
+    smoothedFps: 60,
+    serverTps: 60,
+    connectionMode: 'local',
+    currentWorldName: 'Alpha',
+    currentWorldSeed: 42,
+    lastServerMessage: '',
+  })
+
+  expect(worldRuntime.openContainer).toBeNull()
+  expect(controller.getOverlayState()).toEqual({
+    inventoryOpen: false,
+    pauseScreen: 'closed',
+  })
+  expect(sentMessages.find((message) => message.type === 'closeOpenContainer')).toEqual(
+    expect.objectContaining({
+      type: 'closeOpenContainer',
+      payload: {},
+    }),
+  )
 })

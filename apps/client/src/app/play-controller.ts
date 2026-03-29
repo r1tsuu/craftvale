@@ -624,6 +624,7 @@ export class PlayController {
     const worldRuntime = this.deps.getWorldRuntime()
     this.inventoryOpen = false
     if (worldRuntime.openContainer !== null) {
+      worldRuntime.applyOpenContainer(null)
       this.deps.getClientAdapter().eventBus.send({
         type: 'closeOpenContainer',
         payload: {},
