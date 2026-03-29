@@ -5,7 +5,6 @@ import type { InventorySlot } from '../packages/core/src/types.ts'
 import {
   addInventoryItem,
   createEmptyInventory,
-  createStarterInventory,
   DEFAULT_INVENTORY_STACK_SIZE,
   getHotbarInventorySlots,
   getMainInventorySlotIndex,
@@ -17,9 +16,10 @@ import {
   setSelectedInventorySlot,
 } from '../packages/core/src/world/inventory.ts'
 import { ITEM_IDS } from '../packages/core/src/world/items.ts'
+import { createTestStarterInventory } from './helpers/test-inventory.ts'
 
-test('starter inventory creates expected hotbar items with remaining slots empty', () => {
-  const inventory = createStarterInventory()
+test('test starter inventory creates a stable hotbar and main slot layout', () => {
+  const inventory = createTestStarterInventory()
   const hotbar = getHotbarInventorySlots(inventory)
   const main = getMainInventorySlots(inventory)
 
@@ -27,12 +27,20 @@ test('starter inventory creates expected hotbar items with remaining slots empty
   expect(hotbar[0]).toEqual({ itemId: ITEM_IDS.grass, count: DEFAULT_INVENTORY_STACK_SIZE })
   expect(hotbar[1]).toEqual({ itemId: ITEM_IDS.glowstone, count: DEFAULT_INVENTORY_STACK_SIZE })
   expect(hotbar[2]).toEqual({ itemId: ITEM_IDS.dirt, count: DEFAULT_INVENTORY_STACK_SIZE })
-  expect(hotbar[3]).toEqual({ itemId: ITEM_IDS.glass, count: DEFAULT_INVENTORY_STACK_SIZE })
-  expect(hotbar.slice(4).every((slot) => slot.itemId === ITEM_IDS.empty && slot.count === 0)).toBe(
+  expect(hotbar[3]).toEqual({ itemId: ITEM_IDS.stone, count: DEFAULT_INVENTORY_STACK_SIZE })
+  expect(hotbar[4]).toEqual({ itemId: ITEM_IDS.log, count: DEFAULT_INVENTORY_STACK_SIZE })
+  expect(hotbar[5]).toEqual({ itemId: ITEM_IDS.leaves, count: DEFAULT_INVENTORY_STACK_SIZE })
+  expect(hotbar[6]).toEqual({ itemId: ITEM_IDS.empty, count: 0 })
+  expect(hotbar[7]).toEqual({ itemId: ITEM_IDS.planks, count: DEFAULT_INVENTORY_STACK_SIZE })
+  expect(hotbar[8]).toEqual({
+    itemId: ITEM_IDS.cobblestone,
+    count: DEFAULT_INVENTORY_STACK_SIZE,
+  })
+  expect(main).toHaveLength(MAIN_INVENTORY_SLOT_COUNT)
+  expect(main[0]).toEqual({ itemId: ITEM_IDS.glass, count: DEFAULT_INVENTORY_STACK_SIZE })
+  expect(main.slice(1).every((slot) => slot.itemId === ITEM_IDS.empty && slot.count === 0)).toBe(
     true,
   )
-  expect(main).toHaveLength(MAIN_INVENTORY_SLOT_COUNT)
-  expect(main.every((slot) => slot.itemId === ITEM_IDS.empty && slot.count === 0)).toBe(true)
   expect(inventory.selectedSlot).toBe(0)
   expect(inventory.cursor).toBeNull()
 })
@@ -79,7 +87,7 @@ test('inventory normalization clamps counts and fills missing slots safely', () 
 })
 
 test('selected slot clamps across the nine-slot hotbar range', () => {
-  const inventory = createStarterInventory()
+  const inventory = createTestStarterInventory()
 
   expect(setSelectedInventorySlot(inventory, -5).selectedSlot).toBe(0)
   expect(setSelectedInventorySlot(inventory, 8).selectedSlot).toBe(8)
@@ -87,16 +95,17 @@ test('selected slot clamps across the nine-slot hotbar range', () => {
 })
 
 test('adding items prefers empty hotbar slots over main inventory', () => {
-  // Starter inventory has slots 4-8 empty in the hotbar; new items should land in slot 4, not main
-  const inventory = createStarterInventory()
+  // Test starter inventory leaves hotbar slot 6 empty, so new items should fill it before main.
+  const inventory = createTestStarterInventory()
   const result = addInventoryItem(inventory, ITEM_IDS.sand, 5)
   const hotbar = getHotbarInventorySlots(result.inventory)
   const main = getMainInventorySlots(result.inventory)
 
   expect(result.added).toBe(5)
   expect(result.remaining).toBe(0)
-  expect(hotbar[4]).toEqual({ itemId: ITEM_IDS.sand, count: 5 })
-  expect(main.every((slot) => slot.itemId === ITEM_IDS.empty)).toBe(true)
+  expect(hotbar[6]).toEqual({ itemId: ITEM_IDS.sand, count: 5 })
+  expect(main[0]).toEqual({ itemId: ITEM_IDS.glass, count: DEFAULT_INVENTORY_STACK_SIZE })
+  expect(main.slice(1).every((slot) => slot.itemId === ITEM_IDS.empty)).toBe(true)
 })
 
 test('adding items spills into main inventory only after hotbar is full', () => {
@@ -152,7 +161,7 @@ test('adding items fills partial hotbar stacks before claiming empty main-invent
 })
 
 test('inventory interaction picks up, places, and merges stacks', () => {
-  let inventory = createStarterInventory()
+  let inventory = createTestStarterInventory()
   inventory = interactInventorySlot(inventory, 0)
 
   expect(inventory.cursor).toEqual({ itemId: ITEM_IDS.grass, count: 64 })
@@ -165,7 +174,7 @@ test('inventory interaction picks up, places, and merges stacks', () => {
   inventory = normalizeInventorySnapshot({
     slots: [
       { itemId: ITEM_IDS.grass, count: 24 },
-      ...getHotbarInventorySlots(createStarterInventory()).slice(1),
+      ...getHotbarInventorySlots(createTestStarterInventory()).slice(1),
       { itemId: ITEM_IDS.grass, count: 12 },
       ...Array.from(
         { length: MAIN_INVENTORY_SLOT_COUNT - 1 },
@@ -184,28 +193,28 @@ test('inventory interaction picks up, places, and merges stacks', () => {
 })
 
 test('removeInventorySlotCount decrements slot by the requested amount', () => {
-  const inventory = createStarterInventory() // slot 0 = grass × 64
+  const inventory = createTestStarterInventory() // slot 0 = grass × 64
   const result = removeInventorySlotCount(inventory, 0, 10)
 
   expect(getHotbarInventorySlots(result)[0]).toEqual({ itemId: ITEM_IDS.grass, count: 54 })
 })
 
 test('removeInventorySlotCount zeroes slot when count equals stack size', () => {
-  const inventory = createStarterInventory()
+  const inventory = createTestStarterInventory()
   const result = removeInventorySlotCount(inventory, 0, 64)
 
   expect(getHotbarInventorySlots(result)[0]).toEqual({ itemId: ITEM_IDS.empty, count: 0 })
 })
 
 test('removeInventorySlotCount zeroes slot when count exceeds available items', () => {
-  const inventory = createStarterInventory()
+  const inventory = createTestStarterInventory()
   const result = removeInventorySlotCount(inventory, 0, 100)
 
   expect(getHotbarInventorySlots(result)[0]).toEqual({ itemId: ITEM_IDS.empty, count: 0 })
 })
 
 test('removeInventorySlotCount leaves other slots unchanged', () => {
-  const inventory = createStarterInventory()
+  const inventory = createTestStarterInventory()
   const result = removeInventorySlotCount(inventory, 0, 5)
   const hotbar = getHotbarInventorySlots(result)
 
