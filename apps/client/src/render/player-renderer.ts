@@ -236,6 +236,21 @@ export class PlayerRenderer {
     )
   }
 
+  public renderInventoryPreview(yaw: number, pitch: number): void {
+    this.renderWorldPlayer({
+      entityId: 'inventory-preview',
+      name: 'Preview',
+      active: true,
+      gamemode: 0,
+      flying: false,
+      state: {
+        position: [0, 0, 0],
+        yaw,
+        pitch,
+      },
+    })
+  }
+
   private renderWorldPlayer(player: PlayerSnapshot): void {
     const bodyForward = createForwardVector(player.state.yaw, 0)
     const bodyBasis = createOrientationBasis(bodyForward)

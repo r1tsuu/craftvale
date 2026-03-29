@@ -1,7 +1,8 @@
 import type { NativeBridge } from '../platform/native.ts'
-import type { UiButtonVariant, UiResolvedComponent } from './components.ts'
+import type { UiButtonVariant, UiPlayerPreview, UiResolvedComponent } from './components.ts'
 
 import { type ItemDrawCommand, ItemOverlayRenderer } from '../render/item-overlay.ts'
+import { PlayerPreviewOverlayRenderer } from '../render/player-preview-overlay.ts'
 import { type RectDrawCommand, RectOverlayRenderer } from '../render/rect.ts'
 import { measureTextHeight, measureTextWidth } from '../render/text-mesh.ts'
 import { type TextDrawCommand, TextOverlayRenderer } from '../render/text.ts'
@@ -118,6 +119,7 @@ export class UiRenderer {
   private readonly textRenderer: TextOverlayRenderer
   private readonly nativeBridge: NativeBridge
   private itemRenderer: ItemOverlayRenderer | null = null
+  private playerPreviewRenderer: PlayerPreviewOverlayRenderer | null = null
 
   public constructor(nativeBridge: NativeBridge) {
     this.nativeBridge = nativeBridge
@@ -134,6 +136,7 @@ export class UiRenderer {
   ): void {
     const rects: RectDrawCommand[] = []
     const items: ItemDrawCommand[] = []
+    const playerPreviews: UiPlayerPreview[] = []
     const text: TextDrawCommand[] = []
 
     for (const component of components) {
@@ -163,6 +166,11 @@ export class UiRenderer {
           ...component.rect,
           itemId: component.itemId,
         })
+        continue
+      }
+
+      if (component.kind === 'playerPreview') {
+        playerPreviews.push(component)
         continue
       }
 
@@ -243,6 +251,16 @@ export class UiRenderer {
     }
 
     this.rectRenderer.render(rects, width, height)
+    if (playerPreviews.length > 0) {
+      this.playerPreviewRenderer ??= new PlayerPreviewOverlayRenderer(this.nativeBridge)
+      this.playerPreviewRenderer.render(
+        playerPreviews,
+        width,
+        height,
+        framebufferWidth,
+        framebufferHeight,
+      )
+    }
     if (items.length > 0) {
       this.itemRenderer ??= new ItemOverlayRenderer(this.nativeBridge)
       this.itemRenderer.render(items, width, height, framebufferWidth, framebufferHeight)

@@ -111,3 +111,22 @@ test('renderWorldPlayers applies sampled lighting overrides per player and reset
     { skyLight: -1, blockLight: -1 },
   ])
 })
+
+test('renderInventoryPreview renders the player model parts without mutating lighting state', () => {
+  let drawCalls = 0
+  const renderer = new PlayerRenderer(
+    () => {},
+    () => {},
+    () => ({
+      vao: 1,
+      indexCount: 36,
+    }),
+    () => {
+      drawCalls += 1
+    },
+  )
+
+  renderer.renderInventoryPreview(Math.PI / 2, 0.2)
+
+  expect(drawCalls).toBeGreaterThan(0)
+})

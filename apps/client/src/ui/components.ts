@@ -37,6 +37,12 @@ export interface UiItem extends UiBaseComponent {
   itemId: ItemId
 }
 
+export interface UiPlayerPreview extends UiBaseComponent {
+  kind: 'playerPreview'
+  yaw: number
+  pitch: number
+}
+
 export interface UiHotspot extends UiBaseComponent {
   kind: 'hotspot'
   action: string
@@ -64,7 +70,14 @@ export interface UiButton extends UiBaseComponent {
   disabled?: boolean
 }
 
-export type UiComponent = UiPanel | UiLabel | UiItem | UiButton | UiHotspot | UiSlider
+export type UiComponent =
+  | UiPanel
+  | UiLabel
+  | UiItem
+  | UiPlayerPreview
+  | UiButton
+  | UiHotspot
+  | UiSlider
 
 export interface UiResolvedButton extends UiButton {
   hovered: boolean
@@ -89,6 +102,7 @@ export type UiResolvedComponent =
   | UiPanel
   | UiLabel
   | UiItem
+  | UiPlayerPreview
   | UiResolvedButton
   | UiResolvedHotspot
   | UiResolvedSlider
@@ -102,6 +116,7 @@ export interface UiEvaluationResult {
 export const createPanel = (panel: UiPanel): UiPanel => panel
 export const createLabel = (label: UiLabel): UiLabel => label
 export const createItem = (item: UiItem): UiItem => item
+export const createPlayerPreview = (preview: UiPlayerPreview): UiPlayerPreview => preview
 export const createButton = (button: UiButton): UiButton => button
 export const createHotspot = (hotspot: UiHotspot): UiHotspot => hotspot
 export const createSlider = (slider: UiSlider): UiSlider => slider
@@ -118,7 +133,12 @@ export const evaluateUi = (
   const sliderChanges: UiSliderChange[] = []
 
   for (const component of components) {
-    if (component.kind === 'panel' || component.kind === 'label' || component.kind === 'item') {
+    if (
+      component.kind === 'panel' ||
+      component.kind === 'label' ||
+      component.kind === 'item' ||
+      component.kind === 'playerPreview'
+    ) {
       resolved.push(component)
       continue
     }

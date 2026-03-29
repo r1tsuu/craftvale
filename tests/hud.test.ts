@@ -274,8 +274,8 @@ test('play HUD renders the full inventory overlay when inventory is open', () =>
         rect: expect.objectContaining({ y: 162, height: 396 }),
       }),
       expect.objectContaining({
-        id: 'inventory-title',
-        text: 'INVENTORY',
+        id: 'inventory-player-preview',
+        kind: 'playerPreview',
       }),
       expect.objectContaining({
         id: 'inventory-player-crafting-slot-0-hotspot',
@@ -303,6 +303,33 @@ test('play HUD renders the full inventory overlay when inventory is open', () =>
       }),
     ]),
   )
+  expect(hud.some((component) => component.id === 'inventory-title')).toBe(false)
+})
+
+test('inventory player preview rotates with cursor position', () => {
+  const leftHud = buildPlayHud(1280, 720, {
+    inventory: createTestStarterInventory(),
+    inventoryOpen: true,
+    cursorX: 360,
+    cursorY: 240,
+  })
+  const rightHud = buildPlayHud(1280, 720, {
+    inventory: createTestStarterInventory(),
+    inventoryOpen: true,
+    cursorX: 520,
+    cursorY: 240,
+  })
+
+  const leftPreview = leftHud.find((component) => component.id === 'inventory-player-preview') as
+    | { yaw: number; pitch: number }
+    | undefined
+  const rightPreview = rightHud.find((component) => component.id === 'inventory-player-preview') as
+    | { yaw: number; pitch: number }
+    | undefined
+
+  expect(leftPreview).toBeDefined()
+  expect(rightPreview).toBeDefined()
+  expect(leftPreview!.yaw).toBeGreaterThan(rightPreview!.yaw)
 })
 
 test('play HUD renders a pause menu overlay over gameplay', () => {

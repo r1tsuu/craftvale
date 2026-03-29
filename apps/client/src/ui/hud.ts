@@ -32,7 +32,9 @@ import {
   createItem,
   createLabel,
   createPanel,
+  createPlayerPreview,
   type UiComponent,
+  type UiRect,
 } from './components.ts'
 import {
   buildPauseMenuOverlay,
@@ -62,6 +64,8 @@ const PLAYER_INVENTORY_PANEL_WIDTH = 604
 const INVENTORY_PANEL_HEIGHT = 396
 const INVENTORY_SLOT_SIZE = 42
 const INVENTORY_SLOT_GAP = 6
+const INVENTORY_PREVIEW_WIDTH = 120
+const INVENTORY_PREVIEW_HEIGHT = 108
 
 interface VisibleChatLine {
   entry: ChatEntry
@@ -272,6 +276,34 @@ const buildCraftingSectionLabel = (
     scale: 2,
     color: [0.86, 0.88, 0.9],
   })
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value))
+
+const createInventoryPreviewRect = (panelX: number, panelY: number): UiRect => ({
+  x: panelX + 42,
+  y: panelY + 52,
+  width: INVENTORY_PREVIEW_WIDTH,
+  height: INVENTORY_PREVIEW_HEIGHT,
+})
+
+const createInventoryPreviewAngles = (
+  rect: UiRect,
+  cursorX: number,
+  cursorY: number,
+): {
+  yaw: number
+  pitch: number
+} => {
+  const centerX = rect.x + rect.width / 2
+  const centerY = rect.y + rect.height / 2
+  const normalizedX = clamp((centerX - cursorX) / Math.max(rect.width * 0.5, 1), -1, 1)
+  const normalizedY = clamp((centerY - cursorY) / Math.max(rect.height * 0.5, 1), -1, 1)
+  return {
+    yaw: Math.PI / 2 + normalizedX * 0.75,
+    pitch: normalizedY * 0.45,
+  }
+}
 
 const buildCraftingInputGrid = (
   idPrefix: string,
@@ -587,6 +619,8 @@ const buildInventoryOverlay = (
   const playerCraftingResult = getPlayerCraftingResult(inventory)
   const x = Math.round((windowWidth - PLAYER_INVENTORY_PANEL_WIDTH) / 2)
   const y = Math.round((windowHeight - INVENTORY_PANEL_HEIGHT) / 2)
+  const previewRect = createInventoryPreviewRect(x, y)
+  const previewAngles = createInventoryPreviewAngles(previewRect, cursorX, cursorY)
   const components: UiComponent[] = [
     createPanel({
       id: 'inventory-backdrop',
@@ -605,13 +639,12 @@ const buildInventoryOverlay = (
       },
       color: [0.14, 0.16, 0.18, 0.96],
     }),
-    createLabel({
-      id: 'inventory-title',
-      kind: 'label',
-      rect: { x: x + 24, y: y + 18, width: 220, height: 22 },
-      text: 'INVENTORY',
-      scale: 3,
-      color: [0.96, 0.97, 0.99],
+    createPlayerPreview({
+      id: 'inventory-player-preview',
+      kind: 'playerPreview',
+      rect: previewRect,
+      yaw: previewAngles.yaw,
+      pitch: previewAngles.pitch,
     }),
   ]
 
