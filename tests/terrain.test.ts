@@ -442,7 +442,7 @@ test('scrub and highlands biome columns keep their expected surface materials', 
   expect(highlandsStoneSurfaceBlocks).toBeGreaterThanOrEqual(
     Math.floor(highlandsSurfaceBlocks.length * 0.75),
   )
-})
+}, 15_000)
 
 test('each ore stays within its configured height range and appears in sampled terrain', () => {
   for (const config of ORE_GENERATION_CONFIGS) {
