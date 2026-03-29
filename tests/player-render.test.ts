@@ -8,9 +8,7 @@ import {
   getHeldItemBlockId,
 } from '../apps/client/src/render/player-model.ts'
 import { BLOCK_IDS } from '../packages/core/src/world/blocks.ts'
-import {
-  normalizeInventorySnapshot,
-} from '../packages/core/src/world/inventory.ts'
+import { normalizeInventorySnapshot } from '../packages/core/src/world/inventory.ts'
 import { ITEM_IDS } from '../packages/core/src/world/items.ts'
 
 const createPlayerSnapshot = (

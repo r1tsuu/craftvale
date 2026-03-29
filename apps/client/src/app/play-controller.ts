@@ -221,7 +221,6 @@ export class PlayController {
       this.breakState.z === focusedBlock.z
     ) {
       const blockId = worldRuntime.world.getBlock(focusedBlock.x, focusedBlock.y, focusedBlock.z)
-      const localGamemode = worldRuntime.getClientPlayer()?.gamemode ?? this.deps.player.gamemode
       breakProgress = getBreakProgress(this.breakState, getBlockDurability(blockId))
     }
 
@@ -314,10 +313,7 @@ export class PlayController {
     if (!input.breakBlock) {
       this.creativeBreakCooldownMs = 0
     } else if (this.creativeBreakCooldownMs > 0) {
-      this.creativeBreakCooldownMs = Math.max(
-        0,
-        this.creativeBreakCooldownMs - deltaSeconds * 1000,
-      )
+      this.creativeBreakCooldownMs = Math.max(0, this.creativeBreakCooldownMs - deltaSeconds * 1000)
     }
 
     if (input.hotbarSelection !== null) {

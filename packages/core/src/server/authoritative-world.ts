@@ -307,11 +307,7 @@ export class AuthoritativeWorld {
     return { added: result.added, remaining: result.remaining, inventory: result.inventory }
   }
 
-  public async dropItem(
-    entityId: EntityId,
-    slot: number,
-    count: number,
-  ): Promise<DropItemResult> {
+  public async dropItem(entityId: EntityId, slot: number, count: number): Promise<DropItemResult> {
     await this.ensureInitialized()
     const inventory = this.playerSystem.getInventorySnapshot(entityId)
     const slotData = getInventorySlot(inventory, slot)
@@ -338,7 +334,11 @@ export class AuthoritativeWorld {
       eyePosition,
       playerSnapshot.state.yaw,
     )
-    return { inventory: mutResult.inventory, inventoryChanged: mutResult.inventoryChanged, droppedItems }
+    return {
+      inventory: mutResult.inventory,
+      inventoryChanged: mutResult.inventoryChanged,
+      droppedItems,
+    }
   }
 
   public getWorldTimeState(): WorldTimeState {

@@ -4,12 +4,12 @@ import type { InputState } from '../apps/client/src/types.ts'
 import type { ClientToServerMessage } from '../packages/core/src/shared/messages.ts'
 import type { PlayerSnapshot } from '../packages/core/src/types.ts'
 
+import { createDefaultClientSettings } from '../apps/client/src/app/client-settings.ts'
 import { PlayController } from '../apps/client/src/app/play-controller.ts'
 import { ClientWorldRuntime } from '../apps/client/src/app/world-runtime.ts'
-import { createDefaultClientSettings } from '../apps/client/src/app/client-settings.ts'
-import { PlayerController } from '../apps/client/src/game/player.ts'
-import { createPendingFixedStepInputEdges } from '../apps/client/src/game/fixed-step-input.ts'
 import { CREATIVE_BREAK_DURATION_MS } from '../apps/client/src/game/break-state.ts'
+import { createPendingFixedStepInputEdges } from '../apps/client/src/game/fixed-step-input.ts'
+import { PlayerController } from '../apps/client/src/game/player.ts'
 import { BLOCK_IDS, createEmptyInventory } from '../packages/core/src/shared/index.ts'
 
 const FIXED_TIMESTEP = 1 / 60

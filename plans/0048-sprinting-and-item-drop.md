@@ -125,8 +125,8 @@ dropItemHeld: boolean
 ```ts
 export interface PendingFixedStepInputEdges {
   // ... existing fields ...
-  dropItemPressed: boolean  // added
-  dropItemHeld: boolean     // added
+  dropItemPressed: boolean // added
+  dropItemHeld: boolean // added
 }
 
 export const emptyPendingFixedStepInputEdges = (): PendingFixedStepInputEdges => ({
@@ -146,7 +146,10 @@ pattern as `breakBlockPressed`).
 Add to `ClientEventMap`:
 
 ```ts
-dropItem: { slot: number; count: number }
+dropItem: {
+  slot: number
+  count: number
+}
 ```
 
 Add `'dropItem'` to the codec list alongside `'mutateBlock'` and `'selectInventorySlot'`.
@@ -365,20 +368,20 @@ after the threshold.
 
 ## Important Files
 
-| File | Change |
-|---|---|
-| `apps/client/src/game/player.ts` | `SPRINT_SPEED`, `previousForwardDown`, `timeSinceForwardPress`, `sprinting` fields; double-tap detection; speed branch in axis moves |
-| `apps/client/src/platform/native.ts` | `GLFW_KEY_Q = 81`; `dropItemPressed` and `dropItemHeld` in `pollInput` |
-| `apps/client/src/types.ts` | `dropItemPressed: boolean`, `dropItemHeld: boolean` added to `InputState` |
-| `apps/client/src/game/fixed-step-input.ts` | `dropItemPressed` and `dropItemHeld` in `PendingFixedStepInputEdges`; OR-accumulate in queue/apply |
-| `apps/client/src/app/play-controller.ts` | `dropHeldSeconds`, `droppedStackThisTap`; Q-drop logic in `updateGame` |
-| `packages/core/src/shared/messages.ts` | `dropItem` added to `ClientEventMap`; codec list updated |
-| `packages/core/src/server/world-tick.ts` | `dropItem` variant added to `QueuedGameplayIntent` |
-| `packages/core/src/server/world-session-controller.ts` | `eventBus.on('dropItem', ...)` handler |
-| `packages/core/src/server/dropped-item-system.ts` | `spawnPlayerDrop` method |
-| `packages/core/src/server/authoritative-world.ts` | `dropItem` intent case; `dropPlayerItem` private helper |
-| `packages/core/src/server/player-system.ts` | `removeFromSlot` method |
-| `packages/core/src/world/inventory.ts` | `removeInventorySlotCount` helper |
+| File                                                   | Change                                                                                                                               |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/client/src/game/player.ts`                       | `SPRINT_SPEED`, `previousForwardDown`, `timeSinceForwardPress`, `sprinting` fields; double-tap detection; speed branch in axis moves |
+| `apps/client/src/platform/native.ts`                   | `GLFW_KEY_Q = 81`; `dropItemPressed` and `dropItemHeld` in `pollInput`                                                               |
+| `apps/client/src/types.ts`                             | `dropItemPressed: boolean`, `dropItemHeld: boolean` added to `InputState`                                                            |
+| `apps/client/src/game/fixed-step-input.ts`             | `dropItemPressed` and `dropItemHeld` in `PendingFixedStepInputEdges`; OR-accumulate in queue/apply                                   |
+| `apps/client/src/app/play-controller.ts`               | `dropHeldSeconds`, `droppedStackThisTap`; Q-drop logic in `updateGame`                                                               |
+| `packages/core/src/shared/messages.ts`                 | `dropItem` added to `ClientEventMap`; codec list updated                                                                             |
+| `packages/core/src/server/world-tick.ts`               | `dropItem` variant added to `QueuedGameplayIntent`                                                                                   |
+| `packages/core/src/server/world-session-controller.ts` | `eventBus.on('dropItem', ...)` handler                                                                                               |
+| `packages/core/src/server/dropped-item-system.ts`      | `spawnPlayerDrop` method                                                                                                             |
+| `packages/core/src/server/authoritative-world.ts`      | `dropItem` intent case; `dropPlayerItem` private helper                                                                              |
+| `packages/core/src/server/player-system.ts`            | `removeFromSlot` method                                                                                                              |
+| `packages/core/src/world/inventory.ts`                 | `removeInventorySlotCount` helper                                                                                                    |
 
 No atlas, worldgen, meshing, or persistence changes are required.
 

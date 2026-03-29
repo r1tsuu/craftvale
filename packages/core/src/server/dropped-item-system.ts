@@ -106,7 +106,9 @@ export class DroppedItemSystem {
       itemId,
       count: Math.max(1, Math.trunc(count)),
     })
-    this.entities.droppedItemLifecycle.set(entityId, { pickupCooldownMs: PLAYER_DROP_PICKUP_COOLDOWN_MS })
+    this.entities.droppedItemLifecycle.set(entityId, {
+      pickupCooldownMs: PLAYER_DROP_PICKUP_COOLDOWN_MS,
+    })
     this.addToChunkIndex(entityId, spawnPosition)
     const item = this.getSnapshot(entityId)
     this.saveDirty = true
