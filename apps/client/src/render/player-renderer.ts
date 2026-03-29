@@ -132,14 +132,27 @@ export class PlayerRenderer {
 
   public constructor(
     private readonly setModelMatrix: (matrix: Float32Array) => void,
+    private readonly setLightingOverride: (skyLight: number, blockLight: number) => void,
     private readonly getBlockMesh: (blockId: BlockId) => RenderableMesh | null,
     private readonly drawMesh: (mesh: RenderableMesh) => void,
   ) {}
 
-  public renderWorldPlayers(players: readonly PlayerSnapshot[]): void {
+  public renderWorldPlayers(
+    players: readonly PlayerSnapshot[],
+    sampleLighting: (position: Vec3) => {
+      skyLight: number
+      blockLight: number
+    },
+  ): void {
     for (const player of players) {
+      const lighting = sampleLighting(
+        vec3(player.state.position[0], player.state.position[1] + 1, player.state.position[2]),
+      )
+      this.setLightingOverride(lighting.skyLight, lighting.blockLight)
       this.renderWorldPlayer(player)
     }
+
+    this.setLightingOverride(-1, -1)
   }
 
   public renderFirstPersonViewModel(

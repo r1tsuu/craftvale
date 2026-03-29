@@ -7,6 +7,7 @@ import {
   getFirstPersonSwingAmount,
   getHeldItemBlockId,
 } from '../apps/client/src/render/player-model.ts'
+import { PlayerRenderer } from '../apps/client/src/render/player-renderer.ts'
 import { BLOCK_IDS } from '../packages/core/src/world/blocks.ts'
 import { normalizeInventorySnapshot } from '../packages/core/src/world/inventory.ts'
 import { ITEM_IDS } from '../packages/core/src/world/items.ts'
@@ -84,4 +85,29 @@ test('first-person swing amount peaks mid-animation and clamps at the ends', () 
   expect(getFirstPersonSwingAmount(0.5)).toBeCloseTo(1, 5)
   expect(getFirstPersonSwingAmount(1)).toBeCloseTo(0, 5)
   expect(getFirstPersonSwingAmount(2)).toBeCloseTo(0, 5)
+})
+
+test('renderWorldPlayers applies sampled lighting overrides per player and resets afterward', () => {
+  const lightingCalls: Array<{ skyLight: number; blockLight: number }> = []
+  const renderer = new PlayerRenderer(
+    () => {},
+    (skyLight, blockLight) => {
+      lightingCalls.push({ skyLight, blockLight })
+    },
+    () => ({
+      vao: 1,
+      indexCount: 36,
+    }),
+    () => {},
+  )
+
+  renderer.renderWorldPlayers([createPlayerSnapshot('player:1', 'Developer', [4, 64, 8])], () => ({
+    skyLight: 12,
+    blockLight: 5,
+  }))
+
+  expect(lightingCalls).toEqual([
+    { skyLight: 12, blockLight: 5 },
+    { skyLight: -1, blockLight: -1 },
+  ])
 })

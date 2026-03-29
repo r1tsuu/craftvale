@@ -33,6 +33,7 @@ import {
   PLAYER_NAMEPLATE_HEIGHT,
 } from './player-model.ts'
 import { PlayerRenderer } from './player-renderer.ts'
+import { sampleRenderLightingAtPosition } from './render-lighting.ts'
 import { measureTextHeight, measureTextWidth } from './text-mesh.ts'
 import { type TextDrawCommand, TextOverlayRenderer } from './text.ts'
 
@@ -158,6 +159,10 @@ export class VoxelRenderer {
       (matrix) => {
         this.nativeBridge.gl.uniformMatrix4fv(this.modelLocation, matrix)
       },
+      (skyLight, blockLight) => {
+        this.nativeBridge.gl.uniform1f(this.forceSkyLightLocation, skyLight)
+        this.nativeBridge.gl.uniform1f(this.forceBlockLightLocation, blockLight)
+      },
       (blockId) => this.getBlockCubeMesh(blockId),
       (mesh) => {
         this.nativeBridge.gl.bindVertexArray(mesh.vao)
@@ -239,8 +244,10 @@ export class VoxelRenderer {
       this.nativeBridge.gl.drawElements(GL.TRIANGLES, gpuMesh.opaque.indexCount, GL.UNSIGNED_INT, 0)
     }
 
-    this.renderDroppedItems(visibleDroppedItems, 'opaque')
-    this.playerRenderer.renderWorldPlayers(visibleRemotePlayers)
+    this.renderDroppedItems(world, visibleDroppedItems, 'opaque')
+    this.playerRenderer.renderWorldPlayers(visibleRemotePlayers, (position) =>
+      sampleRenderLightingAtPosition(world, position),
+    )
 
     for (const coord of visibleCoords) {
       const gpuMesh = this.meshes.get(meshKey(coord))
@@ -253,7 +260,7 @@ export class VoxelRenderer {
       this.nativeBridge.gl.drawElements(GL.TRIANGLES, gpuMesh.cutout.indexCount, GL.UNSIGNED_INT, 0)
     }
 
-    this.renderDroppedItems(visibleDroppedItems, 'cutout')
+    this.renderDroppedItems(world, visibleDroppedItems, 'cutout')
 
     this.nativeBridge.gl.enable(GL.BLEND)
     this.nativeBridge.gl.blendFunc(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA)
@@ -283,18 +290,9 @@ export class VoxelRenderer {
     this.nativeBridge.gl.useProgram(this.program)
     this.nativeBridge.gl.uniformMatrix4fv(this.viewProjectionLocation, vmViewProjection)
     // Sample env lighting at player eye
-    const eyePos = player.getEyePositionVec3()
-    const eyeBlockX = Math.floor(eyePos.x)
-    const eyeBlockY = Math.floor(eyePos.y)
-    const eyeBlockZ = Math.floor(eyePos.z)
-    this.nativeBridge.gl.uniform1f(
-      this.forceSkyLightLocation,
-      world.getSkyLight(eyeBlockX, eyeBlockY, eyeBlockZ),
-    )
-    this.nativeBridge.gl.uniform1f(
-      this.forceBlockLightLocation,
-      world.getBlockLight(eyeBlockX, eyeBlockY, eyeBlockZ),
-    )
+    const eyeLighting = sampleRenderLightingAtPosition(world, player.getEyePositionVec3())
+    this.nativeBridge.gl.uniform1f(this.forceSkyLightLocation, eyeLighting.skyLight)
+    this.nativeBridge.gl.uniform1f(this.forceBlockLightLocation, eyeLighting.blockLight)
     this.nativeBridge.gl.disable(GL.DEPTH_TEST)
     this.playerRenderer.renderFirstPersonViewModel(
       player,
@@ -367,6 +365,7 @@ export class VoxelRenderer {
   }
 
   private renderDroppedItems(
+    world: VoxelWorld,
     droppedItems: readonly DroppedItemSnapshot[],
     renderPass: 'opaque' | 'cutout',
   ): void {
@@ -381,13 +380,24 @@ export class VoxelRenderer {
         continue
       }
 
+      const lighting = sampleRenderLightingAtPosition(world, {
+        x: item.position[0],
+        y: item.position[1],
+        z: item.position[2],
+      })
+
       this.nativeBridge.gl.uniformMatrix4fv(
         this.modelLocation,
         this.createDroppedItemModelMatrix(item),
       )
+      this.nativeBridge.gl.uniform1f(this.forceSkyLightLocation, lighting.skyLight)
+      this.nativeBridge.gl.uniform1f(this.forceBlockLightLocation, lighting.blockLight)
       this.nativeBridge.gl.bindVertexArray(mesh.vao)
       this.nativeBridge.gl.drawElements(GL.TRIANGLES, mesh.indexCount, GL.UNSIGNED_INT, 0)
     }
+
+    this.nativeBridge.gl.uniform1f(this.forceSkyLightLocation, -1)
+    this.nativeBridge.gl.uniform1f(this.forceBlockLightLocation, -1)
   }
 
   private syncChunkMesh(world: VoxelWorld, coord: ChunkCoord): void {
