@@ -25,7 +25,12 @@ import type { UiResolvedComponent } from '../ui/components.ts'
 import type { IClientAdapter } from './client-adapter.ts'
 import type { ClientWorldRuntime } from './world-runtime.ts'
 
-import { advanceBreakState, type BreakState, getBreakProgress } from '../game/break-state.ts'
+import {
+  advanceBreakState,
+  type BreakState,
+  CREATIVE_BREAK_DURATION_MS,
+  getBreakProgress,
+} from '../game/break-state.ts'
 import {
   applyFixedStepInputEdges,
   createPendingFixedStepInputEdges,
@@ -45,7 +50,7 @@ import { createDefaultClientSettings } from './client-settings.ts'
 
 const FIXED_TIMESTEP = 1 / 60
 const DROP_STACK_THRESHOLD_SECONDS = 0.4
-const FIRST_PERSON_SWING_DURATION = 0.18
+const FIRST_PERSON_SWING_DURATION = CREATIVE_BREAK_DURATION_MS / 1000
 const DEBUG_MEMORY_REFRESH_INTERVAL_SECONDS = 0.25
 
 const formatMegabytes = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed(1)}MB`
@@ -100,6 +105,7 @@ export class PlayController {
   private nextDebugMemoryRefreshTime = 0
   private predictedInventory: InventorySnapshot | null = null
   private breakState: BreakState | null = null
+  private creativeBreakCooldownMs = 0
   private dropHeldSeconds = 0
   private droppedStackThisTap = false
 
@@ -132,6 +138,7 @@ export class PlayController {
     this.pauseScreen = 'closed'
     this.firstPersonSwingRemaining = 0
     this.breakState = null
+    this.creativeBreakCooldownMs = 0
     this.dropHeldSeconds = 0
     this.droppedStackThisTap = false
   }
@@ -215,8 +222,7 @@ export class PlayController {
     ) {
       const blockId = worldRuntime.world.getBlock(focusedBlock.x, focusedBlock.y, focusedBlock.z)
       const localGamemode = worldRuntime.getClientPlayer()?.gamemode ?? this.deps.player.gamemode
-      const durability = localGamemode === 1 ? 0 : getBlockDurability(blockId)
-      breakProgress = getBreakProgress(this.breakState, durability)
+      breakProgress = getBreakProgress(this.breakState, getBlockDurability(blockId))
     }
 
     const overlayText = this.deps.getClientSettings().showDebugOverlay
@@ -299,9 +305,19 @@ export class PlayController {
       })
     ) {
       this.breakState = null
+      this.creativeBreakCooldownMs = 0
       this.dropHeldSeconds = 0
       this.droppedStackThisTap = false
       return null
+    }
+
+    if (!input.breakBlock) {
+      this.creativeBreakCooldownMs = 0
+    } else if (this.creativeBreakCooldownMs > 0) {
+      this.creativeBreakCooldownMs = Math.max(
+        0,
+        this.creativeBreakCooldownMs - deltaSeconds * 1000,
+      )
     }
 
     if (input.hotbarSelection !== null) {
@@ -379,18 +395,30 @@ export class PlayController {
 
     if (hit && input.breakBlock) {
       const { x, y, z } = hit.hit
-      this.breakState = advanceBreakState(this.breakState, { x, y, z }, deltaSeconds * 1000)
       const localGamemode = worldRuntime.getClientPlayer()?.gamemode ?? this.deps.player.gamemode
-      const blockId = worldRuntime.world.getBlock(x, y, z)
-      const durability = localGamemode === 1 ? 0 : getBlockDurability(blockId)
-      const progress = getBreakProgress(this.breakState!, durability)
-      if (progress >= 1) {
-        worldRuntime.applyPredictedBreak(x, y, z, localGamemode)
-        adapter.eventBus.send({
-          type: 'mutateBlock',
-          payload: { x, y, z, blockId: BLOCK_IDS.air },
-        })
+      if (localGamemode === 1) {
         this.breakState = null
+        if (input.breakBlockPressed || this.creativeBreakCooldownMs <= 0) {
+          this.firstPersonSwingRemaining = FIRST_PERSON_SWING_DURATION
+          worldRuntime.applyPredictedBreak(x, y, z, localGamemode)
+          adapter.eventBus.send({
+            type: 'mutateBlock',
+            payload: { x, y, z, blockId: BLOCK_IDS.air },
+          })
+          this.creativeBreakCooldownMs = CREATIVE_BREAK_DURATION_MS
+        }
+      } else {
+        this.breakState = advanceBreakState(this.breakState, { x, y, z }, deltaSeconds * 1000)
+        const blockId = worldRuntime.world.getBlock(x, y, z)
+        const progress = getBreakProgress(this.breakState!, getBlockDurability(blockId))
+        if (progress >= 1) {
+          worldRuntime.applyPredictedBreak(x, y, z, localGamemode)
+          adapter.eventBus.send({
+            type: 'mutateBlock',
+            payload: { x, y, z, blockId: BLOCK_IDS.air },
+          })
+          this.breakState = null
+        }
       }
     } else {
       this.breakState = null

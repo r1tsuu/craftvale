@@ -5,6 +5,8 @@ export interface BreakState {
   elapsed: number
 }
 
+export const CREATIVE_BREAK_DURATION_MS = 300
+
 export const advanceBreakState = (
   current: BreakState | null,
   target: { x: number; y: number; z: number } | null,
