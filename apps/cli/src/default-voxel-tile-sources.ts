@@ -230,11 +230,7 @@ const createCraftingTableTopPixel = (x: number, y: number): Rgba => {
   if (y === 3 || y === 7 || y === 12) {
     color = seam
   }
-  if (
-    (x === 3 || x === 7 || x === 12 || y === 3 || y === 7 || y === 12) &&
-    innerX &&
-    innerY
-  ) {
+  if ((x === 3 || x === 7 || x === 12 || y === 3 || y === 7 || y === 12) && innerX && innerY) {
     color = highlight
   }
 
