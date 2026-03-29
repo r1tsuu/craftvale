@@ -3,8 +3,10 @@ import { join } from 'node:path'
 
 import type { WorldSummary } from '../shared/messages.ts'
 import type {
+  BlockEntityType,
   ChunkCoord,
   DroppedItemSnapshot,
+  EntityId,
   InventorySnapshot,
   ItemId,
   PlayerGamemode,
@@ -19,11 +21,13 @@ const REGISTRY_MAGIC = 'VWRG'
 const CHUNK_MAGIC = 'VCHK'
 const PLAYER_MAGIC = 'VPLY'
 const DROPPED_ITEMS_MAGIC = 'VDRP'
+const BLOCK_ENTITIES_MAGIC = 'VBEN'
 const WORLD_TIME_MAGIC = 'VTIM'
 const REGISTRY_VERSION = 1
 const CHUNK_VERSION = 3
 const PLAYER_VERSION = 6
 const DROPPED_ITEMS_VERSION = 2
+const BLOCK_ENTITIES_VERSION = 1
 const WORLD_TIME_VERSION = 1
 
 export interface StoredWorldRecord extends WorldSummary {
@@ -48,6 +52,14 @@ export interface StoredDroppedItemRecord {
   snapshot: DroppedItemSnapshot
 }
 
+export interface StoredBlockEntityRecord {
+  entityId: EntityId
+  type: BlockEntityType
+  x: number
+  y: number
+  z: number
+}
+
 export interface WorldStorage {
   listWorlds(): Promise<WorldSummary[]>
   getWorld(name: string): Promise<StoredWorldRecord | null>
@@ -60,6 +72,8 @@ export interface WorldStorage {
   savePlayer(worldName: string, player: StoredPlayerRecord): Promise<void>
   loadDroppedItems(worldName: string): Promise<DroppedItemSnapshot[]>
   saveDroppedItems(worldName: string, items: readonly DroppedItemSnapshot[]): Promise<void>
+  loadBlockEntities(worldName: string): Promise<StoredBlockEntityRecord[]>
+  saveBlockEntities(worldName: string, entities: readonly StoredBlockEntityRecord[]): Promise<void>
   loadWorldTime(worldName: string): Promise<WorldTimeState | null>
   saveWorldTime(worldName: string, time: WorldTimeState): Promise<void>
   touchWorld(worldName: string, updatedAt?: number): Promise<StoredWorldRecord>
@@ -73,6 +87,7 @@ const textDecoder = new TextDecoder()
 const chunkFilename = (coord: ChunkCoord): string => `${coord.x}_${coord.z}.bin`
 const playerFilename = (playerName: PlayerName): string => `${encodeURIComponent(playerName)}.bin`
 const droppedItemsFilename = (): string => 'dropped-items.bin'
+const blockEntitiesFilename = (): string => 'block-entities.bin'
 const worldTimeFilename = (): string => 'time.bin'
 
 const writeString = (target: Uint8Array, offset: number, value: string): number => {
@@ -427,6 +442,83 @@ const decodeDroppedItems = (bytes: Uint8Array): DroppedItemSnapshot[] => {
   return items
 }
 
+const BLOCK_ENTITY_TYPE_TO_ID: Record<BlockEntityType, number> = {
+  craftingTable: 1,
+}
+
+const BLOCK_ENTITY_ID_TO_TYPE = new Map<number, BlockEntityType>(
+  Object.entries(BLOCK_ENTITY_TYPE_TO_ID).map(([type, id]) => [id, type as BlockEntityType]),
+)
+
+const encodeBlockEntities = (entities: readonly StoredBlockEntityRecord[]): Uint8Array => {
+  const entityIds = entities.map((entity) => textEncoder.encode(entity.entityId))
+  const totalSize =
+    12 + entities.reduce((size, _entity, index) => size + 15 + entityIds[index]!.length, 0)
+  const bytes = new Uint8Array(totalSize)
+  const view = new DataView(bytes.buffer)
+  bytes.set(textEncoder.encode(BLOCK_ENTITIES_MAGIC), 0)
+  view.setUint32(4, BLOCK_ENTITIES_VERSION, true)
+  view.setUint32(8, entities.length, true)
+
+  let offset = 12
+  for (let index = 0; index < entities.length; index += 1) {
+    const entity = entities[index]!
+    view.setInt32(offset, entity.x, true)
+    view.setInt32(offset + 4, entity.y, true)
+    view.setInt32(offset + 8, entity.z, true)
+    view.setUint8(offset + 12, BLOCK_ENTITY_TYPE_TO_ID[entity.type] ?? 0)
+    offset += 13
+    offset = writeString(bytes, offset, entity.entityId)
+  }
+
+  return bytes
+}
+
+const decodeBlockEntities = (bytes: Uint8Array): StoredBlockEntityRecord[] => {
+  if (bytes.byteLength < 12) {
+    throw new Error('Block entities file is truncated.')
+  }
+
+  const magic = textDecoder.decode(bytes.subarray(0, 4))
+  if (magic !== BLOCK_ENTITIES_MAGIC) {
+    throw new Error(`Invalid block entities file header: ${magic}`)
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const version = view.getUint32(4, true)
+  if (version !== BLOCK_ENTITIES_VERSION) {
+    throw new Error(`Unsupported block entities file version ${version}.`)
+  }
+
+  const count = view.getUint32(8, true)
+  const entities: StoredBlockEntityRecord[] = []
+  let offset = 12
+
+  for (let index = 0; index < count; index += 1) {
+    const x = view.getInt32(offset, true)
+    const y = view.getInt32(offset + 4, true)
+    const z = view.getInt32(offset + 8, true)
+    const typeId = view.getUint8(offset + 12)
+    offset += 13
+    const entityId = readString(bytes, offset)
+    offset = entityId.nextOffset
+    const type = BLOCK_ENTITY_ID_TO_TYPE.get(typeId)
+    if (!type) {
+      throw new Error(`Unknown block entity type id ${typeId}.`)
+    }
+
+    entities.push({
+      entityId: entityId.value,
+      type,
+      x,
+      y,
+      z,
+    })
+  }
+
+  return entities
+}
+
 const sanitizeDirectoryToken = (value: string): string =>
   value
     .toLowerCase()
@@ -615,6 +707,43 @@ export class BinaryWorldStorage implements WorldStorage {
     })
   }
 
+  public async loadBlockEntities(worldName: string): Promise<StoredBlockEntityRecord[]> {
+    return this.enqueue(async () => {
+      const world = await this.getWorldFromRegistry(worldName)
+      if (!world) {
+        return []
+      }
+
+      try {
+        const bytes = new Uint8Array(await readFile(this.blockEntitiesPath(world.directoryName)))
+        return decodeBlockEntities(bytes)
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+          return []
+        }
+        throw error
+      }
+    })
+  }
+
+  public async saveBlockEntities(
+    worldName: string,
+    entities: readonly StoredBlockEntityRecord[],
+  ): Promise<void> {
+    return this.enqueue(async () => {
+      const world = await this.requireWorld(worldName)
+      await this.ensureDirectories(world.directoryName)
+      const path = this.blockEntitiesPath(world.directoryName)
+
+      if (entities.length === 0) {
+        await rm(path, { force: true })
+        return
+      }
+
+      await writeFile(path, encodeBlockEntities(entities))
+    })
+  }
+
   public async loadWorldTime(worldName: string): Promise<WorldTimeState | null> {
     return this.enqueue(async () => {
       const world = await this.getWorldFromRegistry(worldName)
@@ -714,6 +843,10 @@ export class BinaryWorldStorage implements WorldStorage {
 
   private droppedItemsPath(directoryName: string): string {
     return join(this.worldDirectory(directoryName), droppedItemsFilename())
+  }
+
+  private blockEntitiesPath(directoryName: string): string {
+    return join(this.worldDirectory(directoryName), blockEntitiesFilename())
   }
 
   private worldTimePath(directoryName: string): string {
@@ -911,6 +1044,43 @@ export class DedicatedWorldStorage implements WorldStorage {
     })
   }
 
+  public async loadBlockEntities(worldName: string): Promise<StoredBlockEntityRecord[]> {
+    return this.enqueue(async () => {
+      const world = await this.getStoredWorld(worldName)
+      if (!world) {
+        return []
+      }
+
+      try {
+        const bytes = new Uint8Array(await readFile(this.blockEntitiesPath()))
+        return decodeBlockEntities(bytes)
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+          return []
+        }
+        throw error
+      }
+    })
+  }
+
+  public async saveBlockEntities(
+    worldName: string,
+    entities: readonly StoredBlockEntityRecord[],
+  ): Promise<void> {
+    return this.enqueue(async () => {
+      await this.requireWorld(worldName)
+      await this.ensureDirectories()
+      const path = this.blockEntitiesPath()
+
+      if (entities.length === 0) {
+        await rm(path, { force: true })
+        return
+      }
+
+      await writeFile(path, encodeBlockEntities(entities))
+    })
+  }
+
   public async loadWorldTime(worldName: string): Promise<WorldTimeState | null> {
     return this.enqueue(async () => {
       const world = await this.getStoredWorld(worldName)
@@ -1016,6 +1186,10 @@ export class DedicatedWorldStorage implements WorldStorage {
 
   private droppedItemsPath(): string {
     return join(this.worldRoot, droppedItemsFilename())
+  }
+
+  private blockEntitiesPath(): string {
+    return join(this.worldRoot, blockEntitiesFilename())
   }
 
   private worldTimePath(): string {

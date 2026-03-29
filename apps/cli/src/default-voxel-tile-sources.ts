@@ -195,6 +195,103 @@ const createPlanksPixel = (x: number, y: number): Rgba => {
   return color
 }
 
+const createCraftingTableTopPixel = (x: number, y: number): Rgba => {
+  const border = rgba(88, 61, 34)
+  const woodA = rgba(170, 129, 75)
+  const woodB = rgba(151, 113, 65)
+  const seam = rgba(112, 78, 43)
+  const grid = rgba(69, 48, 28)
+  const highlight = rgba(204, 162, 100)
+
+  if (x === 0 || y === 0 || x === 15 || y === 15) {
+    return border
+  }
+
+  const innerX = x >= 2 && x <= 13
+  const innerY = y >= 2 && y <= 13
+  if (innerX && innerY && (x === 5 || x === 9 || y === 5 || y === 9)) {
+    return grid
+  }
+
+  const cellX = x <= 4 ? 0 : x <= 8 ? 1 : 2
+  const cellY = y <= 4 ? 0 : y <= 8 ? 1 : 2
+  const base = (cellX + cellY) % 2 === 0 ? woodA : woodB
+  let color = base
+
+  if ((x + y) % 5 === 0) {
+    color = tint(color, 8)
+  } else if ((hash2d(x, y, 0x9bcaf1) & 0xf) <= 2) {
+    color = tint(color, -10)
+  }
+
+  if (innerX && innerY && ((x >= 2 && x <= 4) || (x >= 10 && x <= 13))) {
+    color = tint(color, 5)
+  }
+  if (y === 3 || y === 7 || y === 12) {
+    color = seam
+  }
+  if (
+    (x === 3 || x === 7 || x === 12 || y === 3 || y === 7 || y === 12) &&
+    innerX &&
+    innerY
+  ) {
+    color = highlight
+  }
+
+  return color
+}
+
+const createCraftingTableBottomPixel = (x: number, y: number): Rgba => {
+  const base = rgba(120, 88, 50)
+  const groove = rgba(84, 58, 33)
+  if (y % 4 === 0) {
+    return groove
+  }
+
+  let color = tint(base, (Math.floor(y / 4) % 2 === 0 ? 1 : -1) * 10)
+  if ((hash2d(x, y, 0x52ab19) & 0x1f) < 5) {
+    color = tint(color, 8)
+  } else if ((x === 2 || x === 13) && y > 1 && y < 14) {
+    color = tint(color, -12)
+  }
+  return color
+}
+
+const createCraftingTableSidePixel = (x: number, y: number): Rgba => {
+  const frame = rgba(91, 62, 37)
+  const panel = rgba(146, 107, 63)
+  const shadow = rgba(106, 74, 44)
+  const strap = rgba(63, 44, 28)
+  const accent = rgba(184, 145, 84)
+
+  if (x === 0 || y === 0 || x === 15 || y === 15) {
+    return frame
+  }
+
+  if (x === 3 || x === 12 || y === 3 || y === 12) {
+    return shadow
+  }
+
+  if ((x === 7 || x === 8) && y >= 4 && y <= 11) {
+    return strap
+  }
+
+  let color = panel
+  if ((hash2d(x, y, 0x1f4ca2) & 0xf) <= 2) {
+    color = tint(color, 10)
+  } else if (((x + y) & 0x3) === 0) {
+    color = tint(color, -8)
+  }
+
+  const inLeftPanel = x >= 4 && x <= 6 && y >= 4 && y <= 11
+  const inRightPanel = x >= 9 && x <= 11 && y >= 4 && y <= 11
+  if ((inLeftPanel || inRightPanel) && (x === 5 || x === 10 || y === 5 || y === 10)) {
+    color = accent
+  }
+
+  return color
+}
+
 const createCobblestonePixel = (x: number, y: number): Rgba => {
   const MORTAR = rgba(75, 75, 77)
   const COLS = 3,
@@ -373,6 +470,9 @@ const DEFAULT_TILE_PIXEL_FACTORIES: Record<AtlasTileId, (x: number, y: number) =
   'diamond-ore': createDiamondOrePixel,
   arm: createArmPixel,
   glass: createGlassPixel,
+  'crafting-table-top': createCraftingTableTopPixel,
+  'crafting-table-bottom': createCraftingTableBottomPixel,
+  'crafting-table-side': createCraftingTableSidePixel,
 }
 
 export const buildDefaultVoxelTilePixels = (tileId: AtlasTileId): Uint8Array => {

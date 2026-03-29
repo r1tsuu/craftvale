@@ -580,3 +580,70 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
     await rm(harness.rootDir, { recursive: true, force: true })
   }
 })
+
+test('server handles crafting table use through the authoritative tick', async () => {
+  const harness = await createHarness()
+
+  try {
+    const joined = await harness.client.eventBus.send({
+      type: 'joinWorld',
+      payload: { playerName: PLAYER_NAME },
+    })
+    harness.worldRuntime.reset()
+    harness.worldRuntime.applyJoinedWorld(joined)
+
+    harness.client.eventBus.send({
+      type: 'submitChat',
+      payload: { text: '/give craftingTable 1' },
+    })
+    await Bun.sleep(0)
+
+    const craftingTableSlot = harness.worldRuntime.inventory.slots.findIndex(
+      (slot) => slot.itemId === ITEM_IDS.craftingTable,
+    )
+    expect(craftingTableSlot).toBeGreaterThanOrEqual(0)
+
+    harness.client.eventBus.send({
+      type: 'selectInventorySlot',
+      payload: { slot: craftingTableSlot },
+    })
+    await harness.advance()
+
+    const targetX = 1
+    const targetZ = 1
+    const targetY = getTerrainHeight(joined.world.seed, targetX, targetZ) + 1
+
+    harness.client.eventBus.send({
+      type: 'mutateBlock',
+      payload: {
+        x: targetX,
+        y: targetY,
+        z: targetZ,
+        blockId: BLOCK_IDS.craftingTable,
+      },
+    })
+    await harness.advance()
+
+    expect(harness.worldRuntime.world.getBlock(targetX, targetY, targetZ)).toBe(
+      BLOCK_IDS.craftingTable,
+    )
+
+    harness.client.eventBus.send({
+      type: 'useBlock',
+      payload: {
+        x: targetX,
+        y: targetY,
+        z: targetZ,
+      },
+    })
+    await harness.advance()
+
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toBe(
+      'CRAFTING TGABLE WAS CLICKED (TEMPORARY)',
+    )
+  } finally {
+    await harness.serverRuntime.shutdown()
+    harness.client.close()
+    await rm(harness.rootDir, { recursive: true, force: true })
+  }
+})

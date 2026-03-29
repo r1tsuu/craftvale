@@ -64,6 +64,7 @@ const createCreativePlayerSnapshot = (): PlayerSnapshot => ({
 const createHarness = (): {
   controller: PlayController
   sentMessages: ClientToServerMessage[]
+  worldRuntime: ClientWorldRuntime
 } => {
   const sentMessages: ClientToServerMessage[] = []
   const adapter = {
@@ -103,7 +104,7 @@ const createHarness = (): {
     syncCursorMode: () => {},
   })
 
-  return { controller, sentMessages }
+  return { controller, sentMessages, worldRuntime }
 }
 
 const countBreakMutations = (messages: readonly ClientToServerMessage[]): number =>
@@ -153,4 +154,30 @@ test('creative mode breaks the first block immediately then delays the next held
     lastServerMessage: '',
   })
   expect(countBreakMutations(sentMessages)).toBe(2)
+})
+
+test('right-clicking a crafting table sends useBlock instead of mutateBlock', async () => {
+  const { controller, sentMessages, worldRuntime } = createHarness()
+  worldRuntime.world.setBlock(2, 2, 2, BLOCK_IDS.craftingTable)
+
+  await controller.tick({
+    input: createInput({ placeBlockPressed: true }),
+    accumulator: FIXED_TIMESTEP,
+    pendingInputEdges: createPendingFixedStepInputEdges(),
+    deltaTime: FIXED_TIMESTEP,
+    smoothedFps: 60,
+    serverTps: 60,
+    connectionMode: 'local',
+    currentWorldName: 'Alpha',
+    currentWorldSeed: 42,
+    lastServerMessage: '',
+  })
+
+  expect(sentMessages.find((message) => message.type === 'useBlock')).toEqual(
+    expect.objectContaining({
+      type: 'useBlock',
+      payload: { x: 2, y: 2, z: 2 },
+    }),
+  )
+  expect(sentMessages.some((message) => message.type === 'mutateBlock')).toBe(false)
 })

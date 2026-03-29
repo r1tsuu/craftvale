@@ -421,6 +421,15 @@ export class PlayController {
     }
 
     if (hit && input.placeBlockPressed) {
+      const targetedBlockId = worldRuntime.world.getBlock(hit.hit.x, hit.hit.y, hit.hit.z)
+      if (targetedBlockId === BLOCK_IDS.craftingTable) {
+        adapter.eventBus.send({
+          type: 'useBlock',
+          payload: { x: hit.hit.x, y: hit.hit.y, z: hit.hit.z },
+        })
+        return null
+      }
+
       const selectedSlot = getSelectedInventorySlot(worldRuntime.inventory)
       const placedBlockId = getPlacedBlockIdForItem(selectedSlot.itemId)
       if (selectedSlot.count <= 0 || placedBlockId === null) {

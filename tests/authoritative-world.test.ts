@@ -352,6 +352,92 @@ test('placing a solid block into water replaces the water cell', async () => {
   }
 })
 
+test('crafting table block entities persist and emit server-side chat on use', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-crafting-table-'))
+  const storage = new BinaryWorldStorage(rootDir)
+
+  try {
+    const worldRecord = await storage.createWorld('CraftingTable', 42)
+    const world = new AuthoritativeWorld(worldRecord, storage, {
+      createInventory: createTestStarterInventory,
+    })
+    const joined = await world.joinPlayer(PLAYER_A)
+    const given = await world.givePlayerItem(
+      joined.clientPlayer.entityId,
+      ITEM_IDS.craftingTable,
+      1,
+    )
+    const craftingTableSlot = given.inventory.slots.findIndex(
+      (slot) => slot.itemId === ITEM_IDS.craftingTable,
+    )
+    expect(craftingTableSlot).toBeGreaterThanOrEqual(0)
+    await world.selectInventorySlot(joined.clientPlayer.entityId, craftingTableSlot)
+
+    const targetX = 1
+    const targetZ = 1
+    const targetY = getTerrainHeight(worldRecord.seed, targetX, targetZ) + 1
+    const placed = await world.applyBlockMutation(
+      joined.clientPlayer.entityId,
+      targetX,
+      targetY,
+      targetZ,
+      BLOCK_IDS.craftingTable,
+    )
+
+    expect(placed.changedChunks).toHaveLength(1)
+    expect(placed.inventoryChanged).toBe(true)
+
+    const useResult = await world.runTick(
+      [
+        {
+          sequence: 1,
+          kind: 'useBlock',
+          playerEntityId: joined.clientPlayer.entityId,
+          x: targetX,
+          y: targetY,
+          z: targetZ,
+        },
+      ],
+      0.05,
+    )
+    expect(useResult.chatMessages).toEqual([
+      expect.objectContaining({
+        targetPlayerEntityId: joined.clientPlayer.entityId,
+        entry: expect.objectContaining({
+          kind: 'system',
+          text: 'CRAFTING TGABLE WAS CLICKED (TEMPORARY)',
+        }),
+      }),
+    ])
+
+    await world.save()
+
+    const reloadedRecord = await storage.getWorld('CraftingTable')
+    expect(reloadedRecord).not.toBeNull()
+    const reloadedWorld = new AuthoritativeWorld(reloadedRecord!, storage, {
+      createInventory: createTestStarterInventory,
+    })
+    const rejoined = await reloadedWorld.joinPlayer(PLAYER_A)
+    const reloadedUse = await reloadedWorld.runTick(
+      [
+        {
+          sequence: 1,
+          kind: 'useBlock',
+          playerEntityId: rejoined.clientPlayer.entityId,
+          x: targetX,
+          y: targetY,
+          z: targetZ,
+        },
+      ],
+      0.05,
+    )
+
+    expect(reloadedUse.chatMessages[0]?.entry.text).toBe('CRAFTING TGABLE WAS CLICKED (TEMPORARY)')
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('block mutations relight only the nearby loaded chunk neighborhood', async () => {
   const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-local-relight-'))
   const storage = new BinaryWorldStorage(rootDir)

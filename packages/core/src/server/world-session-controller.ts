@@ -15,6 +15,7 @@ import { isValidItemId, ITEM_IDS } from '../world/items.ts'
 
 type QueuedGameplayIntentInput =
   | Omit<Extract<QueuedGameplayIntent, { kind: 'mutateBlock' }>, 'sequence'>
+  | Omit<Extract<QueuedGameplayIntent, { kind: 'useBlock' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'selectInventorySlot' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'interactInventorySlot' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'updatePlayerState' }>, 'sequence'>
@@ -243,6 +244,16 @@ export class WorldSessionController implements WorldSessionPeer {
           y,
           z,
           blockId,
+        })
+      }),
+      this.adapter.eventBus.on('useBlock', ({ x, y, z }) => {
+        this.requireWorld('using blocks')
+        this.enqueueIntent({
+          kind: 'useBlock',
+          playerEntityId: this.requireCurrentPlayerEntityId(),
+          x,
+          y,
+          z,
         })
       }),
       this.adapter.eventBus.on('selectInventorySlot', ({ slot }) => {

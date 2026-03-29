@@ -171,6 +171,23 @@ export const GENERATED_BLOCK_DEFINITIONS = {
       side: "planks",
     },
   },
+  [BLOCK_IDS.craftingTable]: {
+    id: BLOCK_IDS.craftingTable,
+    name: "crafting table",
+    collidable: true,
+    breakable: true,
+    occlusion: "full",
+    renderPass: "opaque",
+    dropItemId: ITEM_IDS.craftingTable,
+    emittedLightLevel: 0,
+    durability: 900,
+    color: [0.65, 0.5, 0.28],
+    tiles: {
+      top: "crafting-table-top",
+      bottom: "crafting-table-bottom",
+      side: "crafting-table-side",
+    },
+  },
   [BLOCK_IDS.cobblestone]: {
     id: BLOCK_IDS.cobblestone,
     name: "cobblestone",
@@ -424,6 +441,14 @@ export const GENERATED_ITEM_DEFINITIONS = {
     maxStackSize: 64,
     placesBlockId: BLOCK_IDS.planks,
     renderBlockId: BLOCK_IDS.planks,
+  },
+  [ITEM_IDS.craftingTable]: {
+    id: ITEM_IDS.craftingTable,
+    name: "crafting table",
+    color: [0.65, 0.5, 0.28],
+    maxStackSize: 64,
+    placesBlockId: BLOCK_IDS.craftingTable,
+    renderBlockId: BLOCK_IDS.craftingTable,
   },
   [ITEM_IDS.cobblestone]: {
     id: ITEM_IDS.cobblestone,

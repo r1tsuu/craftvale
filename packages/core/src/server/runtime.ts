@@ -379,6 +379,21 @@ export class ServerRuntime {
       })
     }
 
+    for (const chatMessage of result.chatMessages) {
+      if (chatMessage.targetPlayerEntityId) {
+        this.sendToPlayer(chatMessage.targetPlayerEntityId, {
+          type: 'chatMessage',
+          payload: { entry: chatMessage.entry },
+        })
+        continue
+      }
+
+      this.broadcast({
+        type: 'chatMessage',
+        payload: { entry: chatMessage.entry },
+      })
+    }
+
     for (const item of result.spawnedDroppedItems) {
       this.broadcast({
         type: 'droppedItemSpawned',

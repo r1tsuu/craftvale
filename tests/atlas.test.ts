@@ -64,6 +64,9 @@ test('atlas tile layout is fixed and UVs are inset within tile bounds', () => {
   expect(AtlasTiles['iron-ore']).toEqual({ x: 3, y: 3 })
   expect(AtlasTiles['gold-ore']).toEqual({ x: 0, y: 4 })
   expect(AtlasTiles['diamond-ore']).toEqual({ x: 1, y: 4 })
+  expect(AtlasTiles['crafting-table-top']).toEqual({ x: 0, y: 5 })
+  expect(AtlasTiles['crafting-table-bottom']).toEqual({ x: 1, y: 5 })
+  expect(AtlasTiles['crafting-table-side']).toEqual({ x: 2, y: 5 })
 
   const rect = getAtlasUvRect('grass-top')
   expect(rect.uMin).toBeGreaterThan(0)
@@ -104,6 +107,9 @@ test('opaque atlas tiles are fully opaque', () => {
     AtlasTiles['iron-ore'],
     AtlasTiles['gold-ore'],
     AtlasTiles['diamond-ore'],
+    AtlasTiles['crafting-table-top'],
+    AtlasTiles['crafting-table-bottom'],
+    AtlasTiles['crafting-table-side'],
   ]) {
     for (let localY = 0; localY < ATLAS_TILE_SIZE; localY += 1) {
       for (let localX = 0; localX < ATLAS_TILE_SIZE; localX += 1) {

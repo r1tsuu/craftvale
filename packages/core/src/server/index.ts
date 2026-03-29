@@ -1,5 +1,6 @@
 export * from '../types.ts'
 export * from './authoritative-world.ts'
+export * from './block-entity-system.ts'
 export * from './dropped-item-system.ts'
 export * from './entity-system.ts'
 export * from './lighting-system.ts'

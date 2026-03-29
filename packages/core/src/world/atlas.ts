@@ -1,6 +1,6 @@
 export const ATLAS_TILE_SIZE = 16
 export const ATLAS_COLUMNS = 4
-export const ATLAS_ROWS = 5
+export const ATLAS_ROWS = 6
 export const ATLAS_WIDTH = ATLAS_TILE_SIZE * ATLAS_COLUMNS
 export const ATLAS_HEIGHT = ATLAS_TILE_SIZE * ATLAS_ROWS
 
@@ -25,6 +25,9 @@ export type AtlasTileId =
   | 'diamond-ore'
   | 'arm'
   | 'glass'
+  | 'crafting-table-top'
+  | 'crafting-table-bottom'
+  | 'crafting-table-side'
 
 export interface AtlasTileCoord {
   x: number
@@ -59,6 +62,9 @@ export const AtlasTiles: Record<AtlasTileId, AtlasTileCoord> = {
   'diamond-ore': { x: 1, y: 4 },
   arm: { x: 2, y: 4 },
   glass: { x: 3, y: 4 },
+  'crafting-table-top': { x: 0, y: 5 },
+  'crafting-table-bottom': { x: 1, y: 5 },
+  'crafting-table-side': { x: 2, y: 5 },
 }
 
 export const ATLAS_TILE_IDS = Object.keys(AtlasTiles) as AtlasTileId[]

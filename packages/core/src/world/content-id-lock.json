@@ -18,7 +18,8 @@
     "goldOre": 15,
     "diamondOre": 16,
     "playerArm": 17,
-    "glass": 18
+    "glass": 18,
+    "craftingTable": 19
   },
   "items": {
     "empty": 0,
@@ -36,6 +37,7 @@
     "ironOre": 112,
     "goldOre": 113,
     "diamondOre": 114,
-    "glass": 115
+    "glass": 115,
+    "craftingTable": 116
   }
 }

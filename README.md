@@ -165,6 +165,7 @@ The authoritative server autosaves periodically; successful autosaves are printe
 
 - First-person movement with grounded collision, jump physics, and creative flight toggled by double-tapping `Space`
 - Server-authoritative block breaking, placing, inventory mutation, dropped-item spawning, and pickups
+- Entity-backed crafting table blocks with server-side interaction handling and a reusable block-entity foundation for future interactive blocks
 - Authoritative fixed-step world tick loop for both local worker and dedicated server modes
 - Periodic server-side autosave on the authoritative tick loop, plus manual `/save` while in-game
 - Per-player position, rotation, gamemode, and inventory persistence inside each world
@@ -234,7 +235,7 @@ Content authoring and the asset pipeline are documented in [`ARCHITECTURE.md`](.
 ## Possible Future Work
 
 - Survival systems: health, fall damage, death/respawn, hunger, and healing
-- Crafting flows: player crafting and a crafting table
+- Crafting flows: player `2x2` crafting, crafting-table `3x3` recipes, and result-slot UX
 - Tool progression with mining tiers, faster harvesting, and block hardness
 - Furnace and smelting mechanics with fuel and ore processing
 - Day/night cycle and stronger atmosphere changes across time of day

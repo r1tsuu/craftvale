@@ -237,6 +237,21 @@ test('placeable opaque blocks use their atlas tile on every face', () => {
   }
 })
 
+test('crafting table uses dedicated top and side tiles', () => {
+  const world = new VoxelWorld()
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
+  chunk.blocks.fill(0)
+  chunk.dirty = true
+  chunk.set(1, 1, 1, BLOCK_IDS.craftingTable)
+
+  const mesh = buildChunkMesh(world, chunk.coord)
+
+  expect(mesh.cutout.indexCount).toBe(0)
+  expectFaceUsesTile(mesh.opaque, 0, 'crafting-table-side')
+  expectFaceUsesTile(mesh.opaque, 2, 'crafting-table-top')
+  expectFaceUsesTile(mesh.opaque, 3, 'crafting-table-bottom')
+})
+
 test('opaque faces next to leaves are not culled', () => {
   const world = new VoxelWorld()
   const chunk = world.ensureChunk({ x: 0, z: 0 })

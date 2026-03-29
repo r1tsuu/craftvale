@@ -165,8 +165,12 @@ World-level entity state:
 - One `EntityRegistry` for actor ids in the active world.
 - Component stores for player identity, transform, mode, movement, inventory, session presence, and persistence.
 - Component stores for dropped-item transform, stack contents, and pickup cooldown.
+- Component stores for block-entity type and block position, with a dedicated
+  `BlockEntitySystem` owning entity-backed blocks such as crafting tables.
 
 Chunks are not entities — chunk data stays coordinate-addressed. World generation, chunk persistence, and chunk resend decisions stay in `AuthoritativeWorld`.
+Interactive blocks still live in chunk voxel data for placement/breaking, but their
+server-owned state, use handling, and future per-tick simulation live in the block-entity layer.
 
 #### World entry warmup
 
@@ -179,6 +183,7 @@ Chunks are not entities — chunk data stays coordinate-addressed. World generat
 - Chunk generation on demand.
 - Draining queued gameplay intents on the authoritative tick boundary.
 - Simulating dropped items and other world systems once per authoritative tick.
+- Simulating block entities once per authoritative tick, including future furnace/chest/door behavior.
 - Batching replication after each tick so clients observe coherent world-state updates.
 - Validating and applying block mutations.
 - Handling chat-driven commands such as `/gamemode` and `/timeset`.

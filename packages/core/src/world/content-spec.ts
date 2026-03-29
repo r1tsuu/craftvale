@@ -171,6 +171,23 @@ export const AUTHORED_BLOCK_SPECS = [
     },
   },
   {
+    key: 'craftingTable',
+    name: 'crafting table',
+    collidable: true,
+    breakable: true,
+    occlusion: 'full',
+    renderPass: 'opaque',
+    dropItemKey: 'craftingTable',
+    emittedLightLevel: 0,
+    durability: 900,
+    color: [0.65, 0.5, 0.28],
+    tiles: {
+      top: 'crafting-table-top',
+      bottom: 'crafting-table-bottom',
+      side: 'crafting-table-side',
+    },
+  },
+  {
     key: 'cobblestone',
     name: 'cobblestone',
     collidable: true,
@@ -423,6 +440,14 @@ export const AUTHORED_ITEM_SPECS = [
     maxStackSize: 64,
     placesBlockKey: 'planks',
     renderBlockKey: 'planks',
+  },
+  {
+    key: 'craftingTable',
+    name: 'crafting table',
+    color: [0.65, 0.5, 0.28],
+    maxStackSize: 64,
+    placesBlockKey: 'craftingTable',
+    renderBlockKey: 'craftingTable',
   },
   {
     key: 'cobblestone',

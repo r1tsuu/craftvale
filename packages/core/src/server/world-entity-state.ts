@@ -1,4 +1,5 @@
 import type {
+  BlockEntityType,
   EntityId,
   InventorySnapshot,
   ItemId,
@@ -52,6 +53,16 @@ export interface DroppedItemLifecycleComponent {
   pickupCooldownMs: number
 }
 
+export interface BlockEntityTypeComponent {
+  type: BlockEntityType
+}
+
+export interface BlockEntityPositionComponent {
+  x: number
+  y: number
+  z: number
+}
+
 export class WorldEntityState {
   public readonly registry = new EntityRegistry()
   public readonly playerIdentity = new ComponentStore<PlayerIdentityComponent>()
@@ -64,6 +75,8 @@ export class WorldEntityState {
   public readonly droppedItemTransform = new ComponentStore<DroppedItemTransformComponent>()
   public readonly droppedItemStack = new ComponentStore<DroppedItemStackComponent>()
   public readonly droppedItemLifecycle = new ComponentStore<DroppedItemLifecycleComponent>()
+  public readonly blockEntityType = new ComponentStore<BlockEntityTypeComponent>()
+  public readonly blockEntityPosition = new ComponentStore<BlockEntityPositionComponent>()
 
   public hasPlayerEntity(entityId: EntityId): boolean {
     return this.registry.has(entityId) && this.playerIdentity.get(entityId) !== undefined
@@ -71,5 +84,9 @@ export class WorldEntityState {
 
   public hasDroppedItemEntity(entityId: EntityId): boolean {
     return this.registry.has(entityId) && this.droppedItemStack.get(entityId) !== undefined
+  }
+
+  public hasBlockEntity(entityId: EntityId): boolean {
+    return this.registry.has(entityId) && this.blockEntityType.get(entityId) !== undefined
   }
 }

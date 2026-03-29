@@ -32,6 +32,7 @@ import { getInventorySlot } from '../world/inventory.ts'
 import { getPlacedBlockIdForItem, isValidItemId } from '../world/items.ts'
 import { createGeneratedChunk, getTerrainHeight } from '../world/terrain.ts'
 import { worldToChunkCoord } from '../world/world.ts'
+import { BlockEntitySystem } from './block-entity-system.ts'
 import { type DroppedItemSimulationResult, DroppedItemSystem } from './dropped-item-system.ts'
 import { LightingSystem } from './lighting-system.ts'
 import { PlayerSystem } from './player-system.ts'
@@ -128,6 +129,7 @@ export class AuthoritativeWorld {
   private readonly chunks = new Map<string, ServerChunkEntry>()
   private readonly entityState = new WorldEntityState()
   private readonly playerSystem: PlayerSystem
+  private readonly blockEntitySystem: BlockEntitySystem
   private readonly droppedItemSystem: DroppedItemSystem
   private readonly lightingSystem = new LightingSystem()
   private readonly initialization: Promise<void>
@@ -143,6 +145,16 @@ export class AuthoritativeWorld {
       this.spawnPosition,
       this.entityState,
       options?.createInventory,
+    )
+    this.blockEntitySystem = new BlockEntitySystem(
+      this.world.name,
+      this.storage,
+      this.entityState,
+      {
+        getWorld: () => this,
+        getActivePlayers: () => this.playerSystem.getActivePlayers(),
+        getPlayerSnapshot: (entityId) => this.getPlayerSnapshot(entityId),
+      },
     )
     this.droppedItemSystem = new DroppedItemSystem(
       this.world.name,
@@ -164,6 +176,18 @@ export class AuthoritativeWorld {
 
   public getPlayerName(entityId: EntityId): PlayerName | null {
     return this.playerSystem.getPlayerName(entityId)
+  }
+
+  public getPlayerSnapshot(entityId: EntityId): PlayerSnapshot | null {
+    if (!this.entityState.hasPlayerEntity(entityId)) {
+      return null
+    }
+
+    return this.playerSystem.getPlayerSnapshot(entityId)
+  }
+
+  public getActivePlayers(): PlayerSnapshot[] {
+    return this.playerSystem.getActivePlayers()
   }
 
   public async joinPlayer(playerName: PlayerName): Promise<{
@@ -292,6 +316,16 @@ export class AuthoritativeWorld {
   public async interactInventorySlot(entityId: EntityId, slot: number): Promise<InventorySnapshot> {
     await this.ensureInitialized()
     return this.playerSystem.interactInventorySlot(entityId, slot)
+  }
+
+  public async useBlock(
+    entityId: EntityId,
+    worldX: number,
+    worldY: number,
+    worldZ: number,
+  ): Promise<void> {
+    await this.ensureInitialized()
+    await this.blockEntitySystem.useBlock(entityId, worldX, worldY, worldZ)
   }
 
   public async givePlayerItem(
@@ -447,6 +481,7 @@ export class AuthoritativeWorld {
     entry.chunk.set(coords.local.x, coords.local.y, coords.local.z, blockId)
     entry.chunk.revision += 1
     entry.saveDirty = true
+    await this.blockEntitySystem.syncBlock(worldX, worldY, worldZ, blockId)
 
     const lightingChanged = this.relightMutationAffectedChunks(
       coords.chunk,
@@ -475,6 +510,7 @@ export class AuthoritativeWorld {
     await this.ensureInitialized()
     const savedChunks = await this.flushDirtyChunks(false)
     await this.playerSystem.save()
+    await this.blockEntitySystem.save()
     await this.droppedItemSystem.save()
     await this.storage.saveWorldTime(this.world.name, this.lightingSystem.getTimeState())
     this.world = await this.storage.touchWorld(this.world.name, Date.now())
@@ -512,6 +548,11 @@ export class AuthoritativeWorld {
           )
           break
         }
+        case 'useBlock': {
+          await this.useBlock(intent.playerEntityId, intent.x, intent.y, intent.z)
+          this.drainBlockEntityMessages(result)
+          break
+        }
         case 'interactInventorySlot': {
           this.mergeInventoryUpdate(
             result,
@@ -538,6 +579,8 @@ export class AuthoritativeWorld {
       }
     }
 
+    await this.blockEntitySystem.tick(deltaSeconds)
+    this.drainBlockEntityMessages(result)
     this.mergeSimulationResult(result, await this.stepSimulation(deltaSeconds))
     result.worldTime = this.lightingSystem.advanceTime(Math.max(1, Math.round(deltaSeconds * 20)))
     return result
@@ -710,6 +753,10 @@ export class AuthoritativeWorld {
     }
 
     result.playerUpdates.push(player)
+  }
+
+  private drainBlockEntityMessages(result: WorldTickResult): void {
+    result.chatMessages.push(...this.blockEntitySystem.drainChatMessages())
   }
 
   private mergeSimulationResult(result: WorldTickResult, simulation: WorldSimulationResult): void {

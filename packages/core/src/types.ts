@@ -36,6 +36,7 @@ export interface InventorySnapshot {
   cursor: InventorySlot | null
 }
 
+export type BlockEntityType = 'craftingTable'
 export type EntityId = string
 export type PlayerName = string
 export type PlayerGamemode = 0 | 1

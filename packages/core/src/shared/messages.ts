@@ -54,6 +54,12 @@ export interface BlockMutationRequest {
   blockId: BlockId
 }
 
+export interface BlockUseRequest {
+  x: number
+  y: number
+  z: number
+}
+
 export interface InventorySelectionRequest {
   slot: number
 }
@@ -131,6 +137,7 @@ export interface ClientResponseMap {
 
 export interface ClientEventMap {
   mutateBlock: BlockMutationRequest
+  useBlock: BlockUseRequest
   selectInventorySlot: InventorySelectionRequest
   interactInventorySlot: InventoryInteractionRequest
   updatePlayerState: PlayerStateUpdateRequest
@@ -216,6 +223,7 @@ const CLIENT_REQUEST_TYPES = new Set<keyof ClientRequestMap>([
 
 const CLIENT_EVENT_TYPES = new Set<keyof ClientEventMap>([
   'mutateBlock',
+  'useBlock',
   'selectInventorySlot',
   'interactInventorySlot',
   'updatePlayerState',
