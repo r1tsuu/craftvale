@@ -2,6 +2,7 @@ import type {
   ChatEntry,
   InventorySlot,
   InventorySnapshot,
+  ItemId,
   OpenContainerSnapshot,
   PlayerGamemode,
   WorldTimeState,
@@ -66,6 +67,15 @@ const INVENTORY_SLOT_GAP = 6
 const INVENTORY_PREVIEW_WIDTH = 120
 const INVENTORY_PREVIEW_HEIGHT = 108
 const CRAFTING_TABLE_RECIPE_WIDTH = 250
+const INVENTORY_BROWSER_PANEL_WIDTH = 216
+const INVENTORY_BROWSER_PANEL_GAP = 18
+const INVENTORY_BROWSER_COLUMNS = 4
+const INVENTORY_BROWSER_PADDING = 15
+const INVENTORY_BROWSER_TOP = 24
+
+const INVENTORY_BROWSER_ITEM_IDS = (Object.values(ITEM_IDS) as ItemId[]).filter(
+  (itemId) => itemId !== ITEM_IDS.empty,
+)
 
 interface VisibleChatLine {
   entry: ChatEntry
@@ -162,6 +172,7 @@ const buildInventorySlotVisual = (
     selected?: boolean
     interactive?: boolean
     action?: string
+    showCount?: boolean
   } = {},
 ): UiComponent[] => {
   const components: UiComponent[] = []
@@ -199,21 +210,26 @@ const buildInventorySlotVisual = (
         },
         itemId: slot.itemId,
       }),
-      createLabel({
-        id: `${idPrefix}-count`,
-        kind: 'label',
-        rect: {
-          x: rect.x + 4,
-          y: rect.y + rect.height - 18,
-          width: rect.width - 8,
-          height: 12,
-        },
-        text: `${slot.count}`,
-        scale: 1,
-        color: [0.97, 0.97, 0.97],
-        centered: true,
-      }),
     )
+
+    if (options.showCount ?? true) {
+      components.push(
+        createLabel({
+          id: `${idPrefix}-count`,
+          kind: 'label',
+          rect: {
+            x: rect.x + 4,
+            y: rect.y + rect.height - 18,
+            width: rect.width - 8,
+            height: 12,
+          },
+          text: `${slot.count}`,
+          scale: 1,
+          color: [0.97, 0.97, 0.97],
+          centered: true,
+        }),
+      )
+    }
   }
 
   if (options.keyText) {
@@ -296,6 +312,9 @@ const createInventoryPreviewRect = (panelX: number, panelY: number): UiRect => (
 const createCenteredCraftingTableStartX = (panelX: number): number =>
   panelX + Math.round((OVERLAY_PANEL_WIDTH - CRAFTING_TABLE_RECIPE_WIDTH) / 2)
 
+const getInventoryOverlayTotalWidth = (): number =>
+  OVERLAY_PANEL_WIDTH + INVENTORY_BROWSER_PANEL_GAP + INVENTORY_BROWSER_PANEL_WIDTH
+
 const createInventoryPreviewAngles = (
   rect: UiRect,
   cursorX: number,
@@ -312,6 +331,65 @@ const createInventoryPreviewAngles = (
     yaw: Math.PI / 2 + normalizedX * 0.75,
     pitch: normalizedY * 0.45,
   }
+}
+
+const buildInventoryBrowserPanel = (panelX: number, panelY: number): UiComponent[] => {
+  const browserX = panelX + OVERLAY_PANEL_WIDTH + INVENTORY_BROWSER_PANEL_GAP
+  const browserY = panelY
+  const startX = browserX + INVENTORY_BROWSER_PADDING
+  const startY = browserY + INVENTORY_BROWSER_TOP
+  const components: UiComponent[] = [
+    createPanel({
+      id: 'inventory-browser-backdrop',
+      kind: 'panel',
+      rect: {
+        x: browserX,
+        y: browserY,
+        width: INVENTORY_BROWSER_PANEL_WIDTH,
+        height: INVENTORY_PANEL_HEIGHT,
+      },
+      color: [0.05, 0.06, 0.08, 0.92],
+    }),
+    createPanel({
+      id: 'inventory-browser-inner',
+      kind: 'panel',
+      rect: {
+        x: browserX + 6,
+        y: browserY + 6,
+        width: INVENTORY_BROWSER_PANEL_WIDTH - 12,
+        height: INVENTORY_PANEL_HEIGHT - 12,
+      },
+      color: [0.14, 0.16, 0.18, 0.96],
+    }),
+  ]
+
+  for (let index = 0; index < INVENTORY_BROWSER_ITEM_IDS.length; index += 1) {
+    const itemId = INVENTORY_BROWSER_ITEM_IDS[index]!
+    const col = index % INVENTORY_BROWSER_COLUMNS
+    const row = Math.floor(index / INVENTORY_BROWSER_COLUMNS)
+    components.push(
+      ...buildInventorySlotVisual(
+        `inventory-browser-item-${index}`,
+        {
+          x: startX + col * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP),
+          y: startY + row * (INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP),
+          width: INVENTORY_SLOT_SIZE,
+          height: INVENTORY_SLOT_SIZE,
+        },
+        {
+          itemId,
+          count: 1,
+        },
+        {
+          interactive: true,
+          action: `inventory-browser-item:${itemId}`,
+          showCount: false,
+        },
+      ),
+    )
+  }
+
+  return components
 }
 
 const buildCraftingInputGrid = (
@@ -626,7 +704,7 @@ const buildInventoryOverlay = (
   const hotbarSlots = getHotbarInventorySlots(inventory)
   const playerCraftingInput = getPlayerCraftingInputSlots(inventory)
   const playerCraftingResult = getPlayerCraftingResult(inventory)
-  const x = Math.round((windowWidth - OVERLAY_PANEL_WIDTH) / 2)
+  const x = Math.round((windowWidth - getInventoryOverlayTotalWidth()) / 2)
   const y = Math.round((windowHeight - INVENTORY_PANEL_HEIGHT) / 2)
   const previewRect = createInventoryPreviewRect(x, y)
   const previewAngles = createInventoryPreviewAngles(previewRect, cursorX, cursorY)
@@ -719,6 +797,8 @@ const buildInventoryOverlay = (
       ),
     )
   }
+
+  components.push(...buildInventoryBrowserPanel(x, y))
 
   if (!isEmptyInventorySlot(inventory.cursor)) {
     components.push(

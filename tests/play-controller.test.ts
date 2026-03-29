@@ -218,3 +218,50 @@ test('escape closes an open crafting table immediately and notifies the server',
     }),
   )
 })
+
+test('clicking an inventory browser item sends a grant request to the server', async () => {
+  const { controller, sentMessages } = createHarness()
+
+  const opened = await controller.tick({
+    input: createInput({ inventoryToggle: true }),
+    accumulator: FIXED_TIMESTEP,
+    pendingInputEdges: createPendingFixedStepInputEdges(),
+    deltaTime: FIXED_TIMESTEP,
+    smoothedFps: 60,
+    serverTps: 60,
+    connectionMode: 'local',
+    currentWorldName: 'Alpha',
+    currentWorldSeed: 42,
+    lastServerMessage: '',
+  })
+
+  const hotspot = opened.uiComponents.find(
+    (component) => component.id === 'inventory-browser-item-0-hotspot',
+  )
+  expect(hotspot).toBeDefined()
+
+  await controller.tick({
+    input: createInput({
+      breakBlock: true,
+      breakBlockPressed: true,
+      cursorX: (hotspot?.rect.x ?? 0) + Math.round((hotspot?.rect.width ?? 0) / 2),
+      cursorY: (hotspot?.rect.y ?? 0) + Math.round((hotspot?.rect.height ?? 0) / 2),
+    }),
+    accumulator: FIXED_TIMESTEP,
+    pendingInputEdges: createPendingFixedStepInputEdges(),
+    deltaTime: FIXED_TIMESTEP,
+    smoothedFps: 60,
+    serverTps: 60,
+    connectionMode: 'local',
+    currentWorldName: 'Alpha',
+    currentWorldSeed: 42,
+    lastServerMessage: '',
+  })
+
+  expect(sentMessages.find((message) => message.type === 'requestInventoryBrowserItem')).toEqual(
+    expect.objectContaining({
+      type: 'requestInventoryBrowserItem',
+      payload: { itemId: ITEM_IDS.grass },
+    }),
+  )
+})

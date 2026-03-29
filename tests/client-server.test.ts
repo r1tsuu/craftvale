@@ -714,3 +714,50 @@ test('server handles crafting table use through the authoritative tick', async (
     await rm(harness.rootDir, { recursive: true, force: true })
   }
 })
+
+test('inventory browser grants stacks in both survival and creative mode', async () => {
+  const harness = await createHarness()
+
+  try {
+    const joined = await harness.client.eventBus.send({
+      type: 'joinWorld',
+      payload: { playerName: PLAYER_NAME },
+    })
+    harness.worldRuntime.reset()
+    harness.worldRuntime.applyJoinedWorld(joined)
+
+    expect(harness.worldRuntime.getClientPlayer()?.gamemode).toBe(0)
+    expect(getInventoryCount(harness.worldRuntime.inventory, ITEM_IDS.diamondOre)).toBe(0)
+
+    harness.client.eventBus.send({
+      type: 'requestInventoryBrowserItem',
+      payload: { itemId: ITEM_IDS.diamondOre },
+    })
+    await harness.advance()
+
+    expect(getInventoryCount(harness.worldRuntime.inventory, ITEM_IDS.diamondOre)).toBe(64)
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toBe('Added 64 x DIAMOND ORE.')
+
+    harness.client.eventBus.send({
+      type: 'submitChat',
+      payload: {
+        text: '/gamemode 1',
+      },
+    })
+    await Bun.sleep(0)
+    expect(harness.worldRuntime.getClientPlayer()?.gamemode).toBe(1)
+
+    harness.client.eventBus.send({
+      type: 'requestInventoryBrowserItem',
+      payload: { itemId: ITEM_IDS.diamondOre },
+    })
+    await harness.advance()
+
+    expect(getInventoryCount(harness.worldRuntime.inventory, ITEM_IDS.diamondOre)).toBe(128)
+    expect(harness.worldRuntime.chatMessages.at(-1)?.text).toBe('Added 64 x DIAMOND ORE.')
+  } finally {
+    await harness.serverRuntime.shutdown()
+    harness.client.close()
+    await rm(harness.rootDir, { recursive: true, force: true })
+  }
+})

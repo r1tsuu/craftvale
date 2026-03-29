@@ -5,6 +5,7 @@ import type {
   DroppedItemSnapshot,
   EntityId,
   InventorySnapshot,
+  ItemId,
   OpenContainerSnapshot,
   PlayerName,
   PlayerSnapshot,
@@ -71,6 +72,10 @@ export interface InventoryInteractionRequest {
 
 export interface ContainerInteractionRequest {
   slot: number
+}
+
+export interface InventoryBrowserGrantRequest {
+  itemId: ItemId
 }
 
 export interface PlayerStateUpdateRequest {
@@ -150,6 +155,7 @@ export interface ClientEventMap {
   interactOpenContainerSlot: ContainerInteractionRequest
   takeOpenContainerResult: Record<string, never>
   closeOpenContainer: Record<string, never>
+  requestInventoryBrowserItem: InventoryBrowserGrantRequest
   updatePlayerState: PlayerStateUpdateRequest
   submitChat: SubmitChatRequest
   dropItem: { slot: number; count: number }
@@ -246,6 +252,7 @@ const CLIENT_EVENT_TYPES = new Set<keyof ClientEventMap>([
   'interactOpenContainerSlot',
   'takeOpenContainerResult',
   'closeOpenContainer',
+  'requestInventoryBrowserItem',
   'updatePlayerState',
   'submitChat',
   'dropItem',

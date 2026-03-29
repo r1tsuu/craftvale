@@ -6,6 +6,7 @@ import type {
   DroppedItemSnapshot,
   EntityId,
   InventorySnapshot,
+  ItemId,
   OpenContainerSnapshot,
   PlayerName,
   PlayerSnapshot,
@@ -68,6 +69,12 @@ export type QueuedGameplayIntent =
       sequence: number
       kind: 'closeOpenContainer'
       playerEntityId: EntityId
+    }
+  | {
+      sequence: number
+      kind: 'requestInventoryBrowserItem'
+      playerEntityId: EntityId
+      itemId: ItemId
     }
   | {
       sequence: number

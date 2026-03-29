@@ -13,6 +13,7 @@ import {
   getSelectedInventorySlot,
   HOTBAR_SLOT_COUNT,
   interactPlayerCraftingInputSlot,
+  isValidItemId,
   raycastVoxel,
   takePlayerCraftingResult,
 } from '@craftvale/core/shared'
@@ -562,6 +563,19 @@ export class PlayController {
       this.deps.getClientAdapter().eventBus.send({
         type: 'interactOpenContainerSlot',
         payload: { slot },
+      })
+      return
+    }
+
+    if (action.startsWith('inventory-browser-item:')) {
+      const itemId = Number(action.split(':')[1])
+      if (!isValidItemId(itemId)) {
+        return
+      }
+
+      this.deps.getClientAdapter().eventBus.send({
+        type: 'requestInventoryBrowserItem',
+        payload: { itemId },
       })
       return
     }

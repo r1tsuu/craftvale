@@ -286,6 +286,17 @@ test('play HUD renders the full inventory overlay when inventory is open', () =>
         action: 'player-crafting-result',
       }),
       expect.objectContaining({
+        id: 'inventory-browser-backdrop',
+      }),
+      expect.objectContaining({
+        id: 'inventory-browser-item-0-hotspot',
+        action: `inventory-browser-item:${ITEM_IDS.grass}`,
+      }),
+      expect.objectContaining({
+        id: 'inventory-browser-item-0-icon',
+        kind: 'item',
+      }),
+      expect.objectContaining({
         id: 'inventory-main-slot-0-count',
         text: '12',
       }),
@@ -387,6 +398,7 @@ test('crafting table overlay reuses the compact inventory-width layout without l
       text: '8',
     }),
   )
+  expect(hud.some((component) => component.id === 'inventory-browser-backdrop')).toBe(false)
   expect(hud.some((component) => component.id === 'crafting-table-title')).toBe(false)
   expect(hud.some((component) => component.id === 'crafting-table-grid-label')).toBe(false)
   expect(hud.some((component) => component.id === 'crafting-table-inventory-label')).toBe(false)

@@ -35,7 +35,13 @@ import {
   takeCraftingResult,
 } from '../world/crafting.ts'
 import { getInventorySlot, interactCraftingInputSlotArray } from '../world/inventory.ts'
-import { getPlacedBlockIdForItem, isValidItemId } from '../world/items.ts'
+import {
+  getItemDisplayName,
+  getItemMaxStackSize,
+  getPlacedBlockIdForItem,
+  isValidItemId,
+  ITEM_IDS,
+} from '../world/items.ts'
 import { createGeneratedChunk, getTerrainHeight } from '../world/terrain.ts'
 import { worldToChunkCoord } from '../world/world.ts'
 import { BlockEntitySystem } from './block-entity-system.ts'
@@ -495,6 +501,29 @@ export class AuthoritativeWorld {
     return { added: result.added, remaining: result.remaining, inventory: result.inventory }
   }
 
+  public async requestInventoryBrowserItem(
+    entityId: EntityId,
+    itemId: ItemId,
+  ): Promise<{ inventory: InventorySnapshot; inventoryChanged: boolean; added: number; remaining: number }> {
+    await this.ensureInitialized()
+    if (!isValidItemId(itemId) || itemId === ITEM_IDS.empty) {
+      return {
+        inventory: this.playerSystem.getInventorySnapshot(entityId),
+        inventoryChanged: false,
+        added: 0,
+        remaining: 0,
+      }
+    }
+
+    const result = this.playerSystem.addInventoryItem(entityId, itemId, getItemMaxStackSize(itemId))
+    return {
+      inventory: result.inventory,
+      inventoryChanged: result.inventoryChanged,
+      added: result.added,
+      remaining: result.remaining,
+    }
+  }
+
   public async dropItem(entityId: EntityId, slot: number, count: number): Promise<DropItemResult> {
     await this.ensureInitialized()
     const inventory = this.playerSystem.getInventorySnapshot(entityId)
@@ -772,6 +801,22 @@ export class AuthoritativeWorld {
           )
           break
         }
+        case 'requestInventoryBrowserItem': {
+          const grant = await this.requestInventoryBrowserItem(intent.playerEntityId, intent.itemId)
+          if (grant.inventoryChanged) {
+            this.mergeInventoryUpdate(result, intent.playerEntityId, grant.inventory)
+          }
+          this.pushSystemChatMessage(
+            result,
+            intent.playerEntityId,
+            grant.added === 0
+              ? 'Inventory is full.'
+              : grant.remaining > 0
+                ? `Added ${grant.added} x ${getItemDisplayName(intent.itemId).toUpperCase()} (${grant.remaining} did not fit).`
+                : `Added ${grant.added} x ${getItemDisplayName(intent.itemId).toUpperCase()}.`,
+          )
+          break
+        }
         case 'updatePlayerState': {
           this.mergePlayerUpdate(
             result,
@@ -1000,6 +1045,21 @@ export class AuthoritativeWorld {
     }
 
     result.playerUpdates.push(player)
+  }
+
+  private pushSystemChatMessage(
+    result: WorldTickResult,
+    targetPlayerEntityId: EntityId,
+    text: string,
+  ): void {
+    result.chatMessages.push({
+      targetPlayerEntityId,
+      entry: {
+        kind: 'system',
+        text,
+        receivedAt: Date.now(),
+      },
+    })
   }
 
   private drainBlockEntityMessages(result: WorldTickResult): void {

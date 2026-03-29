@@ -23,6 +23,7 @@ type QueuedGameplayIntentInput =
   | Omit<Extract<QueuedGameplayIntent, { kind: 'interactOpenContainerSlot' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'takeOpenContainerResult' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'closeOpenContainer' }>, 'sequence'>
+  | Omit<Extract<QueuedGameplayIntent, { kind: 'requestInventoryBrowserItem' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'updatePlayerState' }>, 'sequence'>
   | Omit<Extract<QueuedGameplayIntent, { kind: 'dropItem' }>, 'sequence'>
 
@@ -312,6 +313,14 @@ export class WorldSessionController implements WorldSessionPeer {
         this.enqueueIntent({
           kind: 'closeOpenContainer',
           playerEntityId: this.requireCurrentPlayerEntityId(),
+        })
+      }),
+      this.adapter.eventBus.on('requestInventoryBrowserItem', ({ itemId }) => {
+        this.requireWorld('requesting inventory browser item')
+        this.enqueueIntent({
+          kind: 'requestInventoryBrowserItem',
+          playerEntityId: this.requireCurrentPlayerEntityId(),
+          itemId,
         })
       }),
       this.adapter.eventBus.on('updatePlayerState', ({ state, flying }) => {
