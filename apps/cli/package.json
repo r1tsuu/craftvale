@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "benchmark": "bun run src/benchmark.ts",
     "build-native": "bun run src/build-native.ts",
     "clean-data": "bun run src/clean-data.ts",
     "dev-full": "bun run src/dev-full.ts",

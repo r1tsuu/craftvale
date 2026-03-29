@@ -7,6 +7,7 @@ import { projectRoot } from './paths.ts'
 const GLFW_VERSION = '3.4'
 const GLFW_SOURCE_ARCHIVE_URL = `https://github.com/glfw/glfw/releases/download/${GLFW_VERSION}/glfw-${GLFW_VERSION}.zip`
 const GLFW_SOURCE_ARCHIVE_ROOT = `glfw-${GLFW_VERSION}`
+const lightingOutputPath = join(projectRoot, 'native', 'liblighting.dylib')
 
 interface GlfwBuildInput {
   includeDir: string
@@ -192,3 +193,20 @@ const command = [
 
 runCommand(command, 'Building Craftvale native bridge')
 console.log(`Built ${outputPath}`)
+runCommand(
+  [
+    'clang',
+    '-std=c11',
+    '-O3',
+    '-Wall',
+    '-Wextra',
+    '-dynamiclib',
+    `-mmacosx-version-min=${macosDeploymentTarget}`,
+    join(projectRoot, 'native', 'lighting_relight.c'),
+    join(projectRoot, 'native', 'lighting_borders.c'),
+    '-o',
+    lightingOutputPath,
+  ],
+  'Building Craftvale native lighting module',
+)
+console.log(`Built ${lightingOutputPath}`)

@@ -5,21 +5,17 @@ import {
   advanceWorldTime,
   cloneWorldTimeState,
   createDefaultWorldTimeState,
-  LIGHT_LEVEL_MAX,
   normalizeWorldTimeState,
   type WorldTimeState,
 } from '../shared/lighting.ts'
-import { BLOCK_IDS, Blocks, getBlockEmittedLightLevel } from '../world/blocks.ts'
-import { CHUNK_HEIGHT, CHUNK_SIZE, WORLD_MAX_BLOCK_Y } from '../world/constants.ts'
+import { createNativeLightingBackend } from './native-lighting.ts'
+import {
+  type ChunkLightBuffers,
+  createLightingChunkInputFromBlockResolver,
+  createLightingChunkInputFromChunk,
+  type LightingChunkInput,
+} from './native-lighting.ts'
 
-const LIGHT_DIRECTIONS = [
-  [1, 0, 0],
-  [-1, 0, 0],
-  [0, 1, 0],
-  [0, -1, 0],
-  [0, 0, 1],
-  [0, 0, -1],
-] as const
 const BORDER_DIRECTIONS = [
   [1, 0],
   [-1, 0],
@@ -27,35 +23,11 @@ const BORDER_DIRECTIONS = [
   [0, -1],
 ] as const
 
-interface ChunkLightBuffers {
-  sky: Uint8Array
-  block: Uint8Array
-}
-
 const chunkKey = ({ x, z }: ChunkCoord): string => `${x},${z}`
-
-const isLightPassable = (blockId: BlockId): boolean => Blocks[blockId].occlusion !== 'full'
-
-const localIndex = (localX: number, localY: number, localZ: number): number =>
-  localX + CHUNK_SIZE * (localZ + CHUNK_SIZE * localY)
-
-const localPosition = (
-  index: number,
-): {
-  x: number
-  y: number
-  z: number
-} => {
-  const plane = CHUNK_SIZE * CHUNK_SIZE
-  const y = Math.floor(index / plane)
-  const withinPlane = index - y * plane
-  const z = Math.floor(withinPlane / CHUNK_SIZE)
-  const x = withinPlane - z * CHUNK_SIZE
-  return { x, y, z }
-}
 
 export class LightingSystem {
   private worldTime = createDefaultWorldTimeState()
+  private readonly nativeLighting = createNativeLightingBackend()
 
   public getTimeState(): WorldTimeState {
     return cloneWorldTimeState(this.worldTime)
@@ -98,6 +70,7 @@ export class LightingSystem {
     }
 
     const buffers = new Map<string, ChunkLightBuffers>()
+    const inputs = new Map<string, LightingChunkInput>()
     const changedKeys = new Set<string>()
     for (const key of affectedKeys) {
       const chunk = loadedChunks.get(key)!
@@ -105,14 +78,42 @@ export class LightingSystem {
         sky: chunk.cloneSkyLight(),
         block: chunk.cloneBlockLight(),
       })
+      inputs.set(key, createLightingChunkInputFromChunk(chunk))
+    }
+
+    const externalInputs = new Map<string, LightingChunkInput>()
+    const resolveNeighborInput = (coord: ChunkCoord): LightingChunkInput => {
+      const key = chunkKey(coord)
+      const loaded = inputs.get(key)
+      if (loaded) {
+        return loaded
+      }
+
+      const cached = externalInputs.get(key)
+      if (cached) {
+        return cached
+      }
+
+      const chunk = getChunkAt?.(coord)
+      const resolved = chunk
+        ? createLightingChunkInputFromChunk(chunk)
+        : createLightingChunkInputFromBlockResolver(coord, getBlockAt)
+      externalInputs.set(key, resolved)
+      return resolved
     }
 
     for (const chunk of dirtyChunks) {
+      const input = inputs.get(chunkKey(chunk.coord))!
       const working = buffers.get(chunkKey(chunk.coord))!
       working.sky.fill(0)
       working.block.fill(0)
-      this.relightChunk(chunk, working)
-      this.seedExternalBorderLight(chunk, working, loadedChunks, getBlockAt, getChunkAt)
+      this.relightChunk(input, working)
+      this.seedExternalBorderLight(input, working, {
+        east: resolveNeighborInput({ x: chunk.coord.x + 1, z: chunk.coord.z }),
+        west: resolveNeighborInput({ x: chunk.coord.x - 1, z: chunk.coord.z }),
+        south: resolveNeighborInput({ x: chunk.coord.x, z: chunk.coord.z + 1 }),
+        north: resolveNeighborInput({ x: chunk.coord.x, z: chunk.coord.z - 1 }),
+      })
       changedKeys.add(chunkKey(chunk.coord))
     }
 
@@ -157,11 +158,20 @@ export class LightingSystem {
 
       const leftBuffers = buffers.get(leftKey)
       const rightBuffers = buffers.get(rightKey)
-      if (!leftBuffers || !rightBuffers) {
+      const leftInput = inputs.get(leftKey)
+      const rightInput = inputs.get(rightKey)
+      if (!leftBuffers || !rightBuffers || !leftInput || !rightInput) {
         continue
       }
 
-      const changed = this.propagateBorderPair(left, leftBuffers, right, rightBuffers)
+      const changed = this.propagateBorderPair(
+        leftInput,
+        leftBuffers,
+        rightInput,
+        rightBuffers,
+        right.coord.x - left.coord.x,
+        right.coord.z - left.coord.z,
+      )
       if (changed.left) {
         changedKeys.add(leftKey)
         enqueueChunkPairs(left.coord)
@@ -183,355 +193,41 @@ export class LightingSystem {
     return changedCoords
   }
 
-  public relightChunk(chunk: Chunk, buffers: ChunkLightBuffers): void {
-    if (!chunk.dirtyLight) {
-      return
-    }
-
-    const directSkyIndices: number[] = []
-    for (let localZ = 0; localZ < CHUNK_SIZE; localZ += 1) {
-      for (let localX = 0; localX < CHUNK_SIZE; localX += 1) {
-        const columnHeight = chunk.heightmap[localX + CHUNK_SIZE * localZ] ?? 0
-        const startY =
-          columnHeight === 0 && chunk.get(localX, 0, localZ) === BLOCK_IDS.air
-            ? 0
-            : Math.min(CHUNK_HEIGHT, columnHeight + 1)
-        for (let localY = startY; localY < CHUNK_HEIGHT; localY += 1) {
-          if (!isLightPassable(chunk.get(localX, localY, localZ))) {
-            break
-          }
-
-          const index = localIndex(localX, localY, localZ)
-          buffers.sky[index] = LIGHT_LEVEL_MAX
-          directSkyIndices.push(index)
-        }
-      }
-    }
-
-    const skyQueue = [...directSkyIndices]
-    this.propagateSkyLightWithinChunk(chunk, buffers.sky, skyQueue)
-
-    const blockQueue: number[] = []
-    for (let subchunkY = 0; subchunkY < chunk.subchunks.length; subchunkY += 1) {
-      const subchunk = chunk.subchunks[subchunkY]!
-      if (subchunk.paletteIsAllAir || !subchunk.paletteHasEmitters) {
-        continue
-      }
-
-      const baseY = subchunkY * 16
-      for (let index = 0; index < subchunk.blocks.length; index += 1) {
-        const paletteIndex = subchunk.blocks[index]!
-        const blockId = subchunk.palette[paletteIndex] as BlockId
-        const emittedLight = getBlockEmittedLightLevel(blockId)
-        if (emittedLight <= 0) {
-          continue
-        }
-
-        const localY = Math.floor(index / (CHUNK_SIZE * CHUNK_SIZE))
-        const withinPlane = index - localY * CHUNK_SIZE * CHUNK_SIZE
-        const localZ = Math.floor(withinPlane / CHUNK_SIZE)
-        const localX = withinPlane - localZ * CHUNK_SIZE
-        const worldIndex = localIndex(localX, baseY + localY, localZ)
-        buffers.block[worldIndex] = emittedLight
-        blockQueue.push(worldIndex)
-      }
-    }
-
-    this.propagateBlockLightWithinChunk(chunk, buffers.block, blockQueue)
-  }
-
-  private propagateSkyLightWithinChunk(
-    chunk: Chunk,
-    channel: Uint8Array,
-    queue: number[],
-  ): boolean {
-    let changed = false
-
-    for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
-      const index = queue[queueIndex]!
-      const lightLevel = channel[index] ?? 0
-      if (lightLevel <= 0) {
-        continue
-      }
-
-      const { x, y, z } = localPosition(index)
-      for (const [dx, dy, dz] of LIGHT_DIRECTIONS) {
-        const nextX = x + dx
-        const nextY = y + dy
-        const nextZ = z + dz
-        if (
-          nextX < 0 ||
-          nextX >= CHUNK_SIZE ||
-          nextY < 0 ||
-          nextY >= CHUNK_HEIGHT ||
-          nextZ < 0 ||
-          nextZ >= CHUNK_SIZE
-        ) {
-          continue
-        }
-
-        if (!isLightPassable(chunk.get(nextX, nextY, nextZ))) {
-          continue
-        }
-
-        const nextIndex = localIndex(nextX, nextY, nextZ)
-        const nextLight = dy === -1 ? lightLevel : lightLevel - 1
-        if (nextLight <= (channel[nextIndex] ?? 0)) {
-          continue
-        }
-
-        channel[nextIndex] = nextLight
-        queue.push(nextIndex)
-        changed = true
-      }
-    }
-
-    return changed
-  }
-
-  private propagateBlockLightWithinChunk(
-    chunk: Chunk,
-    channel: Uint8Array,
-    queue: number[],
-  ): boolean {
-    return this.propagateChannelWithinChunk(chunk, channel, queue, (blockId) =>
-      isLightPassable(blockId),
-    )
-  }
-
-  private propagateChannelWithinChunk(
-    chunk: Chunk,
-    channel: Uint8Array,
-    queue: number[],
-    canReceive: (blockId: BlockId) => boolean,
-  ): boolean {
-    let changed = false
-
-    for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
-      const index = queue[queueIndex]!
-      const lightLevel = channel[index] ?? 0
-      if (lightLevel <= 1) {
-        continue
-      }
-
-      const { x, y, z } = localPosition(index)
-      for (const [dx, dy, dz] of LIGHT_DIRECTIONS) {
-        const nextX = x + dx
-        const nextY = y + dy
-        const nextZ = z + dz
-        if (
-          nextX < 0 ||
-          nextX >= CHUNK_SIZE ||
-          nextY < 0 ||
-          nextY >= CHUNK_HEIGHT ||
-          nextZ < 0 ||
-          nextZ >= CHUNK_SIZE
-        ) {
-          continue
-        }
-
-        if (!canReceive(chunk.get(nextX, nextY, nextZ))) {
-          continue
-        }
-
-        const nextIndex = localIndex(nextX, nextY, nextZ)
-        const nextLight = lightLevel - 1
-        if (nextLight <= (channel[nextIndex] ?? 0)) {
-          continue
-        }
-
-        channel[nextIndex] = nextLight
-        queue.push(nextIndex)
-        changed = true
-      }
-    }
-
-    return changed
+  public relightChunk(chunk: LightingChunkInput, buffers: ChunkLightBuffers): void {
+    this.nativeLighting.relightChunk(chunk, buffers)
   }
 
   private seedExternalBorderLight(
-    chunk: Chunk,
+    chunk: LightingChunkInput,
     buffers: ChunkLightBuffers,
-    loadedChunks: ReadonlyMap<string, Chunk>,
-    getBlockAt: (worldX: number, worldY: number, worldZ: number) => BlockId,
-    getChunkAt?: (coord: ChunkCoord) => Chunk | undefined,
+    neighbors: {
+      east: LightingChunkInput
+      west: LightingChunkInput
+      south: LightingChunkInput
+      north: LightingChunkInput
+    },
   ): void {
-    const skyQueue: number[] = []
-    const blockQueue: number[] = []
-
-    for (const [dx, dz] of BORDER_DIRECTIONS) {
-      const neighborCoord = { x: chunk.coord.x + dx, z: chunk.coord.z + dz }
-      const neighborKey = chunkKey(neighborCoord)
-      if (loadedChunks.has(neighborKey)) {
-        continue
-      }
-
-      const neighborChunk = getChunkAt?.(neighborCoord)
-
-      const localX = dx === 1 ? CHUNK_SIZE - 1 : dx === -1 ? 0 : null
-      const localZ = dz === 1 ? CHUNK_SIZE - 1 : dz === -1 ? 0 : null
-
-      for (let localY = 0; localY < CHUNK_HEIGHT; localY += 1) {
-        for (let edge = 0; edge < CHUNK_SIZE; edge += 1) {
-          const x = localX ?? edge
-          const z = localZ ?? edge
-          if (!isLightPassable(chunk.get(x, localY, z))) {
-            continue
-          }
-
-          const worldX = chunk.coord.x * CHUNK_SIZE + x + dx
-          const worldZ = chunk.coord.z * CHUNK_SIZE + z + dz
-          const outsideBlock = getBlockAt(worldX, localY, worldZ)
-          const insideIndex = localIndex(x, localY, z)
-
-          if (isLightPassable(outsideBlock)) {
-            const skyLight = this.getExternalDirectSkyLight(
-              neighborChunk,
-              dx === 1 ? 0 : dx === -1 ? CHUNK_SIZE - 1 : x,
-              localY,
-              dz === 1 ? 0 : dz === -1 ? CHUNK_SIZE - 1 : z,
-              worldX,
-              worldZ,
-              getBlockAt,
-            )
-            if (skyLight > 1 && skyLight - 1 > (buffers.sky[insideIndex] ?? 0)) {
-              buffers.sky[insideIndex] = skyLight - 1
-              skyQueue.push(insideIndex)
-            }
-          }
-
-          const emittedLight = getBlockEmittedLightLevel(outsideBlock)
-          if (emittedLight > 1 && emittedLight - 1 > (buffers.block[insideIndex] ?? 0)) {
-            buffers.block[insideIndex] = emittedLight - 1
-            blockQueue.push(insideIndex)
-          }
-        }
-      }
-    }
-
-    this.propagateSkyLightWithinChunk(chunk, buffers.sky, skyQueue)
-    this.propagateBlockLightWithinChunk(chunk, buffers.block, blockQueue)
-  }
-
-  private getExternalDirectSkyLight(
-    chunk: Chunk | undefined,
-    localX: number,
-    localY: number,
-    localZ: number,
-    worldX: number,
-    worldZ: number,
-    getBlockAt: (worldX: number, worldY: number, worldZ: number) => BlockId,
-  ): number {
-    if (chunk) {
-      const highestOpaque = chunk.heightmap[localX + CHUNK_SIZE * localZ] ?? 0
-      if (highestOpaque === 0 && chunk.get(localX, 0, localZ) === BLOCK_IDS.air) {
-        return LIGHT_LEVEL_MAX
-      }
-
-      return localY > highestOpaque ? LIGHT_LEVEL_MAX : 0
-    }
-
-    for (let y = localY; y <= WORLD_MAX_BLOCK_Y; y += 1) {
-      if (!isLightPassable(getBlockAt(worldX, y, worldZ))) {
-        return 0
-      }
-    }
-
-    return LIGHT_LEVEL_MAX
+    this.nativeLighting.seedExternalBorderLight(chunk, buffers, neighbors)
   }
 
   private propagateBorderPair(
-    left: Chunk,
+    left: LightingChunkInput,
     leftBuffers: ChunkLightBuffers,
-    right: Chunk,
+    right: LightingChunkInput,
     rightBuffers: ChunkLightBuffers,
+    deltaX: number,
+    deltaZ: number,
   ): {
     left: boolean
     right: boolean
   } {
-    if (Math.abs(left.coord.x - right.coord.x) + Math.abs(left.coord.z - right.coord.z) !== 1) {
-      return {
-        left: false,
-        right: false,
-      }
-    }
-
-    const leftSkyQueue: number[] = []
-    const rightSkyQueue: number[] = []
-    const leftBlockQueue: number[] = []
-    const rightBlockQueue: number[] = []
-
-    const deltaX = right.coord.x - left.coord.x
-    const deltaZ = right.coord.z - left.coord.z
-
-    for (let localY = 0; localY < CHUNK_HEIGHT; localY += 1) {
-      for (let edge = 0; edge < CHUNK_SIZE; edge += 1) {
-        const leftX = deltaX === 1 ? CHUNK_SIZE - 1 : deltaX === -1 ? 0 : edge
-        const rightX = deltaX === 1 ? 0 : deltaX === -1 ? CHUNK_SIZE - 1 : edge
-        const leftZ = deltaZ === 1 ? CHUNK_SIZE - 1 : deltaZ === -1 ? 0 : edge
-        const rightZ = deltaZ === 1 ? 0 : deltaZ === -1 ? CHUNK_SIZE - 1 : edge
-
-        const leftIndex = localIndex(leftX, localY, leftZ)
-        const rightIndex = localIndex(rightX, localY, rightZ)
-        const leftBlockId = left.get(leftX, localY, leftZ)
-        const rightBlockId = right.get(rightX, localY, rightZ)
-
-        if (isLightPassable(leftBlockId) && isLightPassable(rightBlockId)) {
-          const leftSky = leftBuffers.sky[leftIndex] ?? 0
-          const rightSky = rightBuffers.sky[rightIndex] ?? 0
-          if (leftSky > 1 && leftSky - 1 > rightSky) {
-            rightBuffers.sky[rightIndex] = leftSky - 1
-            rightSkyQueue.push(rightIndex)
-          }
-          if (rightSky > 1 && rightSky - 1 > leftSky) {
-            leftBuffers.sky[leftIndex] = rightSky - 1
-            leftSkyQueue.push(leftIndex)
-          }
-        }
-
-        if (isLightPassable(rightBlockId)) {
-          const leftBlockLight = leftBuffers.block[leftIndex] ?? 0
-          if (leftBlockLight > 1 && leftBlockLight - 1 > (rightBuffers.block[rightIndex] ?? 0)) {
-            rightBuffers.block[rightIndex] = leftBlockLight - 1
-            rightBlockQueue.push(rightIndex)
-          }
-        }
-
-        if (isLightPassable(leftBlockId)) {
-          const rightBlockLight = rightBuffers.block[rightIndex] ?? 0
-          if (rightBlockLight > 1 && rightBlockLight - 1 > (leftBuffers.block[leftIndex] ?? 0)) {
-            leftBuffers.block[leftIndex] = rightBlockLight - 1
-            leftBlockQueue.push(leftIndex)
-          }
-        }
-      }
-    }
-
-    const leftSkyChanged = this.propagateSkyLightWithinChunk(left, leftBuffers.sky, leftSkyQueue)
-    const rightSkyChanged = this.propagateSkyLightWithinChunk(
-      right,
-      rightBuffers.sky,
-      rightSkyQueue,
-    )
-    const leftBlockChanged = this.propagateBlockLightWithinChunk(
+    return this.nativeLighting.propagateBorderPair(
       left,
-      leftBuffers.block,
-      leftBlockQueue,
-    )
-    const rightBlockChanged = this.propagateBlockLightWithinChunk(
+      leftBuffers,
       right,
-      rightBuffers.block,
-      rightBlockQueue,
+      rightBuffers,
+      deltaX,
+      deltaZ,
     )
-
-    return {
-      left:
-        leftSkyQueue.length > 0 || leftBlockQueue.length > 0 || leftSkyChanged || leftBlockChanged,
-      right:
-        rightSkyQueue.length > 0 ||
-        rightBlockQueue.length > 0 ||
-        rightSkyChanged ||
-        rightBlockChanged,
-    }
   }
 }

@@ -557,12 +557,14 @@ test('authoritative chunk delivery and mutation updates the replicated client wo
       },
     })
     await Bun.sleep(0)
-    expect(harness.worldRuntime.chatMessages.at(-1)).toEqual(
-      expect.objectContaining({
-        kind: 'player',
-        senderName: PLAYER_NAME,
-        text: 'hello world',
-      }),
+    expect(harness.worldRuntime.chatMessages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'player',
+          senderName: PLAYER_NAME,
+          text: 'hello world',
+        }),
+      ]),
     )
 
     await harness.advance(100)

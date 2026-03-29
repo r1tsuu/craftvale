@@ -1,6 +1,7 @@
 /node_modules
 /client
 /native/libvoxel_bridge.dylib
+/native/liblighting.dylib
 /native/vendor
 /apps/client/dist
 /apps/dedicated-server/dist

@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "benchmark": "bun run build:native && bun run --cwd apps/cli benchmark",
     "build:native": "bun run --cwd apps/cli build-native",
     "clean:data": "bun run --cwd apps/cli clean-data",
     "dev:client": "bun run build:native && bun run --cwd apps/client dev",

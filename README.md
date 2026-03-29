@@ -2,9 +2,9 @@
 
 <video src="https://github.com/user-attachments/assets/220c9092-4e4d-4c01-9847-8f0924e5b18c" autoplay loop muted playsinline></video>
 
-A macOS-first Bun desktop voxel sandbox. A thin C bridge handles GLFW windowing and OpenGL rendering; Bun workspaces split the desktop client, dedicated server, and shared gameplay/runtime code into explicit packages.
+A macOS-first Bun desktop voxel sandbox. A thin C bridge handles GLFW windowing and OpenGL rendering, while a separate C native module handles chunk lighting propagation; Bun workspaces split the desktop client, dedicated server, and shared gameplay/runtime code into explicit packages.
 
-The native desktop build downloads the official GLFW source package on demand and builds it locally, so contributors do not need a separate `brew install glfw` step.
+The native desktop build downloads the official GLFW source package on demand, builds it locally, and also compiles the lighting library from source, so contributors do not need a separate `brew install glfw` step.
 
 ## Quick Start
 
@@ -48,10 +48,23 @@ Use `bun run dev:full` to start a dedicated WebSocket server alongside the clien
 
 ### Build
 
-| Command                | Description                                                |
-| ---------------------- | ---------------------------------------------------------- |
-| `bun run build:native` | Build `native/libvoxel_bridge.dylib`                       |
-| `bun run clean:data`   | Remove `apps/client/dist` and `apps/dedicated-server/dist` |
+| Command                | Description                                                         |
+| ---------------------- | ------------------------------------------------------------------- |
+| `bun run build:native` | Build `native/libvoxel_bridge.dylib` and `native/liblighting.dylib` |
+| `bun run clean:data`   | Remove `apps/client/dist` and `apps/dedicated-server/dist`          |
+
+### Benchmarks
+
+| Command                         | Description                                      |
+| ------------------------------- | ------------------------------------------------ |
+| `bun run benchmark`             | Build native libraries, then run all benchmarks  |
+| `bun run benchmark -- lighting` | Build native libraries, then run only `lighting` |
+
+Pass benchmark-specific flags after the benchmark name:
+
+```sh
+bun run benchmark -- lighting --warmup=5 --rounds=40
+```
 
 ### Asset Generation
 
@@ -195,7 +208,7 @@ packages/
       world/          Chunks, terrain/biome generation, meshing, atlas UVs, content spec,
                       generated registries, inventory helpers, raycasting
       math/           Shared math helpers
-native/               GLFW/OpenGL C bridge
+native/               GLFW/OpenGL C bridge plus C lighting module
 plans/                Implementation plans for major feature work
 tests/                Coverage for client/server flow, storage, terrain, meshing, and UI
 ```
@@ -236,16 +249,18 @@ Content authoring and the asset pipeline are documented in [`ARCHITECTURE.md`](.
 
 ## Code Size Snapshot
 
-Source-line snapshot as of 2026-03-26 using `wc -l` over TypeScript, C, and shader files. Excludes docs, JSON/package metadata, lockfiles, and binary assets.
+Source-line snapshot as of 2026-03-29 using `wc -l` over TypeScript, C/C
+header, and shader files. Excludes docs, JSON/package metadata, lockfiles,
+binary assets, and downloaded vendored native dependencies under `native/vendor`.
 
 | Package                      | Lines      |
 | ---------------------------- | ---------- |
-| `apps/client/src`            | 8,782 TS   |
-| `apps/client/assets/shaders` | 118 GLSL   |
+| `apps/client/src`            | 9,552 TS   |
+| `apps/client/assets/shaders` | 122 GLSL   |
 | `apps/dedicated-server`      | 343 TS     |
-| `packages/core`              | 8,548 TS   |
-| `apps/cli/src`               | 1,160 TS   |
-| `native`                     | 459 C      |
-| `tests`                      | 5,029 TS   |
-| **Total (with tests)**       | **24,439** |
-| **Total (without tests)**    | **19,410** |
+| `packages/core`              | 9,426 TS   |
+| `apps/cli/src`               | 1,578 TS   |
+| `native`                     | 969 C/H    |
+| `tests`                      | 6,128 TS   |
+| **Total (with tests)**       | **28,118** |
+| **Total (without tests)**    | **21,990** |
