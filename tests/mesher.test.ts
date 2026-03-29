@@ -26,6 +26,18 @@ const getFaceUvs = (mesh: MeshData, faceIndex: number): Array<{ u: number; v: nu
   return face
 }
 
+const getFaceSkyLights = (mesh: MeshData, faceIndex: number): number[] => {
+  const start = faceIndex * VERTICES_PER_FACE * FLOATS_PER_VERTEX
+  const face: number[] = []
+
+  for (let vertex = 0; vertex < VERTICES_PER_FACE; vertex += 1) {
+    const offset = start + vertex * FLOATS_PER_VERTEX
+    face.push(mesh.vertexData[offset + 6]!)
+  }
+
+  return face
+}
+
 const expectFaceUsesTile = (
   mesh: MeshData,
   faceIndex: number,
@@ -275,4 +287,43 @@ test('opaque faces next to water are not culled', () => {
 
   expect(mesh.opaque.indexCount).toBe(36)
   expect(mesh.translucent.indexCount).toBe(30)
+})
+
+test('top faces preserve per-vertex light gradients for smooth lighting', () => {
+  const world = new VoxelWorld()
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
+  chunk.blocks.fill(0)
+  chunk.dirty = true
+  chunk.set(1, 1, 1, BLOCK_IDS.grass)
+
+  world.setLighting(1, 2, 1, 0, 0)
+  world.setLighting(2, 2, 1, 5, 0)
+  world.setLighting(1, 2, 2, 10, 0)
+  world.setLighting(2, 2, 2, 15, 0)
+
+  const mesh = buildChunkMesh(world, chunk.coord)
+  const topFaceSkyLights = getFaceSkyLights(mesh.opaque, 2)
+
+  expect(new Set(topFaceSkyLights).size).toBeGreaterThan(1)
+})
+
+test('missing neighbor chunks do not darken boundary faces to zero', () => {
+  const world = new VoxelWorld()
+  const chunk = world.ensureChunk({ x: 0, z: 0 })
+  chunk.blocks.fill(0)
+  chunk.dirty = true
+  chunk.set(15, 1, 1, BLOCK_IDS.grass)
+
+  for (let sampleY = 0; sampleY <= 2; sampleY += 1) {
+    for (let sampleZ = 0; sampleZ <= 2; sampleZ += 1) {
+      world.setLighting(15, sampleY, sampleZ, 12, 0)
+    }
+  }
+
+  const mesh = buildChunkMesh(world, chunk.coord)
+  const eastFaceSkyLights = getFaceSkyLights(mesh.opaque, 0)
+
+  for (const value of eastFaceSkyLights) {
+    expect(value).toBe(12)
+  }
 })

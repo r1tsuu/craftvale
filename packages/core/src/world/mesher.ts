@@ -8,7 +8,8 @@ import {
   getBlockFaceTile,
   getBlockRenderPass,
 } from './blocks.ts'
-import { CHUNK_HEIGHT, CHUNK_SIZE } from './constants.ts'
+import { CHUNK_HEIGHT, CHUNK_SIZE, isWithinWorldBlockY } from './constants.ts'
+import { worldToChunkCoord } from './world.ts'
 
 const FACE_DEFINITIONS = [
   {
@@ -127,8 +128,8 @@ interface FaceLightingDefinition {
   shade: number
   vertices: readonly (readonly [number, number, number])[]
   uvs: readonly (readonly [number, number])[]
-  skyLight: number
-  blockLight: number
+  skyLight: readonly number[]
+  blockLight: readonly number[]
 }
 
 const createMeshAccumulator = (): MeshAccumulator => ({
@@ -148,6 +149,64 @@ const createEmptyMeshData = (): MeshData => ({
   indexData: new Uint32Array(),
   indexCount: 0,
 })
+
+const getVertexSampleOffsets = (offset: number): readonly number[] =>
+  offset === 0 ? [-1, 0] : [0, 1]
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value))
+
+const sampleFaceVertexLight = (
+  world: VoxelWorld,
+  chunkCoord: ChunkCoord,
+  worldX: number,
+  worldY: number,
+  worldZ: number,
+  normal: readonly [number, number, number],
+  vertex: readonly [number, number, number],
+  readLight: (sampleX: number, sampleY: number, sampleZ: number) => number,
+): number => {
+  const baseX = worldX + normal[0]
+  const baseY = worldY + normal[1]
+  const baseZ = worldZ + normal[2]
+  const sampleXs = normal[0] === 0 ? getVertexSampleOffsets(vertex[0]) : [0]
+  const sampleYs = normal[1] === 0 ? getVertexSampleOffsets(vertex[1]) : [0]
+  const sampleZs = normal[2] === 0 ? getVertexSampleOffsets(vertex[2]) : [0]
+  const chunkMinX = chunkCoord.x * CHUNK_SIZE
+  const chunkMaxX = chunkMinX + CHUNK_SIZE - 1
+  const chunkMinZ = chunkCoord.z * CHUNK_SIZE
+  const chunkMaxZ = chunkMinZ + CHUNK_SIZE - 1
+
+  let total = 0
+  let sampleCount = 0
+  for (const offsetX of sampleXs) {
+    for (const offsetY of sampleYs) {
+      for (const offsetZ of sampleZs) {
+        const sampleX = baseX + offsetX
+        const sampleY = baseY + offsetY
+        const sampleZ = baseZ + offsetZ
+        if (!isWithinWorldBlockY(sampleY)) {
+          total += 0
+          sampleCount += 1
+          continue
+        }
+
+        const sampleChunk = worldToChunkCoord(sampleX, sampleY, sampleZ).chunk
+        const resolvedX = world.hasChunk(sampleChunk)
+          ? sampleX
+          : clamp(sampleX, chunkMinX, chunkMaxX)
+        const resolvedZ = world.hasChunk(sampleChunk)
+          ? sampleZ
+          : clamp(sampleZ, chunkMinZ, chunkMaxZ)
+
+        total += readLight(resolvedX, sampleY, resolvedZ)
+        sampleCount += 1
+      }
+    }
+  }
+
+  return sampleCount > 0 ? total / sampleCount : 0
+}
 
 const pushFace = (
   mesh: MeshAccumulator,
@@ -178,8 +237,8 @@ const pushFace = (
       atlasU,
       atlasV,
       shade,
-      face.skyLight,
-      face.blockLight,
+      face.skyLight[index] ?? 0,
+      face.blockLight[index] ?? 0,
     )
   }
 
@@ -233,9 +292,30 @@ export const buildChunkMesh = (world: VoxelWorld, coord: ChunkCoord): TerrainMes
           if (doesBlockOccludeNeighborFace(blockId, neighbor)) {
             continue
           }
-
-          const skyLight = world.getSkyLight(worldX + dx, worldY + dy, worldZ + dz)
-          const blockLight = world.getBlockLight(worldX + dx, worldY + dy, worldZ + dz)
+          const skyLight = face.vertices.map((vertex) =>
+            sampleFaceVertexLight(
+              world,
+              coord,
+              worldX,
+              worldY,
+              worldZ,
+              face.normal,
+              vertex,
+              (x, y, z) => world.getSkyLight(x, y, z),
+            ),
+          )
+          const blockLight = face.vertices.map((vertex) =>
+            sampleFaceVertexLight(
+              world,
+              coord,
+              worldX,
+              worldY,
+              worldZ,
+              face.normal,
+              vertex,
+              (x, y, z) => world.getBlockLight(x, y, z),
+            ),
+          )
 
           pushFace(targetMesh, blockId, worldX, worldY, worldZ, {
             ...face,
