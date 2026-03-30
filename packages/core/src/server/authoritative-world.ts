@@ -6,6 +6,7 @@ import type {
   InventorySnapshot,
   ItemId,
   OpenContainerSnapshot,
+  PigSnapshot,
   PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
@@ -47,6 +48,7 @@ import { worldToChunkCoord } from '../world/world.ts'
 import { BlockEntitySystem } from './block-entity-system.ts'
 import { type DroppedItemSimulationResult, DroppedItemSystem } from './dropped-item-system.ts'
 import { LightingSystem } from './lighting-system.ts'
+import { PigSystem } from './pig-system.ts'
 import { PlayerSystem } from './player-system.ts'
 import { WorldEntityState } from './world-entity-state.ts'
 import {
@@ -148,6 +150,7 @@ export class AuthoritativeWorld {
   private readonly entityState = new WorldEntityState()
   private readonly openContainersByPlayer = new Map<EntityId, CraftingTableContainerSession>()
   private readonly playerSystem: PlayerSystem
+  private readonly pigSystem: PigSystem
   private readonly blockEntitySystem: BlockEntitySystem
   private readonly droppedItemSystem: DroppedItemSystem
   private readonly lightingSystem = new LightingSystem()
@@ -164,6 +167,12 @@ export class AuthoritativeWorld {
       this.spawnPosition,
       this.entityState,
       options?.createInventory,
+    )
+    this.pigSystem = new PigSystem(
+      this.world.seed,
+      this.spawnPosition,
+      this.entityState,
+      (x, y, z) => this.getBlockAt(x, y, z),
     )
     this.blockEntitySystem = new BlockEntitySystem(
       this.world.name,
@@ -214,12 +223,14 @@ export class AuthoritativeWorld {
     players: PlayerSnapshot[]
     inventory: InventorySnapshot
     droppedItems: DroppedItemSnapshot[]
+    pigs: PigSnapshot[]
   }> {
     await this.ensureInitialized()
     const joined = await this.playerSystem.joinPlayer(playerName)
     return {
       ...joined,
       droppedItems: await this.droppedItemSystem.getDroppedItemSnapshots(),
+      pigs: this.pigSystem.getPigSnapshots(),
     }
   }
 
@@ -504,7 +515,12 @@ export class AuthoritativeWorld {
   public async requestInventoryBrowserItem(
     entityId: EntityId,
     itemId: ItemId,
-  ): Promise<{ inventory: InventorySnapshot; inventoryChanged: boolean; added: number; remaining: number }> {
+  ): Promise<{
+    inventory: InventorySnapshot
+    inventoryChanged: boolean
+    added: number
+    remaining: number
+  }> {
     await this.ensureInitialized()
     if (!isValidItemId(itemId) || itemId === ITEM_IDS.empty) {
       return {
@@ -838,6 +854,9 @@ export class AuthoritativeWorld {
     this.closeInvalidOpenContainers(result)
     await this.blockEntitySystem.tick(deltaSeconds)
     this.drainBlockEntityMessages(result)
+    for (const pig of this.pigSystem.tick(deltaSeconds)) {
+      this.mergePigUpdate(result, pig)
+    }
     this.mergeSimulationResult(result, await this.stepSimulation(deltaSeconds))
     result.worldTime = this.lightingSystem.advanceTime(Math.max(1, Math.round(deltaSeconds * 20)))
     return result
@@ -1047,6 +1066,16 @@ export class AuthoritativeWorld {
     result.playerUpdates.push(player)
   }
 
+  private mergePigUpdate(result: WorldTickResult, pig: PigSnapshot): void {
+    const index = result.pigUpdates.findIndex((entry) => entry.entityId === pig.entityId)
+    if (index >= 0) {
+      result.pigUpdates[index] = pig
+      return
+    }
+
+    result.pigUpdates.push(pig)
+  }
+
   private pushSystemChatMessage(
     result: WorldTickResult,
     targetPlayerEntityId: EntityId,
@@ -1175,6 +1204,7 @@ export class AuthoritativeWorld {
   private async initialize(): Promise<void> {
     const storedTime = await this.storage.loadWorldTime(this.world.name)
     this.lightingSystem.setTimeState(storedTime ?? createDefaultWorldTimeState())
+    this.pigSystem.initialize()
   }
 
   private async ensureInitialized(): Promise<void> {

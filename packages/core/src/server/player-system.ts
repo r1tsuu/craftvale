@@ -2,10 +2,10 @@ import type {
   EntityId,
   InventorySnapshot,
   ItemId,
+  LivingEntityState,
   PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
-  PlayerState,
 } from '../types.ts'
 import type { WorldStorage } from './world-storage.ts'
 
@@ -47,7 +47,7 @@ const DEFAULT_PLAYER_YAW = -Math.PI / 2
 const DEFAULT_PLAYER_PITCH = -0.25
 const DEFAULT_PLAYER_GAMEMODE: PlayerGamemode = 0
 
-const playerStatesEqual = (left: PlayerState, right: PlayerState): boolean =>
+const livingStatesEqual = (left: LivingEntityState, right: LivingEntityState): boolean =>
   left.position[0] === right.position[0] &&
   left.position[1] === right.position[1] &&
   left.position[2] === right.position[2] &&
@@ -74,9 +74,13 @@ export class PlayerSystem {
 
   public async joinPlayer(playerName: PlayerName): Promise<JoinedPlayerState> {
     const entityId = await this.ensurePlayerEntityLoaded(playerName)
-    const session = this.requireComponent(this.entities.playerSession, entityId, 'player session')
-    this.entities.playerSession.set(entityId, {
-      ...session,
+    const activity = this.requireComponent(
+      this.entities.livingActivity,
+      entityId,
+      'living activity',
+    )
+    this.entities.livingActivity.set(entityId, {
+      ...activity,
       active: true,
     })
 
@@ -92,13 +96,17 @@ export class PlayerSystem {
       return null
     }
 
-    const session = this.requireComponent(this.entities.playerSession, entityId, 'player session')
-    if (!session.active) {
+    const activity = this.requireComponent(
+      this.entities.livingActivity,
+      entityId,
+      'living activity',
+    )
+    if (!activity.active) {
       return this.getPlayerSnapshot(entityId)
     }
 
-    this.entities.playerSession.set(entityId, {
-      ...session,
+    this.entities.livingActivity.set(entityId, {
+      ...activity,
       active: false,
     })
     return this.getPlayerSnapshot(entityId)
@@ -106,13 +114,13 @@ export class PlayerSystem {
 
   public async updatePlayerState(
     entityId: EntityId,
-    state: PlayerState,
+    state: LivingEntityState,
     flying: boolean,
   ): Promise<PlayerSnapshot> {
     const transform = this.requireComponent(
-      this.entities.playerTransform,
+      this.entities.livingTransform,
       entityId,
-      'player transform',
+      'living transform',
     )
     const mode = this.requireComponent(this.entities.playerMode, entityId, 'player mode')
     const movement = this.requireComponent(
@@ -125,11 +133,11 @@ export class PlayerSystem {
       entityId,
       'player persistence',
     )
-    const nextState = this.clonePlayerState(state)
+    const nextState = this.cloneLivingState(state)
     const nextFlying = mode.gamemode === 1 ? flying : false
 
-    if (!playerStatesEqual(transform.state, nextState) || movement.flying !== nextFlying) {
-      this.entities.playerTransform.set(entityId, {
+    if (!livingStatesEqual(transform.state, nextState) || movement.flying !== nextFlying) {
+      this.entities.livingTransform.set(entityId, {
         state: nextState,
       })
       this.entities.playerMovement.set(entityId, {
@@ -180,9 +188,9 @@ export class PlayerSystem {
       'player identity',
     )
     const transform = this.requireComponent(
-      this.entities.playerTransform,
+      this.entities.livingTransform,
       entityId,
-      'player transform',
+      'living transform',
     )
     const mode = this.requireComponent(this.entities.playerMode, entityId, 'player mode')
     const movement = this.requireComponent(
@@ -190,15 +198,19 @@ export class PlayerSystem {
       entityId,
       'player movement',
     )
-    const session = this.requireComponent(this.entities.playerSession, entityId, 'player session')
+    const activity = this.requireComponent(
+      this.entities.livingActivity,
+      entityId,
+      'living activity',
+    )
 
     return {
       entityId,
       name: identity.playerName,
-      active: session.active,
+      active: activity.active,
       gamemode: mode.gamemode,
       flying: movement.flying,
-      state: this.clonePlayerState(transform.state),
+      state: this.cloneLivingState(transform.state),
     }
   }
 
@@ -461,9 +473,11 @@ export class PlayerSystem {
       this.entities.registry.registerExistingEntity(entityId)
       this.playerEntitiesByName.set(playerName, entityId)
       this.entities.playerIdentity.set(entityId, { playerName })
-      this.entities.playerTransform.set(entityId, {
-        state: this.clonePlayerState(persisted.snapshot.state),
+      this.entities.livingType.set(entityId, { type: 'player' })
+      this.entities.livingTransform.set(entityId, {
+        state: this.cloneLivingState(persisted.snapshot.state),
       })
+      this.entities.livingActivity.set(entityId, { active: false })
       this.entities.playerMode.set(entityId, {
         gamemode: persisted.snapshot.gamemode,
       })
@@ -473,7 +487,6 @@ export class PlayerSystem {
       this.entities.playerInventory.set(entityId, {
         inventory: normalizeInventorySnapshot(persisted.inventory),
       })
-      this.entities.playerSession.set(entityId, { active: false })
       this.entities.playerPersistence.set(entityId, {
         saveDirty: false,
         persisted: true,
@@ -484,13 +497,15 @@ export class PlayerSystem {
     const entityId = this.entities.registry.createEntity('player')
     this.playerEntitiesByName.set(playerName, entityId)
     this.entities.playerIdentity.set(entityId, { playerName })
-    this.entities.playerTransform.set(entityId, {
+    this.entities.livingType.set(entityId, { type: 'player' })
+    this.entities.livingTransform.set(entityId, {
       state: {
         position: [...this.spawnPosition],
         yaw: DEFAULT_PLAYER_YAW,
         pitch: DEFAULT_PLAYER_PITCH,
       },
     })
+    this.entities.livingActivity.set(entityId, { active: false })
     this.entities.playerMode.set(entityId, {
       gamemode: DEFAULT_PLAYER_GAMEMODE,
     })
@@ -500,7 +515,6 @@ export class PlayerSystem {
     this.entities.playerInventory.set(entityId, {
       inventory: this.createInventory(),
     })
-    this.entities.playerSession.set(entityId, { active: false })
     this.entities.playerPersistence.set(entityId, {
       saveDirty: true,
       persisted: false,
@@ -512,8 +526,12 @@ export class PlayerSystem {
     const snapshots: PlayerSnapshot[] = []
 
     for (const entityId of this.playerEntitiesByName.values()) {
-      const session = this.requireComponent(this.entities.playerSession, entityId, 'player session')
-      if (!session.active || entityId === excludeEntityId) {
+      const activity = this.requireComponent(
+        this.entities.livingActivity,
+        entityId,
+        'living activity',
+      )
+      if (!activity.active || entityId === excludeEntityId) {
         continue
       }
 
@@ -528,7 +546,7 @@ export class PlayerSystem {
     return normalizeInventorySnapshot(inventory)
   }
 
-  private clonePlayerState(state: PlayerState): PlayerState {
+  private cloneLivingState(state: LivingEntityState): LivingEntityState {
     return {
       position: [...state.position],
       yaw: state.yaw,

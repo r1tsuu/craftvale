@@ -56,6 +56,9 @@ const registerRuntimeHandlers = (
   client.eventBus.on('playerLeft', ({ playerEntityId, playerName }) => {
     runtime.removePlayer(playerEntityId, playerName)
   }),
+  client.eventBus.on('pigUpdated', ({ pig }) => {
+    runtime.applyPig(pig)
+  }),
   client.eventBus.on('chatMessage', ({ entry }) => {
     runtime.appendChatMessage(entry)
   }),

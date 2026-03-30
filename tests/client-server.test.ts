@@ -108,6 +108,9 @@ const createHarness = async (): Promise<{
   client.eventBus.on('playerLeft', ({ playerEntityId, playerName }) => {
     worldRuntime.removePlayer(playerEntityId, playerName)
   })
+  client.eventBus.on('pigUpdated', ({ pig }) => {
+    worldRuntime.applyPig(pig)
+  })
   client.eventBus.on('chatMessage', ({ entry }) => {
     worldRuntime.appendChatMessage(entry)
   })
@@ -165,6 +168,49 @@ test('client/server request-response correlation and error events work', async (
     } as never)
     await Bun.sleep(0)
     expect(serverErrorMessage).toContain('Unknown request type')
+  } finally {
+    await harness.serverRuntime.shutdown()
+    harness.client.close()
+    await rm(harness.rootDir, { recursive: true, force: true })
+  }
+})
+
+test('client/server replicates pigs from join payloads and movement updates', async () => {
+  const harness = await createHarness()
+
+  try {
+    const joined = await harness.client.eventBus.send({
+      type: 'joinWorld',
+      payload: {
+        playerName: PLAYER_NAME,
+      },
+    })
+    harness.worldRuntime.reset()
+    harness.worldRuntime.applyJoinedWorld(joined)
+
+    expect(harness.worldRuntime.pigs.size).toBeGreaterThan(0)
+    const initialPositions = new Map(
+      [...harness.worldRuntime.pigs.values()].map((pig) => [
+        pig.entityId,
+        [...pig.state.position] as [number, number, number],
+      ]),
+    )
+
+    let moved = false
+    for (let tick = 0; tick < 40 && !moved; tick += 1) {
+      await harness.advance(250)
+      moved = [...harness.worldRuntime.pigs.values()].some((pig) => {
+        const initial = initialPositions.get(pig.entityId)
+        return (
+          initial !== undefined &&
+          (initial[0] !== pig.state.position[0] ||
+            initial[1] !== pig.state.position[1] ||
+            initial[2] !== pig.state.position[2])
+        )
+      })
+    }
+
+    expect(moved).toBe(true)
   } finally {
     await harness.serverRuntime.shutdown()
     harness.client.close()

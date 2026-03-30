@@ -3,7 +3,9 @@ import {
   type BlockId,
   crossVec3,
   lengthVec3,
+  type LivingEntitySnapshot,
   normalizeVec3,
+  type PigSnapshot,
   type PlayerSnapshot,
   scaleVec3,
   vec3,
@@ -13,12 +15,14 @@ import {
 import type { PlayerController } from '../game/player.ts'
 
 import {
+  type CuboidPartDefinition,
   FIRST_PERSON_ARM_CAMERA_OFFSET,
   FIRST_PERSON_ARM_PART,
   FIRST_PERSON_ARM_ROLL,
   FIRST_PERSON_HELD_ITEM_CAMERA_OFFSET,
   FIRST_PERSON_HELD_ITEM_SCALE,
   getFirstPersonSwingAmount,
+  PIG_BODY_PARTS,
   PLAYER_BODY_PARTS,
 } from './player-model.ts'
 
@@ -155,6 +159,24 @@ export class PlayerRenderer {
     this.setLightingOverride(-1, -1)
   }
 
+  public renderWorldPigs(
+    pigs: readonly PigSnapshot[],
+    sampleLighting: (position: Vec3) => {
+      skyLight: number
+      blockLight: number
+    },
+  ): void {
+    for (const pig of pigs) {
+      const lighting = sampleLighting(
+        vec3(pig.state.position[0], pig.state.position[1] + 0.75, pig.state.position[2]),
+      )
+      this.setLightingOverride(lighting.skyLight, lighting.blockLight)
+      this.renderLivingEntity(pig, PIG_BODY_PARTS)
+    }
+
+    this.setLightingOverride(-1, -1)
+  }
+
   public renderFirstPersonViewModel(
     player: PlayerController,
     heldBlockId: BlockId | null,
@@ -237,33 +259,40 @@ export class PlayerRenderer {
   }
 
   public renderInventoryPreview(yaw: number, pitch: number): void {
-    this.renderWorldPlayer({
-      entityId: 'inventory-preview',
-      name: 'Preview',
-      active: true,
-      gamemode: 0,
-      flying: false,
-      state: {
-        position: [0, 0, 0],
-        yaw,
-        pitch,
+    this.renderLivingEntity(
+      {
+        entityId: 'inventory-preview',
+        active: true,
+        state: {
+          position: [0, 0, 0],
+          yaw,
+          pitch,
+        },
       },
-    })
+      PLAYER_BODY_PARTS,
+    )
   }
 
   private renderWorldPlayer(player: PlayerSnapshot): void {
-    const bodyForward = createForwardVector(player.state.yaw, 0)
-    const bodyBasis = createOrientationBasis(bodyForward)
-    const root = vec3(...player.state.position)
+    this.renderLivingEntity(player, PLAYER_BODY_PARTS)
+  }
 
-    for (const part of PLAYER_BODY_PARTS) {
+  private renderLivingEntity(
+    entity: LivingEntitySnapshot,
+    parts: readonly CuboidPartDefinition[],
+  ): void {
+    const bodyForward = createForwardVector(entity.state.yaw, 0)
+    const bodyBasis = createOrientationBasis(bodyForward)
+    const root = vec3(...entity.state.position)
+
+    for (const part of parts) {
       const partPosition = addScaled(
         addScaled(addScaled(root, bodyBasis.right, part.offset[0]), bodyBasis.up, part.offset[1]),
         bodyForward,
         part.offset[2],
       )
       const forward = part.pitchFollowsLook
-        ? createForwardVector(player.state.yaw, player.state.pitch * 0.35)
+        ? createForwardVector(entity.state.yaw, entity.state.pitch * 0.35)
         : bodyForward
       this.renderCuboid(part.blockId, partPosition, part.size, forward)
     }

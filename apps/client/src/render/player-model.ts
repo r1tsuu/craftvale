@@ -7,6 +7,8 @@ import {
   getSelectedInventorySlot,
   type InventorySnapshot,
   ITEM_IDS,
+  type LivingEntitySnapshot,
+  type PigSnapshot,
   type PlayerSnapshot,
 } from '@craftvale/core/shared'
 
@@ -65,6 +67,55 @@ export const PLAYER_BODY_PARTS: readonly CuboidPartDefinition[] = [
 
 export const PLAYER_NAMEPLATE_HEIGHT = 2.15
 
+export const PIG_BODY_BLOCK_ID: BlockId = BLOCK_IDS.pigSkin
+export const PIG_SNOUT_BLOCK_ID: BlockId = BLOCK_IDS.pigSnout
+export const PIG_HOOF_BLOCK_ID: BlockId = BLOCK_IDS.pigHoof
+
+export const PIG_BODY_PARTS: readonly CuboidPartDefinition[] = [
+  {
+    id: 'body',
+    blockId: PIG_BODY_BLOCK_ID,
+    size: [0.9, 0.72, 1.25],
+    offset: [0, 0.88, 0],
+  },
+  {
+    id: 'head',
+    blockId: PIG_BODY_BLOCK_ID,
+    size: [0.56, 0.56, 0.56],
+    offset: [0, 0.96, 0.88],
+  },
+  {
+    id: 'snout',
+    blockId: PIG_SNOUT_BLOCK_ID,
+    size: [0.3, 0.22, 0.26],
+    offset: [0, 0.88, 1.22],
+  },
+  {
+    id: 'front-left-leg',
+    blockId: PIG_HOOF_BLOCK_ID,
+    size: [0.18, 0.54, 0.18],
+    offset: [-0.28, 0.27, 0.36],
+  },
+  {
+    id: 'front-right-leg',
+    blockId: PIG_HOOF_BLOCK_ID,
+    size: [0.18, 0.54, 0.18],
+    offset: [0.28, 0.27, 0.36],
+  },
+  {
+    id: 'back-left-leg',
+    blockId: PIG_HOOF_BLOCK_ID,
+    size: [0.18, 0.54, 0.18],
+    offset: [-0.28, 0.27, -0.36],
+  },
+  {
+    id: 'back-right-leg',
+    blockId: PIG_HOOF_BLOCK_ID,
+    size: [0.18, 0.54, 0.18],
+    offset: [0.28, 0.27, -0.36],
+  },
+] as const
+
 export const FIRST_PERSON_ARM_PART: CuboidPartDefinition = {
   id: 'first-person-arm',
   blockId: PLAYER_ARM_BLOCK_ID,
@@ -94,30 +145,46 @@ export const getFirstPersonSwingAmount = (progress: number): number => {
   return Math.sin(clamped * Math.PI)
 }
 
+const collectVisibleLivingEntities = <TSnapshot extends LivingEntitySnapshot>(
+  entities: readonly TSnapshot[],
+  cameraPosition: readonly [number, number, number],
+  renderDistance: number,
+): TSnapshot[] => {
+  const cameraChunkX = Math.floor(cameraPosition[0] / CHUNK_SIZE)
+  const cameraChunkZ = Math.floor(cameraPosition[2] / CHUNK_SIZE)
+
+  return entities.filter((entity) => {
+    if (!entity.active) {
+      return false
+    }
+
+    const entityChunkX = Math.floor(entity.state.position[0] / CHUNK_SIZE)
+    const entityChunkZ = Math.floor(entity.state.position[2] / CHUNK_SIZE)
+    return (
+      Math.abs(entityChunkX - cameraChunkX) <= renderDistance &&
+      Math.abs(entityChunkZ - cameraChunkZ) <= renderDistance
+    )
+  })
+}
+
 export const collectVisibleRemotePlayers = (
   players: readonly PlayerSnapshot[],
   clientPlayerEntityId: EntityId | null,
   cameraPosition: readonly [number, number, number],
   renderDistance: number,
-): PlayerSnapshot[] => {
-  const cameraChunkX = Math.floor(cameraPosition[0] / CHUNK_SIZE)
-  const cameraChunkZ = Math.floor(cameraPosition[2] / CHUNK_SIZE)
-
-  return players
-    .filter((player) => {
-      if (!player.active || player.entityId === clientPlayerEntityId) {
-        return false
-      }
-
-      const playerChunkX = Math.floor(player.state.position[0] / CHUNK_SIZE)
-      const playerChunkZ = Math.floor(player.state.position[2] / CHUNK_SIZE)
-      return (
-        Math.abs(playerChunkX - cameraChunkX) <= renderDistance &&
-        Math.abs(playerChunkZ - cameraChunkZ) <= renderDistance
-      )
-    })
+): PlayerSnapshot[] =>
+  collectVisibleLivingEntities(players, cameraPosition, renderDistance)
+    .filter((player) => player.entityId !== clientPlayerEntityId)
     .sort((left, right) => left.name.localeCompare(right.name))
-}
+
+export const collectVisiblePigs = (
+  pigs: readonly PigSnapshot[],
+  cameraPosition: readonly [number, number, number],
+  renderDistance: number,
+): PigSnapshot[] =>
+  collectVisibleLivingEntities(pigs, cameraPosition, renderDistance).sort((left, right) =>
+    left.entityId.localeCompare(right.entityId),
+  )
 
 export const getHeldItemBlockId = (inventory: InventorySnapshot): BlockId | null => {
   const slot = getSelectedInventorySlot(inventory)

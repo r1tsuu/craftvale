@@ -19,7 +19,10 @@
     "diamondOre": 16,
     "playerArm": 17,
     "glass": 18,
-    "craftingTable": 19
+    "craftingTable": 19,
+    "pigSkin": 20,
+    "pigSnout": 21,
+    "pigHoof": 22
   },
   "items": {
     "empty": 0,

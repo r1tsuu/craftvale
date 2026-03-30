@@ -136,6 +136,7 @@ export class WorldSessionController implements WorldSessionPeer {
       players: joinedPlayer.players,
       inventory: joinedPlayer.inventory,
       droppedItems: joinedPlayer.droppedItems,
+      pigs: joinedPlayer.pigs,
     }
 
     this.sendEvent({

@@ -4,9 +4,10 @@ import type {
   InventorySlot,
   InventorySnapshot,
   ItemId,
+  LivingEntityState,
+  LivingEntityType,
   PlayerGamemode,
   PlayerName,
-  PlayerState,
 } from '../types.ts'
 
 import { ComponentStore, EntityRegistry } from './entity-system.ts'
@@ -15,8 +16,16 @@ export interface PlayerIdentityComponent {
   playerName: PlayerName
 }
 
-export interface TransformComponent {
-  state: PlayerState
+export interface LivingTypeComponent {
+  type: LivingEntityType
+}
+
+export interface LivingTransformComponent {
+  state: LivingEntityState
+}
+
+export interface LivingActivityComponent {
+  active: boolean
 }
 
 export interface PlayerModeComponent {
@@ -68,15 +77,24 @@ export interface BlockEntityInventoryComponent {
   slots: InventorySlot[]
 }
 
+export interface PigWanderComponent {
+  mode: 'idle' | 'walk'
+  remainingSeconds: number
+  targetYaw: number
+  prngState: number
+}
+
 export class WorldEntityState {
   public readonly registry = new EntityRegistry()
   public readonly playerIdentity = new ComponentStore<PlayerIdentityComponent>()
-  public readonly playerTransform = new ComponentStore<TransformComponent>()
+  public readonly livingType = new ComponentStore<LivingTypeComponent>()
+  public readonly livingTransform = new ComponentStore<LivingTransformComponent>()
+  public readonly livingActivity = new ComponentStore<LivingActivityComponent>()
   public readonly playerMode = new ComponentStore<PlayerModeComponent>()
   public readonly playerMovement = new ComponentStore<MovementStateComponent>()
   public readonly playerInventory = new ComponentStore<InventoryComponent>()
-  public readonly playerSession = new ComponentStore<SessionPresenceComponent>()
   public readonly playerPersistence = new ComponentStore<PersistenceComponent>()
+  public readonly pigWander = new ComponentStore<PigWanderComponent>()
   public readonly droppedItemTransform = new ComponentStore<DroppedItemTransformComponent>()
   public readonly droppedItemStack = new ComponentStore<DroppedItemStackComponent>()
   public readonly droppedItemLifecycle = new ComponentStore<DroppedItemLifecycleComponent>()
@@ -84,8 +102,20 @@ export class WorldEntityState {
   public readonly blockEntityPosition = new ComponentStore<BlockEntityPositionComponent>()
   public readonly blockEntityInventory = new ComponentStore<BlockEntityInventoryComponent>()
 
+  public hasLivingEntity(entityId: EntityId): boolean {
+    return this.registry.has(entityId) && this.livingType.get(entityId) !== undefined
+  }
+
   public hasPlayerEntity(entityId: EntityId): boolean {
-    return this.registry.has(entityId) && this.playerIdentity.get(entityId) !== undefined
+    return (
+      this.registry.has(entityId) &&
+      this.playerIdentity.get(entityId) !== undefined &&
+      this.livingType.get(entityId)?.type === 'player'
+    )
+  }
+
+  public hasPigEntity(entityId: EntityId): boolean {
+    return this.registry.has(entityId) && this.livingType.get(entityId)?.type === 'pig'
   }
 
   public hasDroppedItemEntity(entityId: EntityId): boolean {

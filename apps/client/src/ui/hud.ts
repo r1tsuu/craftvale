@@ -1003,8 +1003,6 @@ export const buildPlayHud = (
       state.chatOpen ?? false,
       state.chatNowMs ?? Date.now(),
     ),
-    ...(state.chatOpen
-      ? buildChatInput(windowWidth, windowHeight, state.chatDraft ?? '')
-      : []),
+    ...(state.chatOpen ? buildChatInput(windowWidth, windowHeight, state.chatDraft ?? '') : []),
   ]
 }

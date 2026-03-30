@@ -5,6 +5,7 @@ import type {
   EntityId,
   InventorySnapshot,
   OpenContainerSnapshot,
+  PigSnapshot,
   PlayerGamemode,
   PlayerName,
   PlayerSnapshot,
@@ -48,6 +49,7 @@ export class ClientWorldRuntime {
   public clientPlayerName: PlayerName | null = null
   public clientPlayerEntityId: EntityId | null = null
   public readonly players = new Map<EntityId, PlayerSnapshot>()
+  public readonly pigs = new Map<EntityId, PigSnapshot>()
   public readonly droppedItems = new Map<EntityId, DroppedItemSnapshot>()
   private readonly playerEntityIdsByName = new Map<PlayerName, EntityId>()
   public chatMessages: ChatEntry[] = []
@@ -64,6 +66,7 @@ export class ClientWorldRuntime {
     this.clientPlayerName = null
     this.clientPlayerEntityId = null
     this.players.clear()
+    this.pigs.clear()
     this.droppedItems.clear()
     this.playerEntityIdsByName.clear()
     this.chatMessages = []
@@ -127,6 +130,7 @@ export class ClientWorldRuntime {
     this.clientPlayerName = joined.clientPlayerName
     this.clientPlayerEntityId = joined.clientPlayer.entityId
     this.players.clear()
+    this.pigs.clear()
     this.droppedItems.clear()
     this.playerEntityIdsByName.clear()
     this.applyPlayer(joined.clientPlayer)
@@ -135,6 +139,9 @@ export class ClientWorldRuntime {
     }
     for (const item of joined.droppedItems) {
       this.applyDroppedItem(item)
+    }
+    for (const pig of joined.pigs) {
+      this.applyPig(pig)
     }
     this.applyInventory(joined.inventory)
     this.applyOpenContainer(null)
@@ -174,6 +181,10 @@ export class ClientWorldRuntime {
     if (this.clientPlayerEntityId === entityId) {
       this.clientPlayerEntityId = null
     }
+  }
+
+  public applyPig(pig: PigSnapshot): void {
+    this.pigs.set(pig.entityId, this.clonePigSnapshot(pig))
   }
 
   public applyDroppedItem(item: DroppedItemSnapshot): void {
@@ -364,6 +375,18 @@ export class ClientWorldRuntime {
         position: [...player.state.position],
         yaw: player.state.yaw,
         pitch: player.state.pitch,
+      },
+    }
+  }
+
+  private clonePigSnapshot(pig: PigSnapshot): PigSnapshot {
+    return {
+      entityId: pig.entityId,
+      active: pig.active,
+      state: {
+        position: [...pig.state.position],
+        yaw: pig.state.yaw,
+        pitch: pig.state.pitch,
       },
     }
   }

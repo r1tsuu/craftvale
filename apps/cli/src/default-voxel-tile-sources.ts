@@ -288,6 +288,55 @@ const createCraftingTableSidePixel = (x: number, y: number): Rgba => {
   return color
 }
 
+const createPigSkinPixel = (x: number, y: number): Rgba => {
+  const base = rgba(232, 171, 185)
+  let color = tint(base, ((hash2d(x, y, 0x3b19ad) & 0x7) - 3) * 4)
+
+  if (((x + y) & 0x3) === 0) {
+    color = tint(color, 6)
+  } else if ((hash2d(x >> 1, y >> 1, 0x8f12c1) & 0xf) <= 1) {
+    color = tint(color, -10)
+  }
+
+  if ((x === 1 || x === 14 || y === 1 || y === 14) && ((x + y) & 1) === 0) {
+    color = tint(color, -8)
+  }
+
+  return color
+}
+
+const createPigSnoutPixel = (x: number, y: number): Rgba => {
+  const base = rgba(244, 198, 208)
+  let color = tint(base, ((hash2d(x, y, 0x7a18f1) & 0x7) - 3) * 3)
+
+  if (x >= 3 && x <= 12 && y >= 4 && y <= 11) {
+    color = tint(color, 6)
+  }
+  if ((x >= 5 && x <= 6 && y >= 7 && y <= 9) || (x >= 9 && x <= 10 && y >= 7 && y <= 9)) {
+    color = rgba(160, 93, 110)
+  }
+
+  if (x === 2 || x === 13 || y === 3 || y === 12) {
+    color = tint(color, -10)
+  }
+
+  return color
+}
+
+const createPigHoofPixel = (x: number, y: number): Rgba => {
+  const base = rgba(154, 103, 114)
+  let color = tint(base, ((hash2d(x, y, 0x9182ab) & 0x7) - 3) * 5)
+
+  if (
+    (x >= 2 && x <= 13 && (y === 4 || y === 11)) ||
+    (y >= 2 && y <= 13 && (x === 4 || x === 11))
+  ) {
+    color = tint(color, -12)
+  }
+
+  return color
+}
+
 const createCobblestonePixel = (x: number, y: number): Rgba => {
   const MORTAR = rgba(75, 75, 77)
   const COLS = 3,
@@ -469,6 +518,9 @@ const DEFAULT_TILE_PIXEL_FACTORIES: Record<AtlasTileId, (x: number, y: number) =
   'crafting-table-top': createCraftingTableTopPixel,
   'crafting-table-bottom': createCraftingTableBottomPixel,
   'crafting-table-side': createCraftingTableSidePixel,
+  'pig-skin': createPigSkinPixel,
+  'pig-snout': createPigSnoutPixel,
+  'pig-hoof': createPigHoofPixel,
 }
 
 export const buildDefaultVoxelTilePixels = (tileId: AtlasTileId): Uint8Array => {

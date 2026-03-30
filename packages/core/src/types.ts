@@ -49,21 +49,29 @@ export type BlockEntityType = 'craftingTable'
 export type EntityId = string
 export type PlayerName = string
 export type PlayerGamemode = 0 | 1
+export type LivingEntityType = 'player' | 'pig'
 
-export interface PlayerState {
+export interface LivingEntityState {
   position: [number, number, number]
   yaw: number
   pitch: number
 }
 
-export interface PlayerSnapshot {
+export type PlayerState = LivingEntityState
+
+export interface LivingEntitySnapshot {
   entityId: EntityId
-  name: PlayerName
-  state: PlayerState
+  state: LivingEntityState
   active: boolean
+}
+
+export interface PlayerSnapshot extends LivingEntitySnapshot {
+  name: PlayerName
   gamemode: PlayerGamemode
   flying: boolean
 }
+
+export type PigSnapshot = LivingEntitySnapshot
 
 export interface DroppedItemSnapshot {
   entityId: EntityId

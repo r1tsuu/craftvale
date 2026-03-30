@@ -350,6 +350,9 @@ export class GameApp {
       adapter.eventBus.on('playerLeft', ({ playerEntityId, playerName }) => {
         worldRuntime.removePlayer(playerEntityId, playerName)
       }),
+      adapter.eventBus.on('pigUpdated', ({ pig }) => {
+        worldRuntime.applyPig(pig)
+      }),
       adapter.eventBus.on('chatMessage', ({ entry }) => {
         worldRuntime.appendChatMessage(entry)
       }),
@@ -615,6 +618,7 @@ export class GameApp {
       worldRuntime?.world ?? new VoxelWorld(),
       this.deps.player,
       worldRuntime ? [...worldRuntime.players.values()] : [],
+      worldRuntime ? [...worldRuntime.pigs.values()] : [],
       worldRuntime?.clientPlayerEntityId ?? null,
       worldRuntime?.inventory ?? createEmptyInventory(),
       worldRuntime?.worldTime,

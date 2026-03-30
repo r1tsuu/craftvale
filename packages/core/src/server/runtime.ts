@@ -386,6 +386,13 @@ export class ServerRuntime {
       })
     }
 
+    for (const pig of result.pigUpdates) {
+      this.broadcast({
+        type: 'pigUpdated',
+        payload: { pig },
+      })
+    }
+
     for (const chatMessage of result.chatMessages) {
       if (chatMessage.targetPlayerEntityId) {
         this.sendToPlayer(chatMessage.targetPlayerEntityId, {

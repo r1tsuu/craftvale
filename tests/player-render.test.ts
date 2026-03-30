@@ -1,8 +1,9 @@
 import { expect, test } from 'bun:test'
 
-import type { PlayerSnapshot } from '../packages/core/src/types.ts'
+import type { PigSnapshot, PlayerSnapshot } from '../packages/core/src/types.ts'
 
 import {
+  collectVisiblePigs,
   collectVisibleRemotePlayers,
   getFirstPersonSwingAmount,
   getHeldItemBlockId,
@@ -23,6 +24,20 @@ const createPlayerSnapshot = (
   active,
   gamemode: 0,
   flying: false,
+  state: {
+    position,
+    yaw: 0,
+    pitch: 0,
+  },
+})
+
+const createPigSnapshot = (
+  entityId: string,
+  position: [number, number, number],
+  active = true,
+): PigSnapshot => ({
+  entityId,
+  active,
   state: {
     position,
     yaw: 0,
@@ -54,6 +69,14 @@ test('collectVisibleRemotePlayers includes active players when no local entity i
   expect(
     collectVisibleRemotePlayers([bravo, alpha], null, [0, 64, 0], 2).map((player) => player.name),
   ).toEqual(['Alpha', 'Bravo'])
+})
+
+test('collectVisiblePigs excludes inactive and distant pigs', () => {
+  const nearby = createPigSnapshot('pig:1', [8, 64, 8])
+  const inactive = createPigSnapshot('pig:2', [4, 64, 4], false)
+  const distant = createPigSnapshot('pig:3', [96, 64, 0])
+
+  expect(collectVisiblePigs([distant, inactive, nearby], [0, 64, 0], 2)).toEqual([nearby])
 })
 
 test('getHeldItemBlockId follows the selected hotbar slot and treats empty slots as no held item', () => {
@@ -129,4 +152,33 @@ test('renderInventoryPreview renders the player model parts without mutating lig
   renderer.renderInventoryPreview(Math.PI / 2, 0.2)
 
   expect(drawCalls).toBeGreaterThan(0)
+})
+
+test('renderWorldPigs renders pig model parts and resets lighting state afterward', () => {
+  const lightingCalls: Array<{ skyLight: number; blockLight: number }> = []
+  let drawCalls = 0
+  const renderer = new PlayerRenderer(
+    () => {},
+    (skyLight, blockLight) => {
+      lightingCalls.push({ skyLight, blockLight })
+    },
+    () => ({
+      vao: 1,
+      indexCount: 36,
+    }),
+    () => {
+      drawCalls += 1
+    },
+  )
+
+  renderer.renderWorldPigs([createPigSnapshot('pig:1', [4, 64, 8])], () => ({
+    skyLight: 11,
+    blockLight: 3,
+  }))
+
+  expect(drawCalls).toBeGreaterThan(0)
+  expect(lightingCalls).toEqual([
+    { skyLight: 11, blockLight: 3 },
+    { skyLight: -1, blockLight: -1 },
+  ])
 })

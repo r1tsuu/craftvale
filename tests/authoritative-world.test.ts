@@ -205,6 +205,72 @@ test('authoritative world pregenerates and persists the startup chunk set', asyn
   }
 })
 
+test('authoritative world spawns pigs on grass and ticks them as living entities', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-pigs-'))
+  const storage = new BinaryWorldStorage(rootDir)
+
+  try {
+    const worldRecord = await storage.createWorld('Pigs', 42)
+    const world = new AuthoritativeWorld(worldRecord, storage, {
+      createInventory: createTestStarterInventory,
+    })
+    const joined = await world.joinPlayer(PLAYER_A)
+
+    expect(joined.pigs.length).toBeGreaterThan(0)
+    for (const pig of joined.pigs) {
+      const underX = Math.floor(pig.state.position[0])
+      const underY = Math.floor(pig.state.position[1]) - 1
+      const underZ = Math.floor(pig.state.position[2])
+      const coords = worldToChunkCoord(underX, underY, underZ)
+      const chunk = await world.getChunkPayload(coords.chunk)
+      const localIndex = getChunkLocalIndex(underX, underY, underZ)
+      expect(chunk.blocks[localIndex]).toBe(BLOCK_IDS.grass)
+    }
+
+    const startingPositions = new Map(
+      joined.pigs.map((pig) => [pig.entityId, [...pig.state.position] as [number, number, number]]),
+    )
+    let moved = false
+
+    for (let tick = 0; tick < 40 && !moved; tick += 1) {
+      const result = await world.runTick([], 0.25)
+      moved = result.pigUpdates.some((pig) => {
+        const initial = startingPositions.get(pig.entityId)
+        return (
+          initial !== undefined &&
+          (initial[0] !== pig.state.position[0] ||
+            initial[1] !== pig.state.position[1] ||
+            initial[2] !== pig.state.position[2])
+        )
+      })
+    }
+
+    expect(moved).toBe(true)
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('pig simulation does not emit player updates without player input', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-pig-player-'))
+  const storage = new BinaryWorldStorage(rootDir)
+
+  try {
+    const worldRecord = await storage.createWorld('PigPlayerIsolation', 42)
+    const world = new AuthoritativeWorld(worldRecord, storage, {
+      createInventory: createTestStarterInventory,
+    })
+    await world.joinPlayer(PLAYER_A)
+
+    for (let tick = 0; tick < 20; tick += 1) {
+      const result = await world.runTick([], 0.25)
+      expect(result.playerUpdates).toEqual([])
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('survival cannot break bedrock but creative can', async () => {
   const rootDir = await mkdtemp(join(tmpdir(), 'craftvale-authoritative-world-bedrock-'))
   const storage = new BinaryWorldStorage(rootDir)

@@ -7,6 +7,7 @@ import type {
   InventorySnapshot,
   ItemId,
   OpenContainerSnapshot,
+  PigSnapshot,
   PlayerName,
   PlayerSnapshot,
   PlayerState,
@@ -123,6 +124,7 @@ export interface JoinedWorldPayload {
   players: PlayerSnapshot[]
   inventory: InventorySnapshot
   droppedItems: DroppedItemSnapshot[]
+  pigs: PigSnapshot[]
 }
 
 export interface ClientRequestMap {
@@ -181,6 +183,7 @@ export interface ServerEventMap {
   playerJoined: { player: PlayerSnapshot }
   playerUpdated: { player: PlayerSnapshot }
   playerLeft: { playerEntityId: EntityId; playerName: PlayerName }
+  pigUpdated: { pig: PigSnapshot }
   chatMessage: { entry: ChatEntry }
   loadingProgress: LoadingProgressPayload
   worldTimeUpdated: { worldTime: WorldTimeState }
@@ -270,6 +273,7 @@ const SERVER_EVENT_TYPES = new Set<keyof ServerEventMap>([
   'playerJoined',
   'playerUpdated',
   'playerLeft',
+  'pigUpdated',
   'chatMessage',
   'loadingProgress',
   'worldTimeUpdated',

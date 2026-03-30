@@ -8,6 +8,7 @@ import type {
   InventorySnapshot,
   ItemId,
   OpenContainerSnapshot,
+  PigSnapshot,
   PlayerName,
   PlayerSnapshot,
   PlayerState,
@@ -114,6 +115,7 @@ export interface WorldTickResult {
   inventoryUpdates: WorldInventoryUpdate[]
   containerUpdates: WorldContainerUpdate[]
   playerUpdates: PlayerSnapshot[]
+  pigUpdates: PigSnapshot[]
   chatMessages: WorldChatMessage[]
   spawnedDroppedItems: DroppedItemSnapshot[]
   updatedDroppedItems: DroppedItemSnapshot[]
@@ -126,6 +128,7 @@ export const createEmptyWorldTickResult = (): WorldTickResult => ({
   inventoryUpdates: [],
   containerUpdates: [],
   playerUpdates: [],
+  pigUpdates: [],
   chatMessages: [],
   spawnedDroppedItems: [],
   updatedDroppedItems: [],

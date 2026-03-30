@@ -13,6 +13,7 @@ import {
   getWorldDaylightFactor,
   type InventorySnapshot,
   type MeshData,
+  type PigSnapshot,
   type PlayerSnapshot,
   type Vec3,
   type WorldTimeState,
@@ -28,6 +29,7 @@ import { loadVoxelAtlasImageData } from '../world/atlas.ts'
 import { FocusHighlightRenderer } from './highlight.ts'
 import { buildItemBlockMesh } from './item-mesh.ts'
 import {
+  collectVisiblePigs,
   collectVisibleRemotePlayers,
   getHeldItemBlockId,
   PLAYER_NAMEPLATE_HEIGHT,
@@ -177,6 +179,7 @@ export class VoxelRenderer {
     world: VoxelWorld,
     player: PlayerController,
     players: readonly PlayerSnapshot[],
+    pigs: readonly PigSnapshot[],
     clientPlayerEntityId: string | null,
     inventory: InventorySnapshot,
     worldTime: WorldTimeState | undefined,
@@ -231,6 +234,7 @@ export class VoxelRenderer {
       player.state.position,
       renderDistance,
     )
+    const visiblePigs = collectVisiblePigs(pigs, player.state.position, renderDistance)
 
     for (const coord of visibleCoords) {
       this.syncChunkMesh(world, coord)
@@ -245,6 +249,9 @@ export class VoxelRenderer {
     }
 
     this.renderDroppedItems(world, visibleDroppedItems, 'opaque')
+    this.playerRenderer.renderWorldPigs(visiblePigs, (position) =>
+      sampleRenderLightingAtPosition(world, position),
+    )
     this.playerRenderer.renderWorldPlayers(visibleRemotePlayers, (position) =>
       sampleRenderLightingAtPosition(world, position),
     )
