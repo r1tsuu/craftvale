@@ -116,7 +116,7 @@ test('play HUD renders an authoritative world clock', () => {
     expect.arrayContaining([
       expect.objectContaining({
         id: 'clock-badge-label',
-        text: 'DAY 3  06:00 PM',
+        text: 'DAY 3  12:00 AM',
       }),
     ]),
   )

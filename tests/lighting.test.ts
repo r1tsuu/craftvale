@@ -48,5 +48,11 @@ test('world clock formatting uses a one-based day label and AM/PM', () => {
       dayCount: 2,
       timeOfDayTicks: 6_000,
     }),
-  ).toBe('Day 3  06:00 AM')
+  ).toBe('Day 3  12:00 PM')
+})
+
+test('world clock formatting aligns with timeset presets', () => {
+  expect(formatWorldClock(setWorldTimeOfDay(0))).toBe('Day 1  06:00 AM')
+  expect(formatWorldClock(setWorldTimeOfDay(13_000))).toBe('Day 1  07:00 PM')
+  expect(formatWorldClock(setWorldTimeOfDay(18_000))).toBe('Day 1  12:00 AM')
 })

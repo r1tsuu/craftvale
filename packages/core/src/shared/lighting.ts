@@ -108,7 +108,8 @@ export const getWorldSunDirection = (time: WorldTimeState): Vec3 => {
 
 export const formatWorldClock = (time: WorldTimeState): string => {
   const normalized = normalizeWorldTimeState(time)
-  const totalMinutes = Math.floor((normalized.timeOfDayTicks / WORLD_TICKS_PER_DAY) * 24 * 60)
+  const totalMinutes =
+    (Math.floor((normalized.timeOfDayTicks / WORLD_TICKS_PER_DAY) * 24 * 60) + 6 * 60) % (24 * 60)
   const hours = Math.floor(totalMinutes / 60) % 24
   const minutes = totalMinutes % 60
   const period = hours >= 12 ? 'PM' : 'AM'
